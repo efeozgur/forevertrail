@@ -1,0 +1,15 @@
+local ft = {}
+assert(loadfile('Minimap.lua'))('ForeverTrail', ft)
+local function near(a, b) return math.abs(a - b) < 1e-6 end
+local x, y = ft.MinimapOffset(100, 0, 0, false, 100)
+assert(near(x, 1) and near(y, 0), 'east target must be on the right')
+x, y = ft.MinimapOffset(0, -100, 0, false, 100)
+assert(near(x, 0) and near(y, 1), 'north target must be on top')
+x, y = ft.MinimapOffset(0, -50, math.pi * 1.5, true, 100)
+assert(near(x, -0.5) and near(y, 0), 'facing east, north target must be on the left when the minimap rotates')
+local ax, ay, bx, by = ft.MinimapClip(0, 0, 200, 0, 100)
+assert(near(ax, 0) and near(bx, 100), 'line leaving the circle must be clipped at the edge')
+assert(ft.MinimapClip(150, 150, 200, 150, 100) == nil, 'line fully outside must not be drawn')
+ax, ay, bx, by = ft.MinimapClip(-200, 0, 200, 0, 100)
+assert(near(ax, -100) and near(bx, 100), 'line crossing the circle must be clipped on both sides')
+print('Minimap tests passed (kırpma dahil)')

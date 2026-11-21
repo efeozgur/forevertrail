@@ -1,0 +1,13 @@
+<Bindings>
+ <Binding name="FOREVERTRAIL_TOGGLE" header="FOREVERTRAIL" category="ADDONS">SlashCmdList.FOREVERTRAIL("")</Binding>
+ <Binding name="FOREVERTRAIL_NEAREST" category="ADDONS">SlashCmdList.FOREVERTRAIL("yakin")</Binding>
+ <Binding name="FOREVERTRAIL_ROUTE" category="ADDONS">SlashCmdList.FOREVERTRAIL("rota")</Binding>
+ <Binding name="FOREVERTRAIL_ARROW" category="ADDONS">SlashCmdList.FOREVERTRAIL("arrow")</Binding>
+ <Binding name="FOREVERTRAIL_OPTIONS" category="ADDONS">SlashCmdList.FOREVERTRAIL("ayar")</Binding>
+ <Binding name="FOREVERTRAIL_NEXT" category="ADDONS">FT_ForeverTrailCall("SuggestNext")</Binding>
+ <Binding name="FOREVERTRAIL_AUTONEXT" category="ADDONS">FT_ForeverTrailCall("ToggleAutoRoute")</Binding>
+ <Binding name="FOREVERTRAIL_HUB" category="ADDONS">FT_ForeverTrailCall("ToggleHub")</Binding>
+ <Binding name="FOREVERTRAIL_ASKROUTE" category="ADDONS">FT_ForeverTrailCall("OpenAskRoute")</Binding>
+ <Binding name="FOREVERTRAIL_CLEAR" category="ADDONS">FT_ForeverTrailCall("ClearCustomTarget")</Binding>
+ <Binding name="CLICK ForeverTrailQuestItem:LeftButton" category="ADDONS"/>
+</Bindings>
