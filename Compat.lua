@@ -6,6 +6,13 @@ local _, FT = ...
 local C = {}
 FT.Compat = C
 
+-- "Gizli değer" (secret value): Forever bazı değerleri (birim adı, GUID, hız...) eklentinin
+-- karşılaştırmasına, metin işlemesine ya da hesabına kapatır. Böyle değer gelirse nil sayılır.
+function FT.Plain(value)
+ if value ~= nil and issecretvalue and issecretvalue(value) then return nil end
+ return value
+end
+
 local function try(fn, ...)
  if type(fn) ~= 'function' then return nil end
  local ok, a, b, c, d, e, f, g, h, i, j = pcall(fn, ...)

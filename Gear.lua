@@ -87,6 +87,8 @@ local function isJunk(bag, slot)
  if info.quality ~= 0 then return false end
  local facts = itemFacts(info.link)
  if not facts or facts.sellPrice <= 0 or isQuestItem(facts) then return false end
+ -- günlükteki görevlerin istediği ya da elle kilitlenen eşyalar satılmaz (QuestItems.lua)
+ if FT.IsProtectedItem and FT.IsProtectedItem(info.itemID, facts.classID) then return false end
  return true, facts.sellPrice * info.count
 end
 

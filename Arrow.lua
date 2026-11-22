@@ -8,6 +8,7 @@ function FT.Bearing(dx, dy, facing)
 end
 
 local arrow, driver
+local COMPASS = {'Kuzey', 'Kuzeydoğu', 'Doğu', 'Güneydoğu', 'Güney', 'Güneybatı', 'Batı', 'Kuzeybatı'}
 
 function FT.PlayProgressSound()
  local id = SOUNDKIT and (SOUNDKIT.IG_QUEST_LIST_SELECT or SOUNDKIT.IG_QUEST_LIST_OPEN)
@@ -51,7 +52,8 @@ end
 
 local function travelSpeed()
  local ok, _, run = pcall(GetUnitSpeed or function() return 0, 0 end, 'player')
- return (ok and type(run) == 'number' and run > 0) and run or 7
+ run = ok and FT.Plain(run) or nil -- gizli değer olabilir (karşılaştırılamaz)
+ return (type(run) == 'number' and run > 0) and run or 7
 end
 
 function FT.UpdateArrow()
@@ -83,6 +85,7 @@ function FT.UpdateArrow()
  local gotPos, pos = pcall(C_Map.GetPlayerMapPosition, map, 'player')
  if not gotPos or not pos then return hide() end
  local valid, px, py = pcall(function() return pos:GetXY() end)
+ px, py = FT.Plain(px), FT.Plain(py)
  if not valid or type(px) ~= 'number' or type(py) ~= 'number' or (px == 0 and py == 0) then return hide() end
  local sized, width, height = pcall(C_Map.GetMapWorldSize, map)
  if not sized or not width or not height or width <= 0 or height <= 0 then return hide() end
@@ -131,7 +134,7 @@ function FT.UpdateArrow()
   arrow.dist:SetText('|cff55ff55Vardın!|r')
   arrow.eta:SetText('')
  else
-  local facing = GetPlayerFacing and GetPlayerFacing()
+  local facing = GetPlayerFacing and FT.Plain(GetPlayerFacing())
   local r, g, b = color[1], color[2], color[3]
   if facing then
    local rotation = FT.Bearing(dx, dy, facing)
@@ -155,7 +158,14 @@ function FT.UpdateArrow()
   arrow.glow:SetVertexColor(r, g, b)
   arrow.glow:SetAlpha(0.35 + 0.2 * math.sin(GetTime() * 3))
   arrow.dist:SetText(('%d yd'):format(dist + 0.5))
-  arrow.eta:SetText(FT.FormatETA(dist / travelSpeed()))
+  -- Harita yönü (yukarı = kuzey, aşağı = güney) ve oyuncuya göre konum
+  local compass = COMPASS[math.floor((atan2(dx, -dy) % TWO_PI + math.pi / 8) / (math.pi / 4)) % 8 + 1]
+  arrow.eta:SetText(FT.FormatETA(dist / travelSpeed()) .. '  ·  ' .. compass)
+  if facing then
+   local rel = FT.Bearing(dx, dy, facing)
+   local side = (rel < math.pi / 4 or rel > 7 * math.pi / 4) and 'önünde' or (rel < 3 * math.pi / 4 and 'solunda' or (rel < 5 * math.pi / 4 and 'arkanda' or 'sağında'))
+   arrow.coords:SetText(('%.1f, %.1f  ·  %s'):format(goal.x * 100, goal.y * 100, side))
+  end
  end
  if not arrow:IsShown() then arrow:Show() end
 end

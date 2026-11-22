@@ -709,6 +709,7 @@ end
 ----------------------------------------------------------------------
 local monsterCache, monsterT = {}, -10
 local dropCache, dropT = {}, -100
+local dropNames = {} -- yaratık adı -> aynı kayıt (GUID gizliyse ad ile eşleştirmek için)
 
 local function monsterObjectives()
  local now = GetTime()
@@ -736,7 +737,7 @@ end
 local function dropperMap()
  local now = GetTime()
  if now - dropT < 20 then return dropCache end
- dropT, dropCache = now, {}
+ dropT, dropCache, dropNames = now, {}, {}
  local db = module('QuestieDB')
  local q = C_QuestLog
  if not (db and db.QueryQuestSingle and db.QueryItemSingle and q and q.GetNumQuestLogEntries and q.GetInfo and q.GetQuestObjectives) then return dropCache end
@@ -757,7 +758,14 @@ local function dropperMap()
        local got, drops = pcall(db.QueryItemSingle, row[1], 'npcDrops')
        if got and type(drops) == 'table' then
         for _, npc in ipairs(drops) do
-         if type(npc) == 'number' then dropCache[npc] = {questId=info.questID, title=info.title, have=pending.numFulfilled or 0, need=pending.numRequired or 0, text=pending.text} end
+         if type(npc) == 'number' then
+          local entry = {questId=info.questID, title=info.title, have=pending.numFulfilled or 0, need=pending.numRequired or 0, text=pending.text, itemId=row[1]}
+          dropCache[npc] = entry
+          if db.QueryNPCSingle then
+           local okN, npcName = pcall(db.QueryNPCSingle, npc, 'name')
+           if okN and type(npcName) == 'string' and npcName ~= '' then dropNames[npcName] = entry end
+          end
+         end
         end
        end
       end
@@ -769,21 +777,50 @@ local function dropperMap()
  return dropCache
 end
 
-function FT.QuestCreatureInfo(unit)
- if ForeverTrailSettings and ForeverTrailSettings.creaturewarn == false then return nil end
+-- bypass: "yaratık uyarısı" kapalı olsa da bilgiyi ver (isim plakasındaki eşya resmi için)
+function FT.QuestCreatureInfo(unit, bypass)
+ if not bypass and ForeverTrailSettings and ForeverTrailSettings.creaturewarn == false then return nil end
  if not (unit and UnitExists(unit)) or UnitIsPlayer(unit) or UnitIsDead(unit) then return nil end
  if UnitIsFriend and UnitIsFriend('player', unit) then return nil end
- local name = UnitName(unit)
- if not name or name == '' then return nil end
- for _, o in ipairs(monsterObjectives()) do
-  if o.text:find(name, 1, true) then return o end
+ -- ad ve GUID "gizli değer" olabilir; o zaman o yoldan eşleştirme yapılmaz, çökme olmaz
+ local name = FT.Plain(UnitName(unit))
+ if name and name ~= '' then
+  for _, o in ipairs(monsterObjectives()) do
+   if o.text:find(name, 1, true) then return o end
+  end
  end
- local guid = UnitGUID and UnitGUID(unit)
- if guid then
+ local guid = UnitGUID and FT.Plain(UnitGUID(unit))
+ if type(guid) == 'string' then
   local npcId = tonumber((select(6, strsplit('-', guid))))
   local d = npcId and dropperMap()[npcId]
   if d then return d end
  end
+ -- GUID okunamadıysa (gizli değer) adıyla eşleştir
+ if name and name ~= '' then
+  dropperMap()
+  local d = dropNames[name]
+  if d then return d end
+ end
+end
+
+-- Görevin istediği eşyanın resmi (yoksa nil)
+local function itemIconOf(itemId)
+ if type(itemId) ~= 'number' then return nil end
+ if C_Item and C_Item.GetItemIconByID then
+  local ok, icon = pcall(C_Item.GetItemIconByID, itemId)
+  if ok and icon then return icon end
+ end
+ if C_Item and C_Item.GetItemInfoInstant then
+  local ok, _, _, _, _, icon = pcall(C_Item.GetItemInfoInstant, itemId)
+  if ok and icon then return icon end
+ end
+ if GetItemIcon then local ok, icon = pcall(GetItemIcon, itemId); if ok then return icon end end
+end
+FT.ItemIconOf = itemIconOf
+
+local function itemNameOf(itemId)
+ if C_Item and C_Item.GetItemNameByID then local ok, n = pcall(C_Item.GetItemNameByID, itemId); if ok and n then return n end end
+ if GetItemInfo then local ok, n = pcall(GetItemInfo, itemId); if ok and n then return n end end
 end
 
 local function addTooltipLine(tip)
@@ -791,6 +828,8 @@ local function addTooltipLine(tip)
  local o = unit and FT.QuestCreatureInfo(unit)
  if o then
   tip:AddLine(('|cffffd100[ForeverTrail]|r Görev hedefi: %s (%d/%d)'):format(o.title or '?', o.have, o.need))
+  local icon, name = itemIconOf(o.itemId), o.itemId and itemNameOf(o.itemId)
+  if icon then tip:AddLine(('|T%s:16:16:0:0:64:64:5:59:5:59|t %s'):format(tostring(icon), name or 'Görev eşyası'), 1, 0.92, 0.75) end
   local partyText = FT.PartyText and o.questId and FT.PartyText(o.questId)
   if partyText then tip:AddLine(partyText, 0.55, 0.8, 1) end
   if tip == GameTooltip and FT.ShowTip then FT.ShowTip(tip) end
@@ -836,7 +875,18 @@ local function updateBanner()
  local b = ensureBanner()
  local c = o.color or {1, 0.82, 0.3}
  b.ring:SetVertexColor(c[1], c[2], c[3], 1)
- if FT.SetObjectiveIcon then FT.SetObjectiveIcon(b.icon, nil, o.kind or 'kill', c, 1) else b.icon:SetTexture(iconFor(o)) end
+ local itemIcon = ForeverTrailSettings.plateItemIcon ~= false and itemIconOf(o.itemId)
+ if itemIcon then
+  if not b.mask and b.CreateMaskTexture then
+   b.mask = b:CreateMaskTexture(); b.mask:SetTexture(BLOB, 'CLAMPTOBLACKADDITIVE', 'CLAMPTOBLACKADDITIVE'); b.mask:SetAllPoints(b.icon)
+  end
+  b.icon:SetTexture(itemIcon); b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92); b.icon:SetVertexColor(1, 1, 1)
+  if b.mask and not b.masked then b.icon:AddMaskTexture(b.mask); b.masked = true end
+ else
+  if b.masked then b.icon:RemoveMaskTexture(b.mask); b.masked = false end
+  b.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+  if FT.SetObjectiveIcon then FT.SetObjectiveIcon(b.icon, nil, o.kind or 'kill', c, 1) else b.icon:SetTexture(iconFor(o)) end
+ end
  b.title:SetText(o.title or 'Görev hedefi'); b.title:SetTextColor(1, 0.92, 0.75)
  local need = o.need or 0
  b.count:SetText(need > 0 and ('%d/%d'):format(o.have or 0, need) or '')
@@ -854,7 +904,10 @@ end
 
 local function plateMark(plate, o)
  if not plate then return end
- if ForeverTrailSettings and ForeverTrailSettings.plateicons == false then o = nil end
+ -- Queston/Questie kuruluyken simge ayarı kapalıdır; yine de eşya görevlerinde eşya resmi gösterilir
+ if ForeverTrailSettings and ForeverTrailSettings.plateicons == false then
+  if not (o and o.itemId and ForeverTrailSettings.plateItemIcon ~= false and itemIconOf(o.itemId)) then o = nil end
+ end
  if o then
   if not plate.ftMark then
    local bar = healthBarOf(plate)
@@ -882,10 +935,24 @@ local function plateMark(plate, o)
   local c = o.color or {1, 0.82, 0.3}
   m.ring:SetVertexColor(c[1], c[2], c[3], 1)
   m.glow:SetVertexColor(c[1], c[2], c[3])
-  if FT.SetObjectiveIcon then FT.SetObjectiveIcon(m.icon, nil, o.kind or 'kill', c, 1) else m.icon:SetTexture(iconFor(o)) end
-  local qsI = FT.IconStyle and FT.IconStyle() == 'questie'
-  m.ring:SetShown(not qsI); m.inner:SetShown(not qsI); m.glow:SetShown(not qsI)
-  if qsI then m.icon:SetSize(20, 20) else m.icon:SetSize(16, 16) end
+  -- eşya toplama görevi: yaratığın düşürdüğü görev eşyasının kendi resmi, yuvarlak ve renkli halkalı
+  local itemIcon = ForeverTrailSettings.plateItemIcon ~= false and itemIconOf(o.itemId)
+  if itemIcon then
+   if not m.mask and m.CreateMaskTexture then
+    m.mask = m:CreateMaskTexture(); m.mask:SetTexture(BLOB, 'CLAMPTOBLACKADDITIVE', 'CLAMPTOBLACKADDITIVE'); m.mask:SetAllPoints(m.icon)
+   end
+   m.icon:SetTexture(itemIcon); m.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92); m.icon:SetVertexColor(1, 1, 1)
+   if m.mask and not m.masked then m.icon:AddMaskTexture(m.mask); m.masked = true end
+   m.ring:Show(); m.glow:Show(); m.inner:Hide()
+   m.icon:SetSize(21, 21)
+  else
+   if m.masked then m.icon:RemoveMaskTexture(m.mask); m.masked = false end
+   m.icon:SetTexCoord(0.12, 0.88, 0.12, 0.88)
+   if FT.SetObjectiveIcon then FT.SetObjectiveIcon(m.icon, nil, o.kind or 'kill', c, 1) else m.icon:SetTexture(iconFor(o)) end
+   local qsI = FT.IconStyle and FT.IconStyle() == 'questie'
+   m.ring:SetShown(not qsI); m.inner:SetShown(not qsI); m.glow:SetShown(not qsI)
+   if qsI then m.icon:SetSize(20, 20) else m.icon:SetSize(16, 16) end
+  end
   m.count:SetText(o.need and o.need > 0 and ('%d/%d'):format(o.have, o.need) or '')
   m.count:SetTextColor(c[1], c[2], c[3])
   m:Show()
@@ -912,7 +979,38 @@ local function refreshPlates()
  if not (C_NamePlate and C_NamePlate.GetNamePlates) then return end
  for _, plate in ipairs(C_NamePlate.GetNamePlates()) do
   local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
-  if unit then plateMark(plate, FT.QuestCreatureInfo(unit)) end
+  if unit then plateMark(plate, FT.QuestCreatureInfo(unit, true)) end
+ end
+end
+
+FT.RefreshPlates = refreshPlates
+
+-- /ftrail plaka: hedefteki yaratık için eşya resminin neden çıkmadığını adım adım yazar
+function FT.PlateDebug()
+ local s = ForeverTrailSettings or {}
+ local function yn(v) return v == false and 'KAPALI' or 'açık' end
+ FT.Print(('plaka ayarları: simge=%s eşya resmi=%s yaratık uyarısı=%s | Queston=%s Questie gömülü=%s'):format(
+  yn(s.plateicons), yn(s.plateItemIcon), yn(s.creaturewarn), tostring(FT.QuestonActive), tostring(FT.QuestieEmbedded)))
+ local plates = (C_NamePlate and C_NamePlate.GetNamePlates and C_NamePlate.GetNamePlates()) or {}
+ FT.Print(('görünen isim plakası: %d (kapalıysa V tuşu / Sistem > Ekran > düşman isim plakaları)'):format(#plates))
+ local db = module('QuestieDB')
+ FT.Print('QuestieDB modülü: ' .. ((db and db.QueryQuestSingle and db.QueryItemSingle) and 'var' or 'YOK (eşya düşüren yaratıklar bulunamaz)'))
+ local drop = dropperMap()
+ local n = 0
+ for _ in pairs(drop) do n = n + 1 end
+ FT.Print(('günlükte eşya toplama görevinden bulunan yaratık sayısı: %d'):format(n))
+ if not (UnitExists and UnitExists('target')) then return FT.Print('Şimdi bir yaratığı hedefleyip tekrar yaz.') end
+ local rawName, rawGuid = UnitName('target'), UnitGUID and UnitGUID('target')
+ FT.Print(('hedef: ad=%s (%s)  guid=%s'):format(FT.Plain(rawName) or 'GİZLİ', 'ad okundu: ' .. tostring(FT.Plain(rawName) ~= nil), FT.Plain(rawGuid) and 'okundu' or 'GİZLİ'))
+ local o = FT.QuestCreatureInfo('target', true)
+ if not o then return FT.Print('Bu yaratık, günlükteki görevlerin hedefi olarak eşleşmedi.') end
+ FT.Print(('eşleşti: görev="%s" eşya=%s resim=%s'):format(tostring(o.title), tostring(o.itemId), tostring(o.itemId and itemIconOf(o.itemId))))
+ if not o.itemId then FT.Print('Bu bir öldürme hedefi (eşya düşürmüyor); eşya resmi yalnızca eşya toplama görevlerinde çıkar.') end
+ for _, plate in ipairs(plates) do
+  local u = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
+  if u and UnitIsUnit and UnitIsUnit(u, 'target') then
+   FT.Print('hedefin plakası: ' .. (plate.ftMark and (plate.ftMark:IsShown() and 'işaret GÖRÜNÜR' or 'işaret gizli') or 'işaret hiç oluşturulmadı'))
+  end
  end
 end
 
@@ -935,9 +1033,9 @@ local plateRefreshPending = false
 warn:SetScript('OnEvent', function(_, event, unit)
  pcall(function()
   if event == 'NAME_PLATE_UNIT_ADDED' and C_NamePlate then
-   local o = FT.QuestCreatureInfo(unit)
+   local o = FT.QuestCreatureInfo(unit, true)
    plateMark(C_NamePlate.GetNamePlateForUnit(unit), o)
-   if o then nearAlert(unit, o) end
+   if o and ForeverTrailSettings.creaturewarn ~= false then nearAlert(unit, o) end
   elseif event == 'NAME_PLATE_UNIT_REMOVED' and C_NamePlate then
    plateMark(C_NamePlate.GetNamePlateForUnit(unit), nil)
   elseif event == 'PLAYER_ENTERING_WORLD' then

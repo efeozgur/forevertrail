@@ -176,6 +176,10 @@ local function recipes()
 end
 FT.ProfessionRecipes = recipes
 
+local RGB = {optimal = {1, 0.5, 0.25}, medium = {1, 1, 0.1}, easy = {0.25, 0.75, 0.25}, trivial = {0.5, 0.5, 0.5}}
+local KIND_TR = {optimal = 'kesin puan', medium = 'çoğunlukla puan', easy = 'bazen puan', trivial = 'puan yok'}
+local ROW_H, ROW_GAP, HEAD_H, FOOT_H = 36, 3, 52, 42
+
 local function refreshHelper()
  if not (helper and helper:IsShown()) then return end
  local list = recipes()
@@ -186,43 +190,122 @@ local function refreshHelper()
    shown = shown + 1
    local row = rows[shown]
    row.r = r
+   local c = RGB[r.kind] or RGB.trivial
+   row.stripe:SetColorTexture(c[1], c[2], c[3], 1)
+   row.bg:SetColorTexture(1, 1, 1, shown % 2 == 0 and 0.05 or 0.02)
    row.name:SetText(COLOR[r.kind] .. r.name .. '|r')
-   row.info:SetText(r.avail > 0 and ('|cff55ff55%d yapılabilir|r'):format(r.avail) or ('|cffff7070Eksik: %s|r'):format(table.concat(r.missing, ', ')))
-   if r.avail > 0 then row.make:Enable() else row.make:Disable() end
+   if r.avail > 0 then
+    row.info:SetText(('|cff55ff55%d kez yapılabilir|r  |cff8a8f98· %s|r'):format(r.avail, KIND_TR[r.kind] or ''))
+    row.make:Enable(); row.all:Enable()
+   else
+    row.info:SetText(('|cffff7070Eksik: %s|r'):format(#r.missing > 0 and table.concat(r.missing, ', ') or 'malzeme'))
+    row.make:Disable(); row.all:Disable()
+   end
    row:Show()
   end
  end
  for i = shown + 1, #rows do rows[i]:Hide() end
  helper.empty:SetShown(shown == 0)
+ helper.count:SetText(shown > 0 and ('%d tarif  ·  sürükleyerek taşı'):format(shown) or 'sürükleyerek taşı')
+ -- yükseklik içeriğe göre: satırlar altındaki düğmeye binmesin
+ local body = shown > 0 and (shown * (ROW_H + ROW_GAP)) or 56
+ helper:SetHeight(HEAD_H + body + FOOT_H)
+end
+
+-- Meslek penceresinin dışına yerleştir: asla üstüne binmez (Yarat/Hepsini yarat düğmeleri açık kalır).
+-- Önce sağ, sığmazsa sol; ikisi de sığmazsa daha geniş tarafa, küçülterek.
+local GAP = 12
+local function placeHelper(anchor)
+ helper:ClearAllPoints()
+ local us = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+ local es = (anchor.GetEffectiveScale and anchor:GetEffectiveScale()) or us
+ local k = es / us -- çerçeve birimi -> ekran (UIParent) birimi
+ local l, b, w, h
+ if anchor.GetBoundsRect then -- alt öğeler dahil gerçek kapladığı alan
+  local ok, a, b2, c, d = pcall(anchor.GetBoundsRect, anchor)
+  if ok and type(a) == 'number' and type(c) == 'number' and c > 0 then l, b, w, h = a, b2, c, d end
+ end
+ if not l then
+  l, w, h = anchor:GetLeft(), anchor:GetWidth(), anchor:GetHeight()
+  b = anchor:GetBottom()
+ end
+ if type(l) ~= 'number' or type(w) ~= 'number' then
+  helper:SetScale(1); helper:SetPoint('TOPLEFT', anchor, 'TOPRIGHT', GAP, -12); return
+ end
+ local left, right, top = l * k, (l + w) * k, ((b or 0) + (h or 0)) * k
+ local screen = UIParent:GetWidth() or 1024
+ local need = helper:GetWidth() + GAP
+ local roomR, roomL = screen - right, left
+ local s, x, point = 1, nil, nil
+ if roomR >= need then x, point = right + GAP, 'TOPLEFT'
+ elseif roomL >= need then x, point = left - GAP, 'TOPRIGHT'
+ else
+  -- iki yanda da yer yok: geniş tarafa, sığacak kadar küçülterek
+  local room = math.max(roomR, roomL)
+  s = math.max(0.55, (room - GAP) / helper:GetWidth())
+  if roomR >= roomL then x, point = right + GAP, 'TOPLEFT' else x, point = left - GAP, 'TOPRIGHT' end
+ end
+ helper:SetScale(s)
+ helper:SetPoint(point, UIParent, 'BOTTOMLEFT', x / s, (top - 12) / s)
 end
 
 local function ensureHelper(anchor)
  if not helper then
   helper = FT.NewWindow('ForeverTrailProfHelper', UIParent)
-  helper:SetSize(300, 330); helper:SetFrameStrata('HIGH')
-  local t = text(helper, 13, 'OUTLINE', 'CENTER'); t:SetPoint('TOP', 0, -9); t:SetText('Puan için ne yapmalı?')
+  helper:SetSize(330, 360); helper:SetFrameStrata('HIGH'); helper:SetClampedToScreen(true)
+  -- bağımsız: sürükleyerek taşınır, konumu kaydedilir; sağ tık = varsayılan yere dön
+  helper:SetMovable(true); helper:EnableMouse(true); helper:RegisterForDrag('LeftButton')
+  helper:SetScript('OnDragStart', function(self) self:StartMoving() end)
+  helper:SetScript('OnDragStop', function(self)
+   self:StopMovingOrSizing()
+   local point, _, relative, x, y = self:GetPoint()
+   ForeverTrailSettings.profHelperPoint = {point, relative, x, y}
+  end)
+  helper:SetScript('OnMouseUp', function(self, button)
+   if button == 'RightButton' then
+    ForeverTrailSettings.profHelperPoint = nil
+    if self.anchor then pcall(placeHelper, self.anchor) end
+   end
+  end)
+  local t = text(helper, 14, 'OUTLINE', 'CENTER'); t:SetPoint('TOP', 0, -9); t:SetText('Puan için ne yapmalı?')
   if FT.StyleTitle then FT.StyleTitle(t) end
-  local legend = text(helper, 10, '', 'CENTER'); legend:SetPoint('TOP', 0, -26)
-  legend:SetText('|cffff8040Turuncu: kesin puan|r  |cffffff00Sarı: çoğunlukla|r  |cff40c040Yeşil: bazen|r')
+  local legend = text(helper, 10, '', 'CENTER'); legend:SetPoint('TOP', 0, -28)
+  legend:SetText('|cffff8040Turuncu: kesin puan|r   |cffffff00Sarı: çoğunlukla|r   |cff40c040Yeşil: bazen|r')
+  local rule = helper:CreateTexture(nil, 'ARTWORK'); rule:SetHeight(1); rule:SetPoint('TOPLEFT', 10, -44); rule:SetPoint('TOPRIGHT', -10, -44)
+  rule:SetColorTexture(1, 1, 1, 0.12)
   helper.rows = {}
   for i = 1, 8 do
-   local row = CreateFrame('Frame', nil, helper); row:SetSize(280, 34); row:SetPoint('TOPLEFT', 10, -44 - (i - 1) * 35)
-   row.name = text(row, 12, ''); row.name:SetPoint('TOPLEFT', 0, -2); row.name:SetWidth(200); row.name:SetWordWrap(false)
-   row.info = text(row, 10, ''); row.info:SetPoint('TOPLEFT', 0, -17); row.info:SetWidth(200); row.info:SetWordWrap(false)
-   row.make = FT.NewButton(row, 'Yap', 34, 20); row.make:SetPoint('RIGHT', -40, 0)
+   local row = CreateFrame('Frame', nil, helper); row:SetSize(310, ROW_H); row:SetPoint('TOPLEFT', 10, -HEAD_H - (i - 1) * (ROW_H + ROW_GAP))
+   row.bg = row:CreateTexture(nil, 'BACKGROUND'); row.bg:SetAllPoints()
+   row.stripe = row:CreateTexture(nil, 'ARTWORK'); row.stripe:SetSize(3, ROW_H - 6); row.stripe:SetPoint('LEFT', 0, 0)
+   row.name = text(row, 12, ''); row.name:SetPoint('TOPLEFT', 10, -4); row.name:SetWidth(210); row.name:SetWordWrap(false)
+   row.info = text(row, 10, ''); row.info:SetPoint('TOPLEFT', 10, -20); row.info:SetWidth(210); row.info:SetWordWrap(false)
+   row.make = FT.NewButton(row, 'Yap', 34, 22); row.make:SetPoint('RIGHT', -44, 0)
    row.make:SetScript('OnClick', function() local r = row.r; if r then if r.modern then FT.Compat.Craft(r, 1) elseif r.craft then if DoCraft then DoCraft(r.i) end else if DoTradeSkill then DoTradeSkill(r.i, 1) end end end end)
-   row.all = FT.NewButton(row, 'Hepsi', 38, 20); row.all:SetPoint('RIGHT', 0, 0)
+   row.all = FT.NewButton(row, 'Hepsi', 40, 22); row.all:SetPoint('RIGHT', -2, 0)
    row.all:SetScript('OnClick', function() local r = row.r; if r and r.modern and r.avail > 0 then FT.Compat.Craft(r, r.avail) elseif r and not r.craft and DoTradeSkill and r.avail > 0 then DoTradeSkill(r.i, r.avail) end end)
    helper.rows[i] = row
   end
-  helper.empty = text(helper, 12, '', 'CENTER'); helper.empty:SetPoint('CENTER'); helper.empty:SetText('Puan getiren tarif yok.\nEğitmenden yeni tarif öğren.')
-  helper.trainer = FT.NewButton(helper, 'Eğitmene yol', 110, 22); helper.trainer:SetPoint('BOTTOM', 0, 10)
+  helper.empty = text(helper, 12, '', 'CENTER'); helper.empty:SetPoint('TOP', 0, -HEAD_H - 12); helper.empty:SetWidth(290)
+  helper.empty:SetText('Puan getiren tarif yok.\nEğitmenden yeni tarif öğren.')
+  local foot = helper:CreateTexture(nil, 'ARTWORK'); foot:SetHeight(1); foot:SetPoint('BOTTOMLEFT', 10, FOOT_H - 4); foot:SetPoint('BOTTOMRIGHT', -10, FOOT_H - 4)
+  foot:SetColorTexture(1, 1, 1, 0.12)
+  helper.count = text(helper, 11, '', 'LEFT'); helper.count:SetPoint('BOTTOMLEFT', 14, 17); helper.count:SetTextColor(0.62, 0.6, 0.56)
+  helper.trainer = FT.NewButton(helper, 'Eğitmene yol', 120, 24); helper.trainer:SetPoint('BOTTOMRIGHT', -12, 10)
   helper.trainer:SetScript('OnClick', function()
    local name = FT.Compat.TradeSkillName() or ''
    for _, p in ipairs(PROFS) do if name:find(p.en, 1, true) then return goTrainer(p.key) end end
   end)
  end
- helper:ClearAllPoints(); helper:SetPoint('TOPLEFT', anchor, 'TOPRIGHT', 0, -12)
+ -- bağımsız pencere: kayıtlı konum varsa orası, yoksa ilk açılışta meslek penceresinin yanı
+ local p = ForeverTrailSettings and ForeverTrailSettings.profHelperPoint
+ if p and p[1] and p[3] and p[4] then
+  helper:SetScale(1); helper:ClearAllPoints(); helper:SetPoint(p[1], UIParent, p[2] or p[1], p[3], p[4])
+ elseif not helper.placed then
+  placeHelper(anchor)
+ end
+ helper.placed = true
+ helper.anchor = anchor
  helper:Show()
  refreshHelper()
 end

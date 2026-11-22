@@ -23,42 +23,65 @@ end
 local typeIcons={accept='Interface\\GossipFrame\\AvailableQuestIcon',objective='Interface\\GossipFrame\\IncompleteQuestIcon',turnin='Interface\\GossipFrame\\ActiveQuestIcon',location='Interface\\Icons\\INV_Misc_Map_01',manual='Interface\\Buttons\\UI-CheckBox-Check'}
 local labels={accept='GÖREVİ AL',objective='HEDEF',turnin='TESLİM ET',location='KONUMA GİT',manual='ELLE ONAYLA'}
 local status={unknown='Bilinmiyor',not_taken='Alınmamış',active='Aktif',ready='Teslim edilebilir',turned_in='Teslim edilmiş'}
-local function button(parent,text,width,x,y,handler)
+local PANEL_W, FULL_H, COMPACT_H = 446, 376, 226
+local EXTRA_Y = -228 -- bunun altındaki düğmeler "küçük panel"de gizlenir
+local function button(parent,text,width,x,y,handler,help)
  local b=FT.NewButton and FT.NewButton(parent,text,width,24)
  if not b then b=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate'); b:SetSize(width,24) end
  b:SetPoint('TOPLEFT',x,y); b:SetText(text); b:SetScript('OnClick',handler)
- if FT.panelExtras and parent==FT.panel and y<=-214 then FT.panelExtras[#FT.panelExtras+1]=b end
+ if FT.panelExtras and parent==FT.panel and y<=EXTRA_Y then FT.panelExtras[#FT.panelExtras+1]=b end
  applyFont(b:GetFontString())
+ -- her düğmenin üzerine gelince ne yaptığını anlatan açıklama
+ if help and b.HookScript then
+  b:HookScript('OnEnter',function(self)
+   if not GameTooltip then return end
+   GameTooltip:SetOwner(self,'ANCHOR_TOP'); GameTooltip:SetText(text,1,0.82,0); GameTooltip:AddLine(help,0.9,0.9,0.9,true); GameTooltip:Show()
+  end)
+  b:HookScript('OnLeave',function() if GameTooltip then GameTooltip:Hide() end end)
+ end
  return b
+end
+-- Bölüm başlığı (küçük gri büyük harf)
+local function section(parent,text,y)
+ local fs=parent:CreateFontString(nil,'OVERLAY','GameFontDisableSmall')
+ fs:SetPoint('TOPLEFT',14,y); fs:SetText(text); fs:SetTextColor(0.62,0.6,0.56)
+ applyFont(fs)
+ if FT.panelExtras then FT.panelExtras[#FT.panelExtras+1]=fs end
+ return fs
 end
 function FT.ResetPosition()
  ForeverTrailSettings.point=nil; FT.panel:ClearAllPoints(); FT.panel:SetPoint('CENTER',UIParent,'CENTER',0,0)
 end
 function FT.CreatePanel()
  local f=newWindow('ForeverTrailPanel',UIParent); FT.panel=f; FT.panelExtras={}
- f:SetSize(390,285); f:SetMovable(true); f:EnableMouse(true); f:RegisterForDrag('LeftButton')
+ f:SetSize(PANEL_W,FULL_H); f.barW=PANEL_W-24; f:SetMovable(true); f:EnableMouse(true); f:RegisterForDrag('LeftButton')
  f:SetScript('OnDragStart',function(self) self:StartMoving() end)
  f:SetScript('OnDragStop',function(self) self:StopMovingOrSizing(); local point,_,relative,x,y=self:GetPoint(); ForeverTrailSettings.point={point,relative,x,y} end)
  local p=ForeverTrailSettings.point
  if p and p[1] and p[2] and p[3] and p[4] then f:SetPoint(p[1],UIParent,p[2],p[3],p[4]) else FT.ResetPosition() end
  f.title=f:CreateFontString(nil,'OVERLAY','GameFontNormal'); f.title:SetPoint('TOP',0,-7); f.title:SetText('ForeverTrail')
  f.icon=f:CreateTexture(nil,'OVERLAY'); f.icon:SetSize(18,18); f.icon:SetPoint('TOPLEFT',9,-3); f.icon:SetTexture('Interface\\Icons\\INV_Misc_Map_01')
- if FT.RegisterAccent then FT.RegisterAccent(solid(f,'ARTWORK',366,2,'TOPLEFT',12,-52,0.95,0.72,0.35,0.7),0.7) else solid(f,'ARTWORK',366,2,'TOPLEFT',12,-52,0.95,0.72,0.35,0.7) end
- f.guideBg=solid(f,'ARTWORK',366,22,'TOPLEFT',12,-30,0.07,0.04,0.02,0.45)
- f.barBg=solid(f,'ARTWORK',366,6,'TOPLEFT',12,-72,0.05,0.03,0.01,0.7)
- f.barFill=solid(f,'ARTWORK',1,6,'TOPLEFT',12,-72,0.3,0.85,0.4,1)
- f.boxBg=solid(f,'ARTWORK',366,52,'TOPLEFT',12,-80,0.07,0.04,0.02,0.5)
- f.boxBar=solid(f,'ARTWORK',4,52,'TOPLEFT',12,-80,1,0.82,0.2,1)
- f.stateBg=solid(f,'ARTWORK',366,40,'TOPLEFT',12,-134,0.10,0.06,0.03,0.5)
- f.guide=f:CreateFontString(nil,'OVERLAY','GameFontNormal'); f.guide:SetPoint('TOPLEFT',18,-35); f.guide:SetWidth(355); f.guide:SetJustifyH('LEFT')
- f.info=f:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall'); f.info:SetPoint('TOPLEFT',36,-57); f.info:SetWidth(335); f.info:SetJustifyH('LEFT')
- f.typeIcon=f:CreateTexture(nil,'OVERLAY'); f.typeIcon:SetSize(16,16); f.typeIcon:SetPoint('TOPLEFT',16,-55)
- f.instruction=f:CreateFontString(nil,'OVERLAY','GameFontHighlight'); f.instruction:SetPoint('TOPLEFT',22,-84); f.instruction:SetWidth(350); f.instruction:SetHeight(45); f.instruction:SetJustifyH('LEFT'); f.instruction:SetJustifyV('TOP')
- f.state=f:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall'); f.state:SetPoint('TOPLEFT',18,-137); f.state:SetWidth(355); f.state:SetHeight(40); f.state:SetJustifyH('LEFT'); f.state:SetJustifyV('TOP')
- button(f,'Önceki',78,15,-180,function() FT.view=math.max(1,FT.view-1); FT.Refresh() end)
- button(f,'Sonraki',78,98,-180,function() if FT.guide.live then FT.view=math.min(#FT.guide.steps,FT.view+1) elseif FT.view<FT.active then FT.view=FT.view+1 elseif not FT.complete then FT.Advance(); FT.Evaluate() end; FT.Refresh() end)
- button(f,'Aktif',78,181,-180,function() if FT.view~=FT.active then FT.active=FT.view; FT.complete=false; FT.SaveStep() end; FT.Evaluate(); FT.OpenMap() end)
- button(f,'Harita',78,264,-180,FT.OpenMap)
+ local W=PANEL_W-24
+ -- 1) rehber şeridi: hangi rehber açık + "Rehber seç"
+ f.guideBg=solid(f,'ARTWORK',W,24,'TOPLEFT',12,-30,0.07,0.04,0.02,0.45)
+ f.guide=f:CreateFontString(nil,'OVERLAY','GameFontNormal'); f.guide:SetPoint('TOPLEFT',18,-36); f.guide:SetWidth(W-122); f.guide:SetHeight(14); f.guide:SetJustifyH('LEFT'); f.guide:SetWordWrap(false)
+ if FT.RegisterAccent then FT.RegisterAccent(solid(f,'ARTWORK',W,2,'TOPLEFT',12,-57,0.95,0.72,0.35,0.7),0.7) else solid(f,'ARTWORK',W,2,'TOPLEFT',12,-57,0.95,0.72,0.35,0.7) end
+ -- 2) adım satırı ve ilerleme çubuğu
+ f.typeIcon=f:CreateTexture(nil,'OVERLAY'); f.typeIcon:SetSize(16,16); f.typeIcon:SetPoint('TOPLEFT',14,-64)
+ f.info=f:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall'); f.info:SetPoint('TOPLEFT',36,-67); f.info:SetWidth(W-30); f.info:SetJustifyH('LEFT')
+ f.barBg=solid(f,'ARTWORK',W,6,'TOPLEFT',12,-86,0.05,0.03,0.01,0.7)
+ f.barFill=solid(f,'ARTWORK',1,6,'TOPLEFT',12,-86,0.3,0.85,0.4,1)
+ -- 3) şimdi ne yapılacak (büyük kart) ve durum
+ f.boxBg=solid(f,'ARTWORK',W,70,'TOPLEFT',12,-98,0.07,0.04,0.02,0.5)
+ f.boxBar=solid(f,'ARTWORK',4,70,'TOPLEFT',12,-98,1,0.82,0.2,1)
+ f.instruction=f:CreateFontString(nil,'OVERLAY','GameFontHighlight'); f.instruction:SetPoint('TOPLEFT',24,-104); f.instruction:SetWidth(W-22); f.instruction:SetHeight(58); f.instruction:SetJustifyH('LEFT'); f.instruction:SetJustifyV('TOP')
+ f.stateBg=solid(f,'ARTWORK',W,44,'TOPLEFT',12,-174,0.10,0.06,0.03,0.5)
+ f.state=f:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall'); f.state:SetPoint('TOPLEFT',20,-179); f.state:SetWidth(W-16); f.state:SetHeight(36); f.state:SetJustifyH('LEFT'); f.state:SetJustifyV('TOP')
+ -- 4) düğmeler: ADIMLAR / YOL VE GÖREVLER / DİĞER
+ section(f,'ADIMLAR',-230)
+ button(f,'Önceki',100,12,-244,function() FT.view=math.max(1,FT.view-1); FT.Refresh() end,'Bir önceki adımı incele (etkin adımı değiştirmez).')
+ button(f,'Sonraki',100,116,-244,function() if FT.guide.live then FT.view=math.min(#FT.guide.steps,FT.view+1) elseif FT.view<FT.active then FT.view=FT.view+1 elseif not FT.complete then FT.Advance(); FT.Evaluate() end; FT.Refresh() end,'Bir sonraki adıma geç.')
+ button(f,'Aktif yap',100,220,-244,function() if FT.view~=FT.active then FT.active=FT.view; FT.complete=false; FT.SaveStep() end; FT.Evaluate(); FT.OpenMap() end,'İncelediğin adımı etkin yap ve haritada göster; ok bu adıma yönelir.')
  local suggestions = newWindow(nil, f)
  suggestions:SetSize(420, 330); suggestions:SetPoint('TOPLEFT', f, 'TOPRIGHT', 4, 0)
  suggestions:SetFrameLevel(f:GetFrameLevel()+10)
@@ -155,10 +178,14 @@ function FT.CreatePanel()
   if suggestionsElapsed>=3 then suggestionsElapsed=0; refreshSuggestions(true) end
  end)
  FT.ShowSuggestions=function() suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end
- button(f,'Öneriler',80,98,-214,function() if FT.OpenHub then return FT.OpenHub('gorevler') end if suggestions:IsShown() then suggestions:Hide() else suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end end)
+ section(f,'YOL VE GÖREVLER',-276)
+ button(f,'Haritada göster',100,12,-290,FT.OpenMap,'Dünya haritasını aç; hedef ve yol çizgisi görünür.')
+ button(f,'En yakın',100,116,-290,function() FT.SelectNearest() end,'Bulunduğun yere en yakın görev adımını seç ve haritada göster.')
+ button(f,'Rota oluştur',100,220,-290,function() FT.BuildRoute() end,'Günlüğündeki görevlerden, en yakından başlayan bir rota çıkar.')
+ button(f,'Öneriler',110,324,-290,function() if FT.OpenHub then return FT.OpenHub('gorevler') end if suggestions:IsShown() then suggestions:Hide() else suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end end,'Seviyene uygun görevler: günlükte olanlar, alınabilecekler, bulunduğun bölge, zincir.')
  local picker = newWindow(nil, f)
- picker:SetPoint('BOTTOMLEFT', f, 'BOTTOMLEFT', 12, 50)
- picker:SetSize(365, 45 + 28 * #FT.validGuides)
+ picker:SetPoint('TOPLEFT', f, 'TOPLEFT', 12, -56)
+ picker:SetSize(PANEL_W-24, 45 + 28 * #FT.validGuides)
  picker:SetFrameLevel(f:GetFrameLevel() + 10)
  picker:EnableMouse(true)
  local heading = picker:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
@@ -166,7 +193,7 @@ function FT.CreatePanel()
  heading:SetText('Rehber seç')
  applyFont(heading)
  for index, guide in ipairs(FT.validGuides) do
-  button(picker, guide.title .. ' · ' .. guide.zone, 335, 15, -28 * index, function()
+  button(picker, guide.title .. ' · ' .. guide.zone, PANEL_W-54, 15, -28 * index, function()
    FT.SelectGuide(index)
    picker:Hide()
    FT.notice = 'Rehber seçildi.'
@@ -174,14 +201,13 @@ function FT.CreatePanel()
   end)
  end
  picker:Hide()
- button(f,'Rehber',78,15,-214,function()
+ button(f,'Buradan sürdür',110,324,-244,FT.ResumeViewed,'Geri dönüp incelediğin adımdan devam et; sonraki adımlar yeniden etkinleşir.')
+ local pick=button(f,'Rehber seç',104,PANEL_W-12-104,-30,function()
   if picker:IsShown() then picker:Hide() else picker:Show() end
- end)
- button(f,'Buradan sürdür',100,181,-214,FT.ResumeViewed)
- button(f,'En yakın',95,285,-214,function() FT.SelectNearest() end)
- button(f,'Rota oluştur',100,181,-243,function() FT.BuildRoute() end)
- button(f,'Ayarlar',95,285,-243,function() if FT.ToggleSettings then FT.ToggleSettings() end end)
- local check=CreateFrame('CheckButton',nil,f,'UICheckButtonTemplate'); check:SetPoint('TOPLEFT',12,-243); check:SetChecked(ForeverTrailSettings.auto); check:SetScript('OnClick',function(self) ForeverTrailSettings.auto=self:GetChecked() and true or false; FT.Evaluate() end)
+ end,'Hangi rehberin izleneceğini seç (Görev günlüğü, bölge rehberleri...).')
+ section(f,'DİĞER',-322)
+ button(f,'Ayarlar',100,12,-336,function() if FT.ToggleSettings then FT.ToggleSettings() end end,'ForeverTrail ayarlarını aç.')
+ local check=CreateFrame('CheckButton',nil,f,'UICheckButtonTemplate'); check:SetPoint('TOPLEFT',116,-335); check:SetChecked(ForeverTrailSettings.auto); check:SetScript('OnClick',function(self) ForeverTrailSettings.auto=self:GetChecked() and true or false; FT.Evaluate() end)
  local label=f:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall'); label:SetPoint('LEFT',check,'RIGHT',0,0); label:SetText('Otomatik ilerle')
  FT.panelExtras[#FT.panelExtras+1]=check; FT.panelExtras[#FT.panelExtras+1]=label
  for _, region in ipairs({f.title, f.guide, f.info, f.instruction, f.state, label}) do
@@ -211,7 +237,7 @@ function FT.Refresh()
  f.typeIcon:SetTexture(typeIcons[s.type] or typeIcons.manual)
  f.boxBar:SetColorTexture(tc[1],tc[2],tc[3],1)
  f.barFill:SetColorTexture(tc[1],tc[2],tc[3],1)
- f.barFill:SetWidth(math.max(1,366*math.min(1,(FT.complete and FT.view==FT.active) and 1 or FT.view/math.max(1,#g.steps))))
+ f.barFill:SetWidth(math.max(1,(f.barW or 366)*math.min(1,(FT.complete and FT.view==FT.active) and 1 or FT.view/math.max(1,#g.steps))))
  f.info:SetText(('Adım %d / %d  |cff%s[%s]|r%s'):format(FT.view,#g.steps,hex(tc),labels[s.type] or s.type, FT.view~=FT.active and '  |cffc8b89f(inceleme)|r' or ''))
  local record = type(QTR_QuestData) == 'table' and QTR_QuestData[tostring(s.questId)]
  local title = (record and record.Title) or s.questTitle
@@ -265,7 +291,7 @@ function FT.SetCompact(on)
  on = on and true or false
  ForeverTrailSettings.compact = on
  for _,widget in ipairs(FT.panelExtras or {}) do if on then widget:Hide() else widget:Show() end end
- f:SetHeight(on and 214 or 285)
+ f:SetHeight(on and COMPACT_H or FULL_H)
  if on then
   if FT.card then FT.card:Hide() end
   if FT.tracker then FT.tracker:Hide() end

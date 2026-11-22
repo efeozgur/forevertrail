@@ -111,7 +111,8 @@ Bu depo, lisansı belirsiz/"tüm hakları saklı" olan Questie simgelerini (`Med
 
 - **Karakterimin görevleri:** Varsayılan canlı rehber, giriş yapılan karakterin görev günlüğünü okur. Eksik hedefleri ve teslim edilebilen görevleri günlük sırasıyla adımlara çevirir (kabul → hedef → teslim). Henüz alınmamış devam görevleri listeye girmez.
 - **Adım türleri:** `accept` (al), `objective` (hedef), `turnin` (teslim), `location` (konum), `manual` (elle onay).
-- **Gezinme:** Önceki/Sonraki ile adımları incelersiniz. *Aktif adım* ile *görüntülenen adım* ayrıdır: "Aktif" düğmesi görüntülenen adımı kaydeder; "Buradan sürdür" incelenen adımı aktif yaparak terk edilmiş göreve geri dönmenizi sağlar.
+- **Gezinme:** Önceki/Sonraki ile adımları incelersiniz. *Aktif adım* ile *görüntülenen adım* ayrıdır: "Aktif yap" düğmesi görüntülenen adımı kaydeder; "Buradan sürdür" incelenen adımı aktif yaparak terk edilmiş göreve geri dönmenizi sağlar.
+- **Rehber sayfasının düzeni:** Üstte açık rehber ve "Rehber seç"; altında adım türü ve ilerleme çubuğu; büyük kartta şimdi ne yapılacağı; onun altında durum satırı. Düğmeler üç grupta: **Adımlar** (Önceki, Sonraki, Aktif yap, Buradan sürdür), **Yol ve görevler** (Haritada göster, En yakın, Rota oluştur, Öneriler), **Diğer** (Ayarlar, Otomatik ilerle). Her düğmenin üzerine gelince ne yaptığı yazar. "Küçük panel" yalnızca üst bölümü bırakır.
 - **Otomatik ilerle:** Açıkken tamamlanmış adımları atlar ve güncel hedefi gösterir. Kapatılabilir.
 - **Ayrı rehberler:** Sabit rehberler (örn. demo) ve özel rehberler arasında geçiş yapılabilir; rehberler `FT.RegisterGuide` ile kaydedilir ([Rehber yazma](#rehber-yazma)).
 - **Kalıcılık:** Hesap genelinde panel konumu ve ayarlar; karakter başına rehber ve adım (`stepId`) kaydedilir.
@@ -240,6 +241,7 @@ Ekranın solunda, **bulunduğunuz bölgede alabileceğiniz** görevler; seviye, 
 ### 10. Çanta, satıcı ve ekipman
 
 - **Çöp (gri) eşya satışı:** Satıcı açılınca gri eşyalar satılır (satış değeri olmayanlar ve **görev eşyaları asla** satılmaz); satılacak eşyaların üzerinde altın işareti görünür. `/ftrail sat` elle satar ve satılacak bir şey yoksa nedenini söyler. Malzeme çantası da taranır.
+- **Görev eşyalarını koruma:** Türü "Görev" olan eşyalar, günlükteki görevlerin hedef/kaynak eşyaları (gri bir "Kurt Eti" gibi) ve elle kilitlediğiniz eşyalar otomatik satılmaz; yine de satıcıya satılırsa satıcının geri alım listesinden **otomatik geri alınır**. `/ftrail gorevesya` çantadaki bu eşyaları ayrı bir pencerede listeler (üzerine gelince ipucu; **Shift + tık** eşyayı elle kilitler/açar). Ayar: Otomatik > "Görev eşyalarını koru". Çanta içinde ayrı bölüm oluşturmak oyunun çantalarını yeniden düzenlemeyi gerektirir, bunu eklenti yapamaz; liste pencerede tutulur.
 - **Otomatik tamir:** Satıcıda, yeterli altın varsa tüm ekipman tamir edilir.
 - **Otomatik toplama:** Ganimeti otomatik toplar.
 - **Çanta ve banka düzeni:** `/ftrail duzen` çantayı, `/ftrail banka` bankayı sıralar (bankada "Düzenle" düğmesi; banka açılınca otomatik sıralama isteğe bağlı).
@@ -251,7 +253,7 @@ Ekranın solunda, **bulunduğunuz bölgede alabileceğiniz** görevler; seviye, 
 ### 11. Uyarılar ve yardımcılar
 
 - **Nadir yaratıklar:** Doğdukları yerler minimapte yıldızla görünür; 120 yd yakınlaşınca 3B görselli kart ve uyarı (yaratık başına bir kez; tekrar aralığı ayarlanabilir).
-- **Görev yaratığı:** Hedeflenince/üzerine gelince ipucu satırı, isim plakasında simge ve `3/8` sayacı, hedef çerçevesi altında görev bandı. Görev yaratığının can barı görev renginde.
+- **Görev yaratığı:** Hedeflenince/üzerine gelince ipucu satırı, isim plakasında simge ve `3/8` sayacı, hedef çerçevesi altında görev bandı. Görev yaratığının can barı görev renginde. **Eşya toplama görevlerinde** (ör. "8 Kurt Eti topla"), eşyayı düşüren yaratığın isim plakasında, hedef bandında ve ipucunda simge yerine **istenen eşyanın kendi resmi** yuvarlak, renkli halkalı çerçevede görünür. Ayar: Uyarılar > "Eşya görevlerinde yaratığın üstünde istenen eşyanın resmi".
 - **Güvenli mod / tehlike uyarısı:** Elit ya da seviyenizin 3+ üstündeki hedefte kırmızı uyarı ve kafatası.
 - **Dayanıklılık:** %25 altına inince uyarı ve kayıtlı tamirciye yol. **Avcı:** ok/mermi 200 altına inince uyarı. **Çanta:** 2 boş yere düşünce uyarı; kayıtlı satıcıya yol.
 - **Ocak taşı danışmanı:** Tüm görevler teslime hazırken ocak taşının yerini ve bekleme süresini söyler.

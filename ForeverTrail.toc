@@ -38,6 +38,7 @@ Settings.lua
 Extras.lua
 Features.lua
 Gear.lua
+QuestItems.lua
 Places.lua
 Advisor.lua
 Assist.lua

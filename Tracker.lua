@@ -65,8 +65,20 @@ local function selectQuest(questId, noMap)
  for guideIndex, guide in ipairs(FT.validGuides or {}) do
   if guide.live then
    FT.SelectGuide(guideIndex)
+   -- Görevin adımları arasında konumu bilinen ilkini seç (konum tembel çözülür; bekleme süresini yok say)
+   local first, located
    for j, step in ipairs(guide.steps) do
-    if step.questId == questId then FT.active = j; FT.view = j; if FT.SaveStep then FT.SaveStep() end; break end
+    if step.questId == questId then
+     first = first or j
+     if FT.EnsureWaypoint then pcall(FT.EnsureWaypoint, step, true) end
+     if step.uiMapID and step.x and step.y then located = j; break end
+    end
+   end
+   local pick = located or first
+   if pick then
+    FT.active = pick; FT.view = pick
+    if FT.SaveStep then FT.SaveStep() end
+    if not located then FT.Print('Bu görevin konumu bilinmiyor; ok yönlendiremiyor.') end
    end
    break
   end
@@ -204,9 +216,19 @@ function FT.CreateTracker()
  end
  header = newText(tracker, 15, 'OUTLINE', 'LEFT')
  header:SetPoint('TOPLEFT', PAD, -9)
- summary = newText(tracker, 11, '', 'LEFT')
- summary:SetPoint('TOPLEFT', PAD, -26); summary:SetWidth(WIDTH - PAD * 2 - 30)
- summary:SetTextColor(0.78, 0.74, 0.68)
+ -- Üst bölüm: her bilgi kendi satırında, tek satır (kaymaz, taşmaz)
+ summary = newText(tracker, 12, '', 'LEFT')
+ summary:SetPoint('TOPLEFT', PAD, -29); summary:SetWidth(WIDTH - PAD * 2 - 6); summary:SetHeight(14)
+ summary:SetWordWrap(false); summary:SetTextColor(0.95, 0.92, 0.85)
+ tracker.sumRested = newText(tracker, 11, '', 'RIGHT')
+ tracker.sumRested:SetPoint('TOPRIGHT', tracker, 'TOPRIGHT', -PAD, -30); tracker.sumRested:SetWidth(120); tracker.sumRested:SetHeight(13)
+ tracker.sumRested:SetWordWrap(false)
+ tracker.sumGain = newText(tracker, 11, '', 'LEFT')
+ tracker.sumGain:SetWidth(WIDTH - PAD * 2 - 6); tracker.sumGain:SetHeight(13); tracker.sumGain:SetWordWrap(false)
+ tracker.sumGain:SetTextColor(0.6, 0.85, 1)
+ tracker.sumRoute = newText(tracker, 11, '', 'LEFT')
+ tracker.sumRoute:SetWidth(WIDTH - PAD * 2 - 6); tracker.sumRoute:SetHeight(13); tracker.sumRoute:SetWordWrap(false)
+ tracker.sumRoute:SetTextColor(0.62, 0.6, 0.56)
  divider = solid(tracker, 'ARTWORK', WIDTH - PAD * 2, 1)
  divider:SetPoint('TOPLEFT', PAD, -40)
  if FT.RegisterAccent then FT.RegisterAccent(divider, 0.55) end
@@ -327,8 +349,8 @@ function FT.RefreshTracker()
   for index = 1, q.GetNumQuestLogEntries() do
    local info = q.GetInfo(index)
    if info and info.isHeader then zoneName = info.title
-   elseif info and not info.isHidden and info.questID and info.questID > 0
-    and not (ForeverTrailSettings.trkShowDone == false and q.IsComplete and q.IsComplete(info.questID)) then
+   elseif info and not info.isHidden and info.questID and info.questID > 0 then
+    -- Teslime hazır görevler her zaman listelenir (eski "biten görevleri gizle" ayarı kaldırıldı)
     entries[#entries + 1] = {info = info, zone = zoneName or 'Diğer', order = #entries}
    end
   end
@@ -394,8 +416,17 @@ function FT.RefreshTracker()
  local restedText = FT.RestedText and FT.RestedText()
  if FT.RouteOrder then pcall(FT.RouteOrder) end
  local route = FT.RouteSummary and ForeverTrailSettings.routenums ~= false and FT.RouteSummary()
- local rested = route
- summary:SetText((FT.LevelSummary and FT.LevelSummary() or '') .. (restedText and ('  ·  ' .. restedText) or '') .. (route and ('\n|cff9aa0a6' .. route .. '|r') or ''))
+ local levelText, gainText
+ if FT.LevelParts then levelText, gainText = FT.LevelParts() end
+ summary:SetText(levelText or '')
+ tracker.sumRested:SetText(restedText or '')
+ tracker.sumGain:SetText(gainText or ''); tracker.sumRoute:SetText(route or '')
+ -- üst bölümün satırları: seviye (+ dinlenmiş), teslim XP'si, rota
+ local sumLines = 1 + (gainText and 1 or 0) + (route and 1 or 0)
+ local sy = 29 + 15
+ tracker.sumGain:ClearAllPoints(); tracker.sumRoute:ClearAllPoints()
+ if gainText then tracker.sumGain:SetPoint('TOPLEFT', tracker, 'TOPLEFT', PAD, -sy); sy = sy + 14 end
+ if route then tracker.sumRoute:SetPoint('TOPLEFT', tracker, 'TOPLEFT', PAD, -sy); sy = sy + 14 end
  toggle:SetText(ForeverTrailSettings.trackerCollapsed and '+' or '-')
  -- sabitlenenler (Ctrl+tık) ve elle sıralama (Alt+tık) en son uygulanır; bölge gruplaması korunur
  do
@@ -420,14 +451,19 @@ function FT.RefreshTracker()
  if ForeverTrailSettings.trackerCollapsed or FT.trkCombatCollapsed or inst then
   if FT.HideTrackerItems then pcall(FT.HideTrackerItems, 1) end
   divider:Hide(); summary:Hide()
+  tracker.sumRested:Hide(); tracker.sumGain:Hide(); tracker.sumRoute:Hide()
   if tracker.xpFill then tracker.xpFill:Hide(); tracker.xpRest:Hide() end
   tracker:SetHeight(32)
   return
  end
  divider:Show(); summary:Show()
- local extra = rested and 13 or 0
- if qs then summary:Hide(); divider:Hide(); extra = -18 end
- divider:ClearAllPoints(); divider:SetPoint('TOPLEFT', PAD, -40 - extra)
+ tracker.sumRested:SetShown(restedText ~= nil); tracker.sumGain:SetShown(gainText ~= nil); tracker.sumRoute:SetShown(route and true or false)
+ local divY = sy + 2
+ if qs then
+  summary:Hide(); divider:Hide(); tracker.sumRested:Hide(); tracker.sumGain:Hide(); tracker.sumRoute:Hide()
+  divY = BODY_TOP - 18 - 8
+ end
+ divider:ClearAllPoints(); divider:SetPoint('TOPLEFT', PAD, -divY)
  -- ince XP çubuğu: dolu kısım vurgu renginde, dinlenmiş XP mavi
  do
   local xp, max = UnitXP and UnitXP('player') or 0, UnitXPMax and UnitXPMax('player') or 1
@@ -447,7 +483,7 @@ function FT.RefreshTracker()
   tracker.xpFill:Show(); tracker.xpRest:Show()
   if qs then tracker.xpFill:Hide(); tracker.xpRest:Hide() end
  end
- local y, used, usedObjectives = BODY_TOP + extra, 0, 0
+ local y, used, usedObjectives = divY + 9, 0, 0
  local qStep, oStep, bars = 19, 23, true
  if FT.TrackerSteps then qStep, oStep, bars = FT.TrackerSteps() end
  if qs then qStep, oStep, bars = 15, 14, false end
@@ -464,6 +500,7 @@ function FT.RefreshTracker()
   if useZones and entry.zone ~= lastZone then
    lastZone = entry.zone
    usedZones = usedZones + 1
+   if usedZones > 1 then y = y + 5 end -- bölge grupları arasında nefes payı
    local z = getZoneRow(usedZones)
    z.zone = entry.zone
    z:ClearAllPoints(); z:SetPoint('TOPLEFT', tracker, 'TOPLEFT', PAD, -y)
@@ -602,7 +639,10 @@ function FT.RefreshTracker()
   moreText:SetText(('+%d görev daha (panelden bak)'):format(#entries - used - hidden)); moreText:Show()
   y = y + 16
  end
- if #entries == 0 then emptyText:SetText('Günlükte görev yok.'); emptyText:Show(); y = y + 20 end
+ if #entries == 0 then
+  emptyText:ClearAllPoints(); emptyText:SetPoint('TOPLEFT', tracker, 'TOPLEFT', PAD + 4, -y)
+  emptyText:SetText('Günlükte görev yok.'); emptyText:Show(); y = y + 20
+ end
  if FT.HideTrackerItems then pcall(FT.HideTrackerItems, used + 1) end
  tracker:SetHeight(y + 8)
 end

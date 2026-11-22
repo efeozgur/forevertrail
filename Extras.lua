@@ -8,7 +8,8 @@ local function module(name)
 end
 
 -- Seviye ilerlemesi ve teslim edilebilir görevlerin getireceği XP
-function FT.LevelSummary()
+-- Dönüş: seviye metni, teslimle gelecek XP metni (yoksa nil)
+function FT.LevelParts()
  local level = UnitLevel and UnitLevel('player') or 0
  local xp, max = UnitXP and UnitXP('player') or 0, UnitXPMax and UnitXPMax('player') or 0
  if not max or max <= 0 then return ('Seviye %d'):format(level) end
@@ -24,7 +25,13 @@ function FT.LevelSummary()
   end
  end
  local text = ('Seviye %d  %%%d'):format(level, math.floor(xp / max * 100))
- if gain > 0 then text = text .. ('  |  teslimle +%d XP (%%%d)'):format(gain, math.floor(gain / max * 100)) end
+ local gainText = gain > 0 and ('Teslimle +%d XP (%%%d)'):format(gain, math.floor(gain / max * 100)) or nil
+ return text, gainText
+end
+
+function FT.LevelSummary()
+ local text, gainText = FT.LevelParts()
+ if gainText then text = text .. '  |  ' .. gainText:gsub('^T', 't') end
  return text
 end
 
