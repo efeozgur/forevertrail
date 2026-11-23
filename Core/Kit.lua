@@ -214,7 +214,7 @@ function Kit.Slider(parent, name)
  Kit.Fill(s.track, 'line')
  s.fillBar = s:CreateTexture(nil, 'ARTWORK'); s.fillBar:SetHeight(4); s.fillBar:SetPoint('LEFT', 0, 0); s.fillBar:SetWidth(1)
  Kit.Fill(s.fillBar, 'accent')
- s:SetThumbTexture('Interface\Buttons\WHITE8X8')
+ s:SetThumbTexture('Interface\\Buttons\\WHITE8X8')
  local thumb = s:GetThumbTexture()
  if thumb then thumb:SetSize(8, 14); track(function() local a = Kit.Color('accent'); thumb:SetVertexColor(a[1], a[2], a[3]) end) end
  local function update(self)

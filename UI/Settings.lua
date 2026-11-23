@@ -26,13 +26,13 @@ local function tint(fs) local c = FT.Kit and FT.Kit.Color('text') or {1, 0.94, 0
 local PAGES = {
  {key='q_genel', label='Genel', icon='tracker_quests', desc='Genel ayarlar, sesler, grup ve rehber'},
  {key='q_simge', label='Simgeler', icon='fav', desc='Haritada ve mini haritada hangi simgelerin nasıl görüneceği'},
- {key='q_takip', label='Görev kutuları', icon='tracker_giver', desc='Görev takip kutusu ve alınabilir görevler'},
- {key='q_harita', label='Rota ve yolculuk', icon='node', desc='Rota, yol noktaları ve yolculuk'},
- {key='q_plaka', label='İsim plakası', icon='startend', desc='Görev yaratıklarının isim plakası simgeleri'},
+ {key='q_takip', label='Görev kutuları', short='Kutular', icon='tracker_giver', desc='Görev takip kutusu ve alınabilir görevler'},
+ {key='q_harita', label='Rota ve yolculuk', short='Rota', icon='node', desc='Rota, yol noktaları ve yolculuk'},
+ {key='q_plaka', label='İsim plakası', short='Plaka', icon='startend', desc='Görev yaratıklarının isim plakası simgeleri'},
  {key='q_oto', label='Otomatik', icon='tracker_clean', desc='Otomatik görev, çanta, satıcı ve kolaylıklar'},
  {key='sinifm', label='Sınıf / Meslek', icon='startend', desc='Yetenek planı, seviye kartı, sınıf görevleri, eşya ve meslek yardımcıları'},
  {key='uyari', label='Uyarılar', icon='tracker_close', desc='Uyarılar ve olay sesleri'},
- {key='gorunum', label='Pencereler ve tema', icon='tracker_database', desc='Pencereler, tema, saydamlık ve ölçek'},
+ {key='gorunum', label='Pencereler ve tema', short='Pencereler', icon='tracker_database', desc='Pencereler, tema, saydamlık ve ölçek'},
  {key='ozel', label='Özelleştir', icon='tracker_settings', desc='Görev renkleri, rozet konumu ve canlı önizleme'},
  {key='q_profil', label='Profiller', icon='tracker_search', desc='Profiller, ayar aktarma ve yedekler'},
  {key='q_gelismis', label='Gelişmiş', icon='tracker_settings', desc='Yazı tipleri, ayar penceresi, testler ve araçlar'},
@@ -42,12 +42,12 @@ for _, p in ipairs(PAGES) do PAGE_BY_KEY[p.key] = p end
 
 -- Kategoriler: kullanıcının ne yapmak istediğine göre. Kenar sekmeleri bunlardır (FT.SettingsTabs).
 local GROUPS = {
- {key='g_genel', label='Genel', icon='tracker_quests', desc='Rehber, yön oku ve görev kutuları', pages={'q_genel', 'q_takip'}},
- {key='g_harita', label='Harita', icon='node', desc='Simgeler, rota, yolculuk ve isim plakaları', pages={'q_simge', 'q_harita', 'q_plaka'}},
- {key='g_oto', label='Otomatik ve uyarılar', icon='tracker_clean', desc='Otomatik görev, çanta ve satıcı işleri; uyarılar ve sesler', pages={'q_oto', 'uyari'}},
- {key='g_sinif', label='Sınıf ve meslek', icon='startend', desc='Yetenek planı, seviye kartı, eşya ve meslek yardımcıları', pages={'sinifm'}},
- {key='g_gorunum', label='Görünüm', icon='tracker_database', desc='Pencereler, tema, ölçek ve görev renkleri', pages={'gorunum', 'ozel'}},
- {key='g_gelismis', label='Profil ve gelişmiş', icon='tracker_settings', desc='Profiller, yedekler, testler ve araçlar', pages={'q_profil', 'q_gelismis'}},
+ {key='g_genel', label='Genel', short='Genel', icon='tracker_quests', desc='Rehber, yön oku ve görev kutuları', pages={'q_genel', 'q_takip'}},
+ {key='g_harita', label='Harita', short='Harita', icon='node', desc='Simgeler, rota, yolculuk ve isim plakaları', pages={'q_simge', 'q_harita', 'q_plaka'}},
+ {key='g_oto', label='Otomatik ve uyarılar', short='Otomatik', icon='tracker_clean', desc='Otomatik görev, çanta ve satıcı işleri; uyarılar ve sesler', pages={'q_oto', 'uyari'}},
+ {key='g_sinif', label='Sınıf ve meslek', short='Sınıf', icon='startend', desc='Yetenek planı, seviye kartı, eşya ve meslek yardımcıları', pages={'sinifm'}},
+ {key='g_gorunum', label='Görünüm', short='Görünüm', icon='tracker_database', desc='Pencereler, tema, ölçek ve görev renkleri', pages={'gorunum', 'ozel'}},
+ {key='g_gelismis', label='Profil ve gelişmiş', short='Gelişmiş', icon='tracker_settings', desc='Profiller, yedekler, testler ve araçlar', pages={'q_profil', 'q_gelismis'}},
 }
 local GROUP_BY_KEY, GROUP_OF_PAGE = {}, {}
 for _, g in ipairs(GROUPS) do
@@ -185,9 +185,10 @@ local items = {
  {tab='gorunum', key='compact', label='Küçük panel', apply=function(v) if FT.SetCompact then FT.SetCompact(v) end end},
 }
 
-local WIDTH, HEIGHT = 616, 640
-local SIDEW = 132
-local CW = WIDTH - SIDEW - 24
+-- Ana pencerenin icerik alanina sigar (genislik sabit); sol liste yok, kategoriler ustte sekme olarak durur
+local WIDTH, HEIGHT = 450, 582
+local SIDEW = 0
+local CW = WIDTH - 24
 
 function FT.CreateSettings()
  if frame then return end
@@ -203,29 +204,22 @@ function FT.CreateSettings()
  title:SetPoint('TOP', 0, -7); title:SetText('ForeverTrail ayarları'); applyFont(title)
  frame.title = title
  frame.pages, frame.tabButtons, frame.checks = {}, {}, {}
- -- Questie gibi: solda kategori listesi, sağda başlık + açıklama + içerik
- local side = frame:CreateTexture(nil, 'BACKGROUND', nil, 2)
- side:SetPoint('TOPLEFT', 8, -28); side:SetPoint('BOTTOMLEFT', 8, 8); side:SetWidth(SIDEW - 8)
- if FT.Kit then FT.Kit.Fill(side, 'rail') else side:SetColorTexture(0, 0, 0, 0.22) end
- frame.sideBg = side
- frame.pageTitle = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormalLarge')
- frame.pageTitle:SetPoint('TOPLEFT', SIDEW + 12, -32); applyFont(frame.pageTitle)
- frame.pageDesc = frame:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- frame.pageDesc:SetPoint('TOPLEFT', frame.pageTitle, 'BOTTOMLEFT', 0, -4); frame.pageDesc:SetWidth(CW); frame.pageDesc:SetJustifyH('LEFT')
- applyFont(frame.pageDesc); do local m = FT.Kit and FT.Kit.Color('muted') or {0.75, 0.71, 0.64}; frame.pageDesc:SetTextColor(m[1], m[2], m[3]) end
+ -- Ustte kategori sekmeleri, altinda alt sekmeler ve arama (BuildSettingsNav); sol liste yok
+ frame.pageTitle = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormalLarge'); frame.pageTitle:Hide()
+ frame.pageDesc = frame:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall'); frame.pageDesc:Hide()
  local headLine = frame:CreateTexture(nil, 'ARTWORK'); headLine:SetHeight(1)
- headLine:SetPoint('TOPLEFT', SIDEW + 12, -70); headLine:SetPoint('TOPRIGHT', -12, -70); headLine:SetColorTexture(1, 1, 1, 1)
- if FT.RegisterAccent then FT.RegisterAccent(headLine, 0.4) end
+ headLine:SetPoint('TOPLEFT', 0, -66); headLine:SetPoint('TOPRIGHT', 0, -66)
+ if FT.Kit then FT.Kit.Fill(headLine, 'line') else headLine:SetColorTexture(1, 1, 1, 0.3) end
  frame.headLine = headLine
  for _, t in ipairs(PAGES) do
   local page
   if t.key:sub(1, 2) == 'q_' then
    page = CreateFrame('Frame', nil, frame)
-   page:SetPoint('TOPLEFT', SIDEW + 12, -80); page:SetPoint('BOTTOMRIGHT', -12, 10)
+   page:SetPoint('TOPLEFT', 4, -74); page:SetPoint('BOTTOMRIGHT', -4, 6)
   else
    -- uzun sayfalar pencereden taşmasın: kaydırılabilir kap
    local holder = (FT.Kit and FT.Kit.Scroll(frame) or CreateFrame('ScrollFrame', nil, frame, 'UIPanelScrollFrameTemplate'))
-   holder:SetPoint('TOPLEFT', SIDEW + 12, -80); holder:SetPoint('BOTTOMRIGHT', -30, 10)
+   holder:SetPoint('TOPLEFT', 4, -74); holder:SetPoint('BOTTOMRIGHT', -16, 6)
    page = CreateFrame('Frame', nil, holder)
    page:SetSize(CW - 18, 1200)
    holder:SetScrollChild(page)
@@ -249,20 +243,6 @@ function FT.CreateSettings()
   end
   page:Hide()
   frame.pages[t.key] = page
- end
- for i, t in ipairs(GROUPS) do
-  local b = CreateFrame('Button', nil, frame)
-  b:SetSize(SIDEW - 8, 30); b:SetPoint('TOPLEFT', 8, -30 - (i - 1) * 32)
-  b.bg = b:CreateTexture(nil, 'BACKGROUND', nil, 3); b.bg:SetAllPoints()
-  b.bar = b:CreateTexture(nil, 'ARTWORK'); b.bar:SetPoint('TOPLEFT'); b.bar:SetPoint('BOTTOMLEFT'); b.bar:SetWidth(3)
-  b.icon = b:CreateTexture(nil, 'ARTWORK'); b.icon:SetSize(16, 16); b.icon:SetPoint('LEFT', 9, 0)
-  b.icon:SetTexture('Interface\\AddOns\\ForeverTrail\\Media\\' .. t.icon); b.icon:SetDesaturated(true)
-  b.text = b:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight'); b.text:SetPoint('LEFT', b.icon, 'RIGHT', 7, 0)
-  b.text:SetText(t.label); applyFont(b.text)
-  b:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
-  b:SetScript('OnClick', function() FT.SettingsTab(t.key) end)
-  b.key, b.def = t.key, t
-  frame.tabButtons[i] = b
  end
  if FT.BuildSettingsNav then FT.BuildSettingsNav(frame) end
  local rowsUsed = {}
@@ -357,13 +337,11 @@ end
 
 -- Kenar düğmelerini boyar; on = açık kategorinin anahtarı (arama sonuçlarında nil: hiçbiri açık değil)
 local function paintNav(on)
- local a = FT.Style.accent
  for _, b in ipairs(frame.tabButtons) do
   local sel = on ~= nil and b.key == on
-  b.bar:SetShown(sel); b.bar:SetColorTexture(a[1], a[2], a[3], 1)
-  b.bg:SetColorTexture(1, 1, 1, sel and 0.09 or 0)
-  if sel then b.text:SetTextColor(a[1], a[2], a[3]); b.icon:SetVertexColor(a[1], a[2], a[3])
-  else local m = FT.Kit and FT.Kit.Color('muted') or {0.8, 0.78, 0.72}; b.text:SetTextColor(m[1], m[2], m[3]); b.icon:SetVertexColor(m[1], m[2], m[3]) end
+  b.line:SetShown(sel)
+  local c = FT.Kit and FT.Kit.Color(sel and 'accent' or 'muted') or {0.8, 0.78, 0.72}
+  b.text:SetTextColor(c[1], c[2], c[3])
  end
 end
 
@@ -983,12 +961,33 @@ end
 
 function FT.BuildSettingsNav(f)
  f.subBars = {}
+ -- kategori sekmeleri: tek satir, secili olanin altinda vurgu cizgisi
+ local tabW = math.floor(WIDTH / #GROUPS)
+ local strip = f:CreateTexture(nil, 'ARTWORK'); strip:SetHeight(1)
+ strip:SetPoint('TOPLEFT', 0, -30); strip:SetPoint('TOPRIGHT', 0, -30)
+ if FT.Kit then FT.Kit.Fill(strip, 'line') else strip:SetColorTexture(1, 1, 1, 0.2) end
+ for i, g in ipairs(GROUPS) do
+  local b = CreateFrame('Button', nil, f)
+  b:SetSize(tabW, 30); b:SetPoint('TOPLEFT', f, 'TOPLEFT', (i - 1) * tabW, 0)
+  b.text = b:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight'); b.text:SetPoint('CENTER', b, 'CENTER', 0, 0)
+  b.text:SetText(g.short or g.label); applyFont(b.text)
+  b.line = b:CreateTexture(nil, 'OVERLAY'); b.line:SetHeight(2)
+  b.line:SetPoint('BOTTOMLEFT', 4, 0); b.line:SetPoint('BOTTOMRIGHT', -4, 0)
+  if FT.Kit then FT.Kit.Fill(b.line, 'accent') else b.line:SetColorTexture(1, 0.8, 0.3, 1) end
+  b.line:Hide()
+  b:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.05)
+  b:SetScript('OnClick', function() FT.SettingsTab(g.key) end)
+  b:SetScript('OnEnter', function(self) GameTooltip:SetOwner(self, 'ANCHOR_BOTTOM'); GameTooltip:SetText(g.label, 1, 0.82, 0); GameTooltip:AddLine(g.desc or '', 1, 1, 1, true); GameTooltip:Show() end)
+  b:SetScript('OnLeave', function() GameTooltip:Hide() end)
+  b.key, b.def = g.key, g
+  f.tabButtons[i] = b
+ end
  for _, g in ipairs(GROUPS) do
   if #g.pages > 1 then
    local bar = {}
    for i, pk in ipairs(g.pages) do
-    local b = FT.NewButton(f, PAGE_BY_KEY[pk].label, 112, 18)
-    b:SetPoint('TOPLEFT', f.pageTitle, 'BOTTOMLEFT', (i - 1) * 116, -4)
+    local b = FT.NewButton(f, PAGE_BY_KEY[pk].short or PAGE_BY_KEY[pk].label, 96, 20)
+    b:SetPoint('TOPLEFT', f, 'TOPLEFT', 4 + (i - 1) * 100, -38)
     applyFont(b:GetFontString())
     b.pageKey = pk
     b:SetScript('OnClick', function() FT.SettingsTab(pk) end)
@@ -1000,7 +999,7 @@ function FT.BuildSettingsNav(f)
  end
  -- arama kutusu
  local box = (FT.Kit and FT.Kit.Input(f) or CreateFrame('EditBox', nil, f, 'InputBoxTemplate'))
- box:SetSize(150, 20); box:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -36, -32); box:SetAutoFocus(false)
+ box:SetSize(112, 20); box:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -4, -38); box:SetAutoFocus(false)
  if box.SetMaxLetters then box:SetMaxLetters(40) end
  local hint = box:CreateFontString(nil, 'OVERLAY', 'GameFontDisableSmall')
  hint:SetPoint('LEFT', box, 'LEFT', 4, 0); hint:SetText('Ayarlarda ara...'); applyFont(hint)
@@ -1015,13 +1014,13 @@ function FT.BuildSettingsNav(f)
  f.searchBox, f.searchHint = box, hint
  -- sonuç sayfası
  local res = CreateFrame('Frame', nil, f)
- res:SetPoint('TOPLEFT', SIDEW + 12, -80); res:SetPoint('BOTTOMRIGHT', -12, 10)
+ res:SetPoint('TOPLEFT', 4, -74); res:SetPoint('BOTTOMRIGHT', -4, 6)
  res:Hide()
  res.rows = {}
  for i = 1, MAX_RESULTS do
   local row = CreateFrame('Button', nil, res)
   row:SetSize(CW, 26); row:SetPoint('TOPLEFT', 0, -(i - 1) * 28)
-  row:SetHighlightTexture('Interface\Buttons\WHITE8X8'); row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
+  row:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
   row.name = row:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
   row.name:SetPoint('LEFT', 6, 6); row.name:SetWidth(CW - 12); row.name:SetJustifyH('LEFT'); applyFont(row.name)
   row.path = row:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')

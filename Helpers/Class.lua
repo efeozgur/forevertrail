@@ -480,7 +480,8 @@ function FT.BuildClassPage(holder)
   local c = CreateFrame('Button', nil, holder)
   c:SetSize(142, 92); c:SetPoint('TOPLEFT', (i - 1) * 148, -20)
   c.border = c:CreateTexture(nil, 'BACKGROUND'); c.border:SetAllPoints()
-  c.bg = c:CreateTexture(nil, 'BORDER'); c.bg:SetPoint('TOPLEFT', 1, -1); c.bg:SetPoint('BOTTOMRIGHT', -1, 1); c.bg:SetColorTexture(0.06, 0.06, 0.08, 0.95)
+  c.bg = c:CreateTexture(nil, 'BORDER'); c.bg:SetPoint('TOPLEFT', 1, -1); c.bg:SetPoint('BOTTOMRIGHT', -1, 1)
+  if FT.Kit then FT.Kit.Fill(c.bg, 'card') else c.bg:SetColorTexture(0.06, 0.06, 0.08, 0.95) end
   c.name = text(c, 12, 'OUTLINE'); c.name:SetPoint('TOPLEFT', 6, -6); c.name:SetWidth(130)
   c.badge = text(c, 10, ''); c.badge:SetPoint('TOPLEFT', 6, -22); c.badge:SetTextColor(0.4, 1, 0.4)
   c.desc = text(c, 10, ''); c.desc:SetPoint('TOPLEFT', 6, -36); c.desc:SetWidth(130); c.desc:SetJustifyV('TOP'); c.desc:SetTextColor(0.8, 0.77, 0.7)
@@ -488,10 +489,10 @@ function FT.BuildClassPage(holder)
   page.cards[i] = c
  end
  page.nextIcon = holder:CreateTexture(nil, 'ARTWORK'); page.nextIcon:SetSize(30, 30); page.nextIcon:SetPoint('TOPLEFT', 0, -120)
- page.nextText = text(holder, 12, ''); page.nextText:SetPoint('TOPLEFT', 38, -121); page.nextText:SetWidth(260)
- page.learn = FT.NewButton(holder, 'Öğren', 70, 22); page.learn:SetPoint('TOPLEFT', 306, -122)
+ page.nextText = text(holder, 12, ''); page.nextText:SetPoint('TOPLEFT', 38, -121); page.nextText:SetWidth(232)
+ page.learn = FT.NewButton(holder, 'Öğren', 90, 22); page.learn:SetPoint('TOPLEFT', 246, -122)
  page.learn:SetScript('OnClick', FT.LearnNextTalent)
- page.import = FT.NewButton(holder, 'Kendi planım', 66, 22); page.import:SetPoint('TOPLEFT', 380, -122)
+ page.import = FT.NewButton(holder, 'Kendi planım', 98, 22); page.import:SetPoint('TOPLEFT', 342, -122)
  page.import:SetScript('OnClick', function()
   if not page.box then
    page.box = (FT.Kit and FT.Kit.Input(holder) or CreateFrame('EditBox', nil, holder, 'InputBoxTemplate')); page.box:SetSize(420, 20); page.box:SetPoint('TOPLEFT', 6, -152)
@@ -525,7 +526,7 @@ function FT.BuildClassPage(holder)
  page.milestones = text(holder, 11, ''); page.milestones:SetPoint('TOPLEFT', 0, -276); page.milestones:SetWidth(W); page.milestones:SetTextColor(0.8, 0.77, 0.7)
  page.warn = text(holder, 11, ''); page.warn:SetPoint('TOPLEFT', 0, -292); page.warn:SetWidth(W); page.warn:SetTextColor(1, 0.55, 0.35)
  -- sınıf görevleri
- section(holder, -312, 'Sınıf görevleri'):SetPoint('TOPLEFT', 2, -312)
+ page.qHead = section(holder, -312, 'Sınıf görevleri'); page.qHead:SetPoint('TOPLEFT', 2, -312)
  page.qrows = {}
  for i = 1, 7 do
   local r = CreateFrame('Button', nil, holder); r:SetSize(W, 22); r:SetPoint('TOPLEFT', 0, -330 - (i - 1) * 23)
@@ -539,7 +540,7 @@ function FT.BuildClassPage(holder)
  -- evcil hayvanlar (avcı)
  page.petHead = section(holder, -496, 'Bu bölgede evcilleştirilebilir'); page.petHead:SetPoint('TOPLEFT', 2, -496)
  page.prows = {}
- for i = 1, 5 do
+ for i = 1, 4 do
   local r = CreateFrame('Button', nil, holder); r:SetSize(W, 22); r:SetPoint('TOPLEFT', 0, -514 - (i - 1) * 23)
   r:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
   r.title = text(r, 12, ''); r.title:SetPoint('LEFT', 4, 0); r.title:SetWidth(190); r.title:SetWordWrap(false)
@@ -547,6 +548,13 @@ function FT.BuildClassPage(holder)
   r:SetScript('OnClick', function(self) local p = self.pet; if p then FT.SetCustomTarget(p.map, p.x, p.y, p.name) end end)
   page.prows[i] = r
  end
+ -- Yetenek ızgarası kullanılamıyorsa (bu istemcide ağaç okunamaz) alttaki bölümler boşluğu kapatmak için yukarı kayar
+ page.lower = {}
+ local function track(el, x, y) page.lower[#page.lower + 1] = {el = el, x = x, y = y} end
+ track(page.milestones, 0, -276); track(page.warn, 0, -292); track(page.qHead, 2, -312)
+ for i, r in ipairs(page.qrows) do track(r, 0, -330 - (i - 1) * 23) end
+ track(page.petHead, 2, -496)
+ for i, r in ipairs(page.prows) do track(r, 0, -514 - (i - 1) * 23) end
  holder:HookScript('OnShow', function() pcall(FT.RefreshClassPage) end)
 end
 
@@ -567,11 +575,17 @@ function FT.RefreshClassPage()
    c.badge:SetText((b.recommended and '★ Önerilen  ' or '') .. ('|cff9aa0a6%d/%d/%d|r'):format(split[1] or 0, split[2] or 0, split[3] or 0))
    c.desc:SetText(b.desc or '')
    local sel = cur and cur.key == b.key
-   c.border:SetColorTexture(sel and a[1] or 0.3, sel and a[2] or 0.3, sel and a[3] or 0.3, 1)
+   local lc = FT.Kit and FT.Kit.Color('line') or {0.3, 0.3, 0.3}
+   c.border:SetColorTexture(sel and a[1] or lc[1], sel and a[2] or lc[2], sel and a[3] or lc[3], 1)
    c:Show()
   else c:Hide() end
  end
  local steps, err = FT.TalentPlan()
+ local shift = steps and 0 or 116
+ if page.shift ~= shift then
+  page.shift = shift
+  for _, t in ipairs(page.lower) do t.el:ClearAllPoints(); t.el:SetPoint('TOPLEFT', t.x, t.y + shift) end
+ end
  local s, idx = FT.NextTalent()
  local pts = FT.Compat.UnspentPoints()
  if s then

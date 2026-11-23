@@ -372,6 +372,14 @@ try('ortak bileşenler', function()
  assert(FT.panel.activate and FT.panel.resume and FT.panel.prevButton and FT.panel.nextButton, 'rehber paneli düğmeleri')
  FT.OpenHub('rehber'); assert(FT.hub.rail and FT.hub.pageTitle:GetText() == 'Rehber', 'hub başlığı')
  FT.OpenHub('gorevler'); assert(FT.hub.pageDesc:GetText() ~= '', 'hub açıklaması')
+ local w0, h0
+ for _, page in ipairs({'rehber', 'gorevler', 'ansiklopedi', 'sinif', 'meslek', 'yerler', 'araclar', 'ayarlar'}) do
+  FT.OpenHub(page)
+  local w, h = FT.hub:GetWidth(), FT.hub:GetHeight()
+  w0, h0 = w0 or w, h0 or h
+  assert(w == w0 and h == h0, 'hub boyutu sayfalar arasında sabit olmalı: ' .. page)
+ end
+ assert(#FT.settings.tabButtons == #FT.SettingsTabs, 'ayarlar kategori sekmeleri')
  FT.ApplyTheme('g_gece')
 end)
 try('renk şemaları', function()

@@ -4,7 +4,8 @@ local _, FT = ...
 -- Var olan pencereler bu pencerenin içine taşınır; ekranda yalnızca yön oku, görev kutusu ve ikon şeridi kalır.
 
 local hub, holders, nav, current = nil, {}, {}, nil
-local WIDTH, HEIGHT, SIDE, HEADER = 554, 730, 84, 58
+-- Pencere her sayfada aynı boyutta kalır; sayfa içeriği buna sığar (Ayarlar dahil).
+local WIDTH, HEIGHT, SIDE, HEADER = 554, 700, 84, 58
 
 -- bottom = sol şeridin altında durur (Polestar'daki İçe aktar / Seçenekler gibi)
 local PAGES = {
@@ -51,7 +52,7 @@ FT.RefreshHub = function() if hub then refreshNav() end end
 
 local function fill(page)
  if page == 'rehber' and FT.panel then
-  adopt(FT.panel, 'rehber', 0, 0)
+  adopt(FT.panel, 'rehber', 0, 22)
   FT.panel:Show()
   if FT.card then FT.card:ClearAllPoints(); FT.card:SetPoint('TOPLEFT', hub, 'TOPRIGHT', 4, 0) end
  elseif page == 'gorevler' and FT.suggestions then
@@ -80,7 +81,7 @@ function FT.OpenHub(page)
  for _, p in ipairs(PAGES) do if p.key == page then label, desc = p.label, p.desc or '' end end
  hub.pageTitle:SetText(label)
  hub.pageDesc:SetText(desc)
- hub:SetWidth(page == 'ayarlar' and WIDTH + 170 or WIDTH)
+ hub:SetWidth(WIDTH)
  fill(page)
  hub:Show()
  refreshNav()
