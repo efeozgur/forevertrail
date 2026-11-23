@@ -8,7 +8,7 @@ local function widget()
 end
 CreateFrame = widget
 methods.CreateTexture = widget
-methods.CreateLine = widget
+methods.CreateLine = function() local w = widget(); w.isLine = true; return w end
 methods.CreateFontString = widget
 methods.GetCanvas = widget
 methods.GetFrameLevel = function() return 1 end
@@ -49,6 +49,17 @@ ft.UpdateMapTrail(0.2)
 local dots, stars = visibleWith('Interface\\Buttons\\WHITE8X8'), visibleWith('Interface\\Cooldown\\star4')
 assert(dots >= 3, 'nokta izi ve ışık kuyruğu çizilmeli: ' .. dots)
 assert(stars >= 2, 'akan ışığın başı (ve hedef parıltısı) görünmeli: ' .. stars)
+-- yol verisi varsa rota kıvrımlıdır: çok parçalı çizgi ve onun boyunca akan ışıklar
+ft.RefreshMap()
+assert(ft.MapRouteSegments() == 1, 'yol verisi yokken düz çizgi (tek parça) olmalı: ' .. ft.MapRouteSegments())
+ft.CurrentRoute = function() return {{.2, .3}, {.3, .3}, {.3, .5}, {.5, .5}} end
+ft.RefreshMap()
+assert(ft.MapRouteSegments() == 3, 'kıvrımlı rota yol noktası sayısından bir az parçadan oluşmalı: ' .. ft.MapRouteSegments())
+ft.UpdateMapTrail(0.2)
+assert(visibleWith('Interface\\Buttons\\WHITE8X8') >= 3, 'ışıklar kıvrımlı yol boyunca çizilmeli')
+ft.CurrentRoute = nil
+ft.RefreshMap()
+assert(ft.MapRouteSegments() == 1, 'yol verisi kalkınca düz çizgiye dönülmeli (ek parçalar gizlenmeli): ' .. ft.MapRouteSegments())
 local report = ft.MapDebug()
 assert(report:find('target=1,0.5,0.5',1,true) and report:find('route=true',1,true), 'diagnostics must include target and route state')
 step.x, step.y = nil, nil

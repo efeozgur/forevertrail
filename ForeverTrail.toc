@@ -38,6 +38,7 @@ UI/Suggestions.lua
 UI/RouteCard.lua
 UI/Target.lua
 UI/Tracker.lua
+Map/Roads.lua
 Map/Minimap.lua
 UI/Settings.lua
 UI/QuickSettings.lua

@@ -11,7 +11,8 @@ FT.TypeColor = FT.TypeColor or {accept={0.55,0.82,0.5}, objective={0.98,0.8,0.4}
 local typeColor = FT.TypeColor
 local overlay, marker, glow, label, player, route, routeGlow, caption
 local dots, pulse = {}, 0
-local trail, trailFrom, trailTo = {}, nil, nil
+local trail, trailPts = {}, nil
+local segGlow, segCore = {}, {}
 local mapRing = {}
 
 -- Güzergah: oyuncudan hedefe giden, tema renginde parıltılı çizgi; üzerinde ince bir nokta izi ve hedefe doğru akan kuyruklu ışıklar.
@@ -39,35 +40,45 @@ end
 
 local function updateTrail()
  local base, head, tail = 0, 0, 0
- if overlay and trailFrom and trailTo then
-  local dx, dy = trailTo[1] - trailFrom[1], trailTo[2] - trailFrom[2]
-  local length = math.sqrt(dx * dx + dy * dy)
-  if length > 24 then
+ if overlay and trailPts and #trailPts >= 2 then
+  -- birikimli uzunluklar; yol boyunca d uzaklığındaki nokta
+  local cum, total = {0}, 0
+  for i = 2, #trailPts do
+   total = total + math.sqrt((trailPts[i][1] - trailPts[i - 1][1]) ^ 2 + (trailPts[i][2] - trailPts[i - 1][2]) ^ 2)
+   cum[i] = total
+  end
+  if total > 24 then
+   local function at(d)
+    local i = 2
+    while i < #trailPts and cum[i] < d do i = i + 1 end
+    local a, b2 = trailPts[i - 1], trailPts[i]
+    local seg = cum[i] - cum[i - 1]
+    local t = seg > 0 and (d - cum[i - 1]) / seg or 0
+    return a[1] + (b2[1] - a[1]) * t, a[2] + (b2[2] - a[2]) * t
+   end
    local r, g, b = trailColor()
-   local ux, uy = dx / length, dy / length
    -- ince nokta izi (sabit)
    local spacing = 15
-   local n = math.min(90, math.floor(length / spacing))
+   local n = math.min(120, math.floor(total / spacing))
    for i = 1, n do
     base = base + 1
     local d = dotTexture(trail, base, 4, false)
-    local t = (i * spacing) / length
-    d:ClearAllPoints(); d:SetPoint('CENTER', overlay, 'TOPLEFT', trailFrom[1] + dx * t, trailFrom[2] + dy * t)
-    d:SetVertexColor(r, g, b, 0.18 + 0.32 * t)
+    local x, y = at(i * spacing)
+    d:ClearAllPoints(); d:SetPoint('CENTER', overlay, 'TOPLEFT', x, y)
+    d:SetVertexColor(r, g, b, 0.18 + 0.32 * (i * spacing / total))
     d:Show()
    end
    -- akan ışıklar: baş + kuyruk
-   local count = math.max(1, math.min(4, math.floor(length / 260) + 1))
-   local speed = 120 + math.min(160, length * 0.25)
+   local count = math.max(1, math.min(4, math.floor(total / 260) + 1))
+   local speed = 120 + math.min(160, total * 0.25)
    for c = 1, count do
-    local pos = (pulse * speed + (c - 1) * length / count) % length
+    local pos = (pulse * speed + (c - 1) * total / count) % total
     for k = 0, TAIL do
-     local at = pos - k * 9
-     if at > 0 then
-      local t = at / length
-      local x, y = trailFrom[1] + ux * at, trailFrom[2] + uy * at
-      local falloff = 1 - k / (TAIL + 1)
-      local strength = (0.35 + 0.65 * t) * falloff
+     local dist = pos - k * 9
+     if dist > 0 then
+      local t = dist / total
+      local x, y = at(dist)
+      local strength = (0.35 + 0.65 * t) * (1 - k / (TAIL + 1))
       if k == 0 then
        head = head + 1
        local h = dotTexture(comets, head, 17 + 4 * math.sin(pulse * 7 + c), true)
@@ -91,6 +102,12 @@ local function updateTrail()
  for i = tail + 1, #tails do tails[i]:Hide() end
 end
 FT.mapDots = dots
+-- Çizilen rota parçası sayısı (test ve tanı için): düz çizgide 1, kıvrımlı yolda parça sayısı
+FT.MapRouteSegments = function()
+ local n = (route and route:IsShown()) and 1 or 0
+ for i = 1, #segCore do if segCore[i]:IsShown() then n = n + 1 end end
+ return n
+end
 FT.UpdateMapTrail = function(advance) pulse = pulse + (advance or 0); updateTrail() end -- test ve tanı için
 
 function FT.MapDebug()
@@ -337,7 +354,8 @@ function FT.RefreshMap()
  player:Hide()
  route:Hide()
  if routeGlow then routeGlow:Hide() end
- trailFrom, trailTo = nil, nil
+ trailPts = nil
+ for i = 1, #segCore do segCore[i]:Hide(); segGlow[i]:Hide() end
  if FT.HideRing then FT.HideRing(mapRing) end
  glow:Hide()
  label:Hide()
@@ -416,18 +434,43 @@ function FT.RefreshMap()
  if px ~= tx or py ~= ty then
   local r, g, b = 1, 0.82, 0.4
   if FT.MapTrailColor then r, g, b = FT.MapTrailColor() end
-  route:SetStartPoint('TOPLEFT', overlay, px, py)
-  route:SetEndPoint('TOPLEFT', overlay, tx, ty)
-  route:SetColorTexture(r, g, b, 0.5)
-  route:Show()
-  routeGlow:SetStartPoint('TOPLEFT', overlay, px, py)
-  routeGlow:SetEndPoint('TOPLEFT', overlay, tx, ty)
-  routeGlow:SetColorTexture(r, g, b, 0.10)
-  routeGlow:Show()
   local gx, gy = tx, ty
   local nav = FT.nav
-  if nav and nav.hint and nav.step and nav.step.uiMapID == step.uiMapID then gx, gy = nav.step.x * w, -nav.step.y * h end
-  trailFrom, trailTo = {px, py}, {gx, gy}
+  local viaHint = nav and nav.hint and nav.step and nav.step.uiMapID == step.uiMapID
+  if viaHint then gx, gy = nav.step.x * w, -nav.step.y * h end
+  -- yol verisi varsa (Polestar_Nav ya da öğrenilmiş yollar) rota kıvrımlıdır; yoksa düz çizgi
+  local pts
+  if not viaHint and FT.CurrentRoute and step.x and C_Map and C_Map.GetBestMapForUnit then
+   local okMap, pm = pcall(C_Map.GetBestMapForUnit, 'player')
+   if okMap and pm == step.uiMapID then
+    local okSize, ww, wh = pcall(C_Map.GetMapWorldSize, step.uiMapID)
+    local list = okSize and ww and FT.CurrentRoute(step.uiMapID, x, y, step.x, step.y, ww, wh)
+    if list and #list >= 2 then
+     pts = {}
+     for i, p in ipairs(list) do pts[i] = {p[1] * w, -p[2] * h} end
+    end
+   end
+  end
+  pts = pts or {{px, py}, {tx, ty}}
+  route:SetStartPoint('TOPLEFT', overlay, pts[1][1], pts[1][2])
+  route:SetEndPoint('TOPLEFT', overlay, pts[2][1], pts[2][2])
+  route:SetColorTexture(r, g, b, 0.5)
+  route:Show()
+  routeGlow:SetStartPoint('TOPLEFT', overlay, pts[1][1], pts[1][2])
+  routeGlow:SetEndPoint('TOPLEFT', overlay, pts[2][1], pts[2][2])
+  routeGlow:SetColorTexture(r, g, b, 0.10)
+  routeGlow:Show()
+  for i = 3, #pts do
+   local k = i - 2
+   if not segCore[k] then
+    segGlow[k] = overlay:CreateLine(nil, 'ARTWORK'); segGlow[k]:SetThickness(9)
+    segCore[k] = overlay:CreateLine(nil, 'ARTWORK'); segCore[k]:SetThickness(3)
+   end
+   segGlow[k]:SetColorTexture(r, g, b, 0.10); segCore[k]:SetColorTexture(r, g, b, 0.5)
+   segGlow[k]:SetStartPoint('TOPLEFT', overlay, pts[i - 1][1], pts[i - 1][2]); segGlow[k]:SetEndPoint('TOPLEFT', overlay, pts[i][1], pts[i][2]); segGlow[k]:Show()
+   segCore[k]:SetStartPoint('TOPLEFT', overlay, pts[i - 1][1], pts[i - 1][2]); segCore[k]:SetEndPoint('TOPLEFT', overlay, pts[i][1], pts[i][2]); segCore[k]:Show()
+  end
+  trailPts = viaHint and {{px, py}, {gx, gy}} or pts
  end
  local measured, yards = pcall(distanceYards, step, x, y)
  local distance = measured and yards and ('%.0f yd'):format(yards) or 'Mesafe okunamıyor'
@@ -673,5 +716,5 @@ function FT.DrawVia(mapID)
  viaLabel:ClearAllPoints(); viaLabel:SetPoint('BOTTOM', viaMark, 'TOP', 0, 2)
  viaLabel:SetText(nav.hint)
  viaMark:Show(); viaLabel:Show()
- trailFrom, trailTo = {nav.px * w, -nav.py * h}, {gx, gy}
+ trailPts = {{nav.px * w, -nav.py * h}, {gx, gy}}
 end

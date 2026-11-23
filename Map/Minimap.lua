@@ -122,44 +122,90 @@ if placer then placer:SetScript('OnUpdate', function()
  end
 end) end
 
--- Hedefe giden rota: oyuncudan hedef işaretine sarı, parıltılı bir çizgi; üstünde hedefe doğru akan noktalar.
--- Hedef çemberin dışındaysa çizgi kenarda kırpılır ve yönü gösterir. Ayar: minimapRoute (kapatılabilir).
-local routeGlow, routeCore, routeDots = nil, nil, {}
+-- Hedefe giden rota: oyuncudan hedef işaretine sarı, parıltılı çizgi; üstünde hedefe doğru akan noktalar.
+-- Rota, yol verisi varsa (Polestar_Nav ya da öğrenilmiş yollar, Map/Roads.lua) kıvrımlıdır; yoksa düz çizgi.
+-- Çizgiler Minimap'in kendi katmanına değil, üstteki ayrı bir çerçeveye konur: aksi halde mini haritanın kendi çizimi üstlerine biner.
+-- Çemberin dışına taşan kısım kenarda kırpılır. Ayar: minimapRoute (kapatılabilir).
+local routeFrame
+local glowLines, coreLines, routeDots = {}, {}, {}
 local ROUTE_R, ROUTE_G, ROUTE_B = 1, 0.85, 0.15
+local lastSegments = 0
 local function hideRoute()
- if routeCore then routeCore:Hide(); routeGlow:Hide() end
+ for _, l in ipairs(glowLines) do l:Hide() end
+ for _, l in ipairs(coreLines) do l:Hide() end
  for _, d in ipairs(routeDots) do d:Hide() end
+ lastSegments = 0
 end
-local function drawRoute(ex, ey, half)
- if ForeverTrailSettings and ForeverTrailSettings.minimapRoute == false or not Minimap.CreateLine then return hideRoute() end
- local ax, ay, bx, by = clip(0, 0, ex, ey, half * 0.95)
- if not ax then return hideRoute() end
- local length = math.sqrt((bx - ax) ^ 2 + (by - ay) ^ 2)
- if length < 10 then return hideRoute() end
- if not routeCore then
-  routeGlow = Minimap:CreateLine(nil, 'OVERLAY'); routeGlow:SetThickness(7)
-  routeCore = Minimap:CreateLine(nil, 'OVERLAY'); routeCore:SetThickness(2.5)
+-- points: mini harita piksel koordinatında {{x, y}, ...}; ilk nokta (0, 0) = oyuncu
+local function drawRoute(points, half)
+ if ForeverTrailSettings and ForeverTrailSettings.minimapRoute == false or not Minimap.CreateLine or not points or #points < 2 then return hideRoute() end
+ if not routeFrame then
+  routeFrame = CreateFrame('Frame', nil, Minimap)
+  routeFrame:SetAllPoints()
+  routeFrame:SetFrameLevel(Minimap:GetFrameLevel() + 6)
  end
- routeGlow:SetColorTexture(ROUTE_R, ROUTE_G, ROUTE_B, 0.16)
- routeGlow:SetStartPoint('CENTER', Minimap, ax, ay); routeGlow:SetEndPoint('CENTER', Minimap, bx, by); routeGlow:Show()
- routeCore:SetColorTexture(ROUTE_R, ROUTE_G, ROUTE_B, 0.85)
- routeCore:SetStartPoint('CENTER', Minimap, ax, ay); routeCore:SetEndPoint('CENTER', Minimap, bx, by); routeCore:Show()
- -- akan noktalar: oyuncudan hedefe doğru
+ local r = half * 0.95
+ local segs, total = {}, 0
+ for i = 2, #points do
+  local ax, ay, bx, by = clip(points[i - 1][1], points[i - 1][2], points[i][1], points[i][2], r)
+  if ax then
+   local len = math.sqrt((bx - ax) ^ 2 + (by - ay) ^ 2)
+   if len > 0.5 then segs[#segs + 1] = {ax, ay, bx, by, len, total}; total = total + len end
+  end
+ end
+ if total < 10 then return hideRoute() end
+ for i, sg in ipairs(segs) do
+  local glow, core = glowLines[i], coreLines[i]
+  if not glow then
+   glow = routeFrame:CreateLine(nil, 'ARTWORK'); glow:SetThickness(7); glowLines[i] = glow
+   core = routeFrame:CreateLine(nil, 'OVERLAY'); core:SetThickness(2.5); coreLines[i] = core
+  end
+  glow:SetColorTexture(ROUTE_R, ROUTE_G, ROUTE_B, 0.16)
+  glow:SetStartPoint('CENTER', Minimap, sg[1], sg[2]); glow:SetEndPoint('CENTER', Minimap, sg[3], sg[4]); glow:Show()
+  core:SetColorTexture(ROUTE_R, ROUTE_G, ROUTE_B, 0.85)
+  core:SetStartPoint('CENTER', Minimap, sg[1], sg[2]); core:SetEndPoint('CENTER', Minimap, sg[3], sg[4]); core:Show()
+ end
+ for i = #segs + 1, #glowLines do glowLines[i]:Hide(); coreLines[i]:Hide() end
+ lastSegments = #segs
+ -- akan noktalar: yol boyunca oyuncudan hedefe doğru
  local spacing = 16
- local shift = ((GetTime and GetTime() or 0) * 28) % spacing
- local ux, uy = (bx - ax) / length, (by - ay) / length
- local n, at = 0, shift
- while at < length - 4 and n < 24 do
+ local at = ((GetTime and GetTime() or 0) * 28) % spacing
+ local n, si = 0, 1
+ while at < total - 4 and n < 40 do
+  while segs[si + 1] and at > segs[si][6] + segs[si][5] do si = si + 1 end
+  local sg = segs[si]
+  local t = (at - sg[6]) / sg[5]
   n = n + 1
   local d = routeDots[n]
-  if not d then d = Minimap:CreateTexture(nil, 'OVERLAY'); d:SetSize(4, 4); routeDots[n] = d end
-  d:SetColorTexture(1, 0.97, 0.7, 0.35 + 0.6 * (at / length))
-  d:ClearAllPoints(); d:SetPoint('CENTER', Minimap, 'CENTER', ax + ux * at, ay + uy * at); d:Show()
+  if not d then d = routeFrame:CreateTexture(nil, 'OVERLAY', nil, 2); d:SetSize(4, 4); routeDots[n] = d end
+  d:SetColorTexture(1, 0.97, 0.7, 0.35 + 0.6 * (at / total))
+  d:ClearAllPoints(); d:SetPoint('CENTER', Minimap, 'CENTER', sg[1] + (sg[3] - sg[1]) * t, sg[2] + (sg[4] - sg[2]) * t); d:Show()
   at = at + spacing
  end
  for i = n + 1, #routeDots do routeDots[i]:Hide() end
 end
-FT.MinimapRouteInfo = function() return {core = routeCore, glow = routeGlow, dots = routeDots} end -- test ve tanı için
+FT.MinimapRouteInfo = function() return {core = coreLines[1], glow = glowLines[1], dots = routeDots, segments = lastSegments} end -- test ve tanı için
+
+-- Rotanın mini harita piksel noktaları: yol verisi varsa kıvrımlı, yoksa oyuncudan işarete düz çizgi
+local function routePixels(nav, ex, ey, half, radius, facing, rotate)
+ local step = nav.step
+ if FT.CurrentRoute and step and step.x and step.uiMapID and nav.px and C_Map and C_Map.GetBestMapForUnit then
+  local okMap, map = pcall(C_Map.GetBestMapForUnit, 'player')
+  if okMap and map == step.uiMapID then
+   local okSize, ww, wh = pcall(C_Map.GetMapWorldSize, map)
+   local pts = okSize and ww and FT.CurrentRoute(map, nav.px, nav.py, step.x, step.y, ww, wh)
+   if pts then
+    local out = {}
+    for i, p in ipairs(pts) do
+     local nx, ny = FT.MinimapOffset((p[1] - nav.px) * ww, (p[2] - nav.py) * wh, facing, rotate, radius)
+     out[i] = {nx * half, ny * half}
+    end
+    return out
+   end
+  end
+ end
+ return {{0, 0}, {ex, ey}}
+end
 
 function FT.UpdateMinimapPin()
  if not pin then return end
@@ -179,7 +225,7 @@ function FT.UpdateMinimapPin()
  pin:SetScale(FT.Scale and FT.Scale('mmIcons') or 1)
  pin:ClearAllPoints()
  pin:SetPoint('CENTER', Minimap, 'CENTER', nx * half, ny * half)
- drawRoute(nx * half, ny * half, half)
+ drawRoute(routePixels(nav, nx * half, ny * half, half, radiusYards(), facing, rotate), half)
  local color = (FT.TypeColor and FT.TypeColor[nav.step.type]) or {1, 0.82, 0.2}
  pin.glow:SetVertexColor(color[1], color[2], color[3], 1)
  if not edge and FT.DrawRing then

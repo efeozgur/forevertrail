@@ -47,6 +47,7 @@ function FT.Help()
   '/ftrail yakin  en yakın adım   |  /ftrail rota  otomatik rota',
   '/ftrail git 45.2 60.1  özel hedef   |  /ftrail iptal  özel hedefi kaldır (haritada Ctrl + sol tık da olur)',
   '/ftrail arrow  yön oku   |  /ftrail card  hedef kartı   |  /ftrail track  takip penceresi',
+  '/ftrail yolbilgi  rota kaynağı: Polestar yürüme haritası, öğrenilmiş yollar ya da düz çizgi',
   '/ftrail bolge  rehber seç: hazır rehberler ve seviyene göre bölge rehberleri',
   '/ftrail kayit baslat <başlık>, /ftrail adim ..., /ftrail kayit yaz  rehber yazma',
   'Komut gerekmez: ekrandaki düğme çubuğu ve minimap düğmesi (sağ tık: çubuk) her şeyi açar. /ftrail cubuk  çubuğu aç/kapat',

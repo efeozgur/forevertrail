@@ -578,6 +578,14 @@ try('ortak bileşenler', function()
   local route = FT.MinimapRouteInfo()
   assert(route.core and route.core:IsShown() and route.glow:IsShown(), 'mini haritada rota çizgisi görünmeli')
   assert(#route.dots >= 1 and route.dots[1]:IsShown(), 'rota üzerinde akan noktalar görünmeli')
+  -- yol verisi varsa rota kıvrımlıdır: çok parçalı çizgi
+  local realRoute = FT.CurrentRoute
+  FT.CurrentRoute = function(map, px, py, gx, gy) return {{px, py}, {px + 0.01, py + 0.002}, {px + 0.012, py + 0.01}, {gx, gy}} end
+  FT.UpdateMinimapPin()
+  assert(FT.MinimapRouteInfo().segments >= 2, 'kıvrımlı rota birden çok parçadan oluşmalı: ' .. tostring(FT.MinimapRouteInfo().segments))
+  FT.CurrentRoute = realRoute
+  FT.UpdateMinimapPin()
+  assert(FT.MinimapRouteInfo().segments == 1, 'yol verisi yokken düz çizgi (tek parça) olmalı: ' .. tostring(FT.MinimapRouteInfo().segments))
   ForeverTrailSettings.minimapRoute = false; FT.UpdateMinimapPin()
   assert(not route.core:IsShown() and not route.dots[1]:IsShown(), 'minimapRoute=false rotayı gizlemeli')
   ForeverTrailSettings.minimapRoute = nil
