@@ -7,8 +7,9 @@ local _, FT = ...
 
 local WIDTH, TAB_H = 360, 36
 -- Kutuların kendi (gizlenen) başlık bandı kadar yukarı kaydırılır; böylece liste sekmelerin hemen altından başlar
-local SHIFT = {tracker = 0, avail = 0}
+local SHIFT = {guide = 0, tracker = 0, avail = 0}
 local KINDS = {
+ {key = 'guide', label = 'Rehber'},
  {key = 'tracker', label = 'Görevlerim'},
  {key = 'avail', label = 'Alınabilir'},
 }
@@ -31,7 +32,7 @@ function FT.QuestDockViewHeight(sumH)
 end
 local raw, wanted = {}, {}
 
-local function frameOf(kind) return kind == 'tracker' and FT.tracker or FT.availableBox end
+local function frameOf(kind) return kind == 'guide' and FT.guideBox or (kind == 'tracker' and FT.tracker or FT.availableBox) end
 
 -- Günlükteki görev sayısı (Görevlerim sekmesinin sayacı; kutu gizliyken de güncel kalır)
 local function questCount()
@@ -48,15 +49,16 @@ end
 function FT.RefreshQuestDock()
  if not dock then return end
  local K = FT.Kit
- local has = {tracker = wanted.tracker, avail = wanted.avail}
- if not has.tracker and not has.avail then
+ local has = {guide = wanted.guide, tracker = wanted.tracker, avail = wanted.avail}
+ if not has.guide and not has.tracker and not has.avail then
   for kind, r in pairs(raw) do local f = frameOf(kind); if f then r.Hide(f) end end
   dock:Hide()
   return
  end
  local tab = ForeverTrailSettings.dockTab
- if not has[tab] then tab = has.tracker and 'tracker' or 'avail' end
+ if not has[tab] then tab = has.guide and 'guide' or (has.tracker and 'tracker' or 'avail') end
  dock.activeTab = tab
+ if tab == 'guide' and FT.RefreshGuideTab then FT.RefreshGuideTab() end
  dock:SetWidth(dockWidth())
  dock:Show()
  local collapsed = ForeverTrailSettings.dockCollapsed or FT.trkCombatCollapsed
@@ -67,7 +69,7 @@ function FT.RefreshQuestDock()
   if has[k.key] then
    local on = k.key == tab
    b:ClearAllPoints(); b:SetPoint('TOPLEFT', dock, 'TOPLEFT', x, -1)
-   b.count:SetText(k.key == 'tracker' and questCount() or (FT.availCount or 0))
+   b.count:SetText(k.key == 'guide' and (FT.GuideProgressText and FT.GuideProgressText() or '') or (k.key == 'tracker' and questCount() or (FT.availCount or 0)))
    local w = math.floor(b.text:GetStringWidth() + b.count:GetStringWidth() + 38)
    b:SetWidth(w); x = x + w
    b.line:SetShown(on)
@@ -100,7 +102,8 @@ local function adopt(kind, frame)
  -- kutu pencereye alınmadan önce kendi ölçeğini taşıyabilir (ör. yazı boyutu ayarından); pencere içinde ikinci kez küçülüp
  -- içeriği pencereden dar ve kısa bırakmasın diye 1'e sıfırlanır. Ölçeği bundan sonra yalnızca pencere taşır.
  raw[kind].SetScale(frame, 1)
- if kind == 'tracker' then wanted.tracker = ForeverTrailSettings.tracker ~= false
+ if kind == 'guide' then wanted.guide = ForeverTrailSettings.guideTab ~= false
+ elseif kind == 'tracker' then wanted.tracker = ForeverTrailSettings.tracker ~= false
  else wanted.avail = ForeverTrailSettings.availbox ~= false and not ForeverTrailSettings.simple end
  frame:SetParent(dock)
  frame:ClearAllPoints()
@@ -160,7 +163,10 @@ local function build()
  collapse:SetScript('OnClick', function() ForeverTrailSettings.dockCollapsed = not ForeverTrailSettings.dockCollapsed; FT.RefreshQuestDock() end)
  gear = K.Button(strip, 'Ayar', 42, 20)
  gear:SetPoint('RIGHT', collapse, 'LEFT', -4, 0)
- gear:SetScript('OnClick', function() if FT.ToggleViewOptions then FT.ToggleViewOptions(dock.activeTab == 'avail' and 'avail' or 'tracker') end end)
+ gear:SetScript('OnClick', function()
+  if dock.activeTab == 'guide' then if FT.ToggleGuidePicker then FT.ToggleGuidePicker() end
+  elseif FT.ToggleViewOptions then FT.ToggleViewOptions(dock.activeTab == 'avail' and 'avail' or 'tracker') end
+ end)
  gear:HookScript('OnEnter', function(self)
   if not GameTooltip then return end
   GameTooltip:SetOwner(self, 'ANCHOR_BOTTOM'); GameTooltip:SetText('Görünüm ayarları', 1, 0.82, 0)
@@ -177,6 +183,8 @@ local function build()
  local function applySize()
   if FT.RefreshTracker then FT.RefreshTracker() end
   if FT.RefreshAvailableBox then FT.RefreshAvailableBox() end
+  if FT.RefreshGuideTab then FT.RefreshGuideTab() end
+  FT.RefreshQuestDock()
  end
  grip:SetScript('OnMouseDown', function(self)
   -- sağ kenara yaslıysa genişleme sola kayar; sürüklemeden önce sol üst köşeye sabitle ki tutamak imleci izlesin
@@ -219,8 +227,13 @@ local function build()
  end
  FT.RefreshAvailableBox = function(...) local r = refreshAvail(...); FT.RefreshQuestDock(); return r end
  -- Alınabilir sekmesi artık her zaman görünür: eski "alınabilir kutusunu kapat" ayarı (ör. Sade düzey) bir kez temizlenir
- if ForeverTrailSettings.dockVersion ~= 1 then ForeverTrailSettings.availbox = nil; ForeverTrailSettings.dockVersion = 1 end
+ if (ForeverTrailSettings.dockVersion or 0) < 1 then ForeverTrailSettings.availbox = nil end
+ -- Rehber sekmesi eklendi (sürüm 2): ilk sekme olur ve bir kez seçili açılır
+ if (ForeverTrailSettings.dockVersion or 0) < 2 then ForeverTrailSettings.dockTab = 'guide' end
+ ForeverTrailSettings.dockVersion = 2
+ if FT.BuildGuideBox then FT.BuildGuideBox(dock) end
  FT.questDock = dock -- kutular pencereye alınmadan önce ilan edilmez (kurulum yarıda kalırsa eski düzen bozulmasın)
+ if FT.guideBox then adopt('guide', FT.guideBox) end
  adopt('tracker', FT.tracker)
  adopt('avail', FT.availableBox)
  FT.RefreshQuestDock()

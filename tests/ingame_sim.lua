@@ -374,6 +374,46 @@ try('görev penceresi', function()
  assert(FT.questDock.activeTab == 'avail' or not FT.availableBox:IsShown(), 'alınabilir sekmesi')
  ForeverTrailSettings.dockTab = 'tracker'; FT.RefreshQuestDock()
  assert(FT.questDock.activeTab == 'tracker', 'görevlerim sekmesi')
+ do -- Rehber sekmesi: ilk sekme, adımlar, gezinme, boyuta göre satır sayısı
+  assert(FT.guideBox, 'rehber kutusu kurulmalı')
+  local savedGuide, savedView, savedActive, savedComplete = FT.guide, FT.view, FT.active, FT.complete
+  local steps = {}
+  for i = 1, 20 do steps[i] = {stepId = 's' .. i, type = i % 3 == 0 and 'turnin' or 'manual', text = 'Adım ' .. i, questTitle = i % 3 == 0 and ('Görev ' .. i) or nil} end
+  FT.guide = {guideId = 'sekme-testi', version = 1, title = 'Sekme Testi', zone = 'Bölge', levels = '1-10', steps = steps}
+  FT.view, FT.active, FT.complete = 1, 1, false
+  ForeverTrailSettings.dockTab = 'guide'; ForeverTrailSettings.dockW, ForeverTrailSettings.dockH = nil, nil
+  FT.RefreshQuestDock()
+  assert(FT.questDock.activeTab == 'guide', 'rehber sekmesi seçilebilmeli')
+  assert(FT.guideBox.__shown ~= false and FT.guideBox:GetParent() == FT.questDock, 'rehber kutusu pencerenin içinde olmalı')
+  assert(FT.guideBox.title:GetText() == 'Sekme Testi', 'rehber adı: ' .. tostring(FT.guideBox.title:GetText()))
+  assert(FT.GuideTabRows() == 6, 'varsayılan 6 sıradaki adım: ' .. FT.GuideTabRows())
+  assert(FT.GuideTabRow(1).text:GetText() == 'Adım 2', 'ilk sıradaki adım, şimdikinden sonraki: ' .. tostring(FT.GuideTabRow(1).text:GetText()))
+  assert(FT.GuideTabRow(2).text:GetText() == 'Görev 3', 'görev adı varsa o gösterilmeli')
+  -- gezinme: ">" etkin adımı ilerletir, "<" yalnızca inceler
+  FT.guideBox.next:GetScript('OnClick')(FT.guideBox.next)
+  assert(FT.active == 2 and FT.view == 2, 'ileri düğmesi adımı ilerletmeli: ' .. FT.active .. '/' .. FT.view)
+  assert(FT.guideBox.progress:GetText():find('2 / 20'), 'sayaç: ' .. tostring(FT.guideBox.progress:GetText()))
+  FT.guideBox.prev:GetScript('OnClick')(FT.guideBox.prev)
+  assert(FT.view == 1 and FT.active == 2, 'geri düğmesi yalnızca incelemeli')
+  assert(FT.guideBox.resume:IsShown(), 'inceleme sırasında "Buradan sürdür" görünmeli')
+  -- sıradaki satırına tıklama o adımı inceler
+  local row = FT.GuideTabRow(3)
+  row:GetScript('OnClick')(row)
+  assert(FT.view == 4, 'satıra tıklayınca o adım incelenmeli: ' .. FT.view)
+  -- sona yaklaşınca satır sayısı azalır
+  FT.view = 18; FT.RefreshGuideTab()
+  assert(FT.GuideTabRows() == 2, 'sona yakın satır sayısı: ' .. FT.GuideTabRows())
+  -- pencere büyütülünce daha çok sıradaki adım gösterilir
+  FT.view = 1; ForeverTrailSettings.dockH = 700; FT.RefreshGuideTab()
+  assert(FT.GuideTabRows() > 6, 'büyük pencerede daha çok satır: ' .. FT.GuideTabRows())
+  ForeverTrailSettings.dockH = nil
+  -- rehber yokken sekme yine de açılır ve yönlendirir
+  FT.guide = nil; FT.RefreshGuideTab(); assert(FT.GuideTabRows() == 0, 'rehbersiz satır olmamalı')
+  assert(FT.guideBox.empty:IsShown(), 'rehbersiz açıklama görünmeli')
+  FT.guide, FT.view, FT.active, FT.complete = savedGuide, savedView, savedActive, savedComplete
+  if FT.guide then FT.RefreshGuideTab() end
+  ForeverTrailSettings.dockTab = 'tracker'; FT.RefreshQuestDock()
+ end
  FT.tracker:Hide(); assert(not FT.tracker:IsShown(), 'Hide istenen görünürlüğü kapatmalı'); FT.tracker:Show(); assert(FT.tracker:IsShown(), 'Show açmalı')
  ForeverTrailSettings.dockCollapsed = true; FT.RefreshQuestDock(); ForeverTrailSettings.dockCollapsed = nil; FT.RefreshQuestDock()
  FT.RefreshTracker(); FT.RefreshAvailableBox()
