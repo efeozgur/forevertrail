@@ -113,6 +113,7 @@ function FT.Initialize()
  if FT.ApplyFont then FT.ApplyFont(ForeverTrailSettings.font) end
  if ForeverTrailSettings.compact and FT.SetCompact then FT.SetCompact(true) end
  if FT.GuardFrames then FT.GuardFrames() end
+ if FT.AutoGuide and FT.AutoGuide.Restore then pcall(FT.AutoGuide.Restore) end -- seçili bölge rehberi karakter kaydından yeniden üretilir
  local choice=1
  for i,g in ipairs(FT.validGuides) do if g.guideId==ForeverTrailCharacter.guideId then choice=i end end
  if not ForeverTrailCharacter.journalMigration then choice=1; ForeverTrailCharacter.journalMigration=true end

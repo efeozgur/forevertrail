@@ -56,6 +56,7 @@ SlashCmdList.FOREVERTRAIL = function(raw)
  elseif msg == 'gecmis' then FT.PrintHistory()
  elseif msg == 'ceviri' then FT.PrintMissingTranslations()
  elseif msg == 'canli' then FT.LiveStatus()
+ elseif msg == 'bolge' or msg == 'rehber' then if FT.ToggleGuidePicker then FT.ToggleGuidePicker() end
  elseif msg == 'yetenekdebug' then FT.TalentDebug()
  elseif msg == 'test' then FT.SelfTest()
  elseif msg == 'hata' then FT.PrintErrors()

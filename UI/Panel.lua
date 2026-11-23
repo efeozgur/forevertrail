@@ -245,27 +245,9 @@ function FT.CreatePanel()
   if suggestionsElapsed>=3 then suggestionsElapsed=0; refreshSuggestions(true) end
  end)
  FT.ShowSuggestions=function() suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end
- local picker = newWindow(nil, f)
- picker:SetPoint('TOPLEFT', f, 'TOPLEFT', M, -64)
- picker:SetSize(PANEL_W-2*M, 45 + 28 * #FT.validGuides)
- picker:SetFrameLevel(f:GetFrameLevel() + 10)
- picker:EnableMouse(true)
- local pickerHeading = picker:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
- pickerHeading:SetPoint('TOP', 0, -5)
- pickerHeading:SetText('Rehber seç')
- applyFont(pickerHeading)
- for index, guide in ipairs(FT.validGuides) do
-  button(picker, guide.title .. ' · ' .. guide.zone, PANEL_W-2*M-30, 15, -28 * index, function()
-   FT.SelectGuide(index)
-   picker:Hide()
-   FT.notice = 'Rehber seçildi.'
-   FT.Refresh()
-  end)
- end
- picker:Hide()
  local pick=button(f,'Rehber seç',112,PANEL_W-M-112,-14,function()
-  if picker:IsShown() then picker:Hide() else picker:Show() end
- end,'Hangi rehberin izleneceğini seç (Görev günlüğü, bölge rehberleri...).')
+  if FT.ToggleGuidePicker then FT.ToggleGuidePicker() end
+ end,'Hangi rehberin izleneceğini seç: günlüğün, hazır rehberler ya da seviyene göre bölge rehberleri.')
  pick:SetHeight(26)
 
  -- 4) kartın altı: hızlı eylemler, otomatik ilerle, yolculuk. Tek bir kapta durur; küçük panelde topluca gizlenir.

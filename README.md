@@ -422,7 +422,7 @@ Ayarlar 6 kategoriye ayrılmıştır; birden fazla sayfası olan kategorilerde b
 
 - **Ad alanı ve yükleme sırası:** `require` yoktur. `ForeverTrail.toc` yükleme sırasını belirler; her dosya `local _, FT = ...` ile tek ortak tabloyu paylaşır. Yeni dosya eklerken TOC'ye de ekleyin (yükleme anında kullandığı şeylerden sonra). İşlevler çoğunlukla çağrı anında aranır ve korunur (`if FT.Foo then …`).
 - **Olaylar:** `Core.lua` olay çerçevesini (`QUEST_LOG_UPDATE`, `QUEST_ACCEPTED`, `QUEST_TURNED_IN`, bölge olayları) ve `/ftrail` komut dağıtıcısını barındırır; olaylar `FT.Evaluate()`'e birleştirilir.
-- **Rehber motoru:** `Engine.lua` rehberleri doğrular (`FT.ValidateGuide`) ve adım tamamlanmasını belirler (`FT.IsStepDone`); `Quest.lua` görev durumunu okur; `Journal.lua` canlı görev günlüğü rehberini üretir.
+- **Rehber motoru:** `Engine.lua` rehberleri doğrular (`FT.ValidateGuide`) ve adım tamamlanmasını belirler (`FT.IsStepDone`); `Quest.lua` görev durumunu okur; `Journal.lua` canlı görev günlüğü rehberini üretir; `AutoGuide.lua` görev veritabanından bölge bazlı seviye rehberleri üretir (aşağıya bak).
 - **Veri katmanı:** `Data*.lua` tabloları ve `OwnDB.lua` sorgu katmanı (`FT.Module('QuestieDB')`, `ZoneDB`, `QuestXP`, `AvailableQuests`). Çoğu modül `FT.DBQ/DBN/DBO/DBI` tablolarını sıra numarasıyla doğrudan dolaşır; satır düzeni `OwnDB.lua`'daki `QK/NK/OK/IK` ve `LiveSync.lua`'daki sütun listeleriyle aynı kalmalıdır.
 - **Arayüz katmanları:** Panel, Tracker, Available, Map/MapRoute/Arrow/Minimap, Hub, Settings, Journal/Journey, Atlas, Layout/Design/Style/Polish, Wizard… bağımsız özellik modülleridir.
 - **Önbellekler:** Veriden türetilen her önbellek `FT.liveListeners` listesine bir sıfırlama işlevi eklemelidir.
@@ -439,7 +439,7 @@ Ayarlar 6 kategoriye ayrılmıştır; birden fazla sayfası olan kategorilerde b
 |---|---|
 | Çekirdek | `Core.lua`, `Compat.lua`, `Engine.lua`, `Quest.lua`, `Diagnostics.lua`, `Style.lua`, `Design.lua`, `Polish.lua`, `Layout.lua` |
 | Veri | `DataZones/Quests/Npcs/Objects/Items/NewQuests/XP/Stations/Dungeons/Talents.lua`, `OwnDB.lua`, `Data.lua`, `OwnData.lua`, `LiveSync.lua` |
-| Rehber | `Guides.lua`, `Guide2.lua`, `Journal.lua`, `Recommendations.lua`, `Recorder.lua`, `Flow.lua`, `Journey.lua` |
+| Rehber | `Guides.lua`, `Guide2.lua`, `Journal.lua`, `Recommendations.lua`, `Recorder.lua`, `Flow.lua`, `Journey.lua`, `AutoGuide.lua` |
 | Harita | `Map.lua`, `MapRoute.lua`, `Minimap.lua`, `MinimapTips.lua`, `Atlas.lua`, `Discovery.lua`, `Objectives.lua`, `Places.lua`, `Rares.lua` |
 | Arayüz | `Panel.lua`, `Hub.lua`, `Tracker.lua`, `Available.lua`, `ViewOptions.lua`, `Target.lua`, `Arrow.lua`, `Settings.lua`, `Features.lua`, `Toolbox.lua`, `Extras.lua`, `Wizard.lua`, `QuestInfo.lua` |
 | Oyun yardımcıları | `Assist.lua`, `Advisor.lua`, `Focus.lua`, `Helpers.lua`, `Gear.lua`, `Upgrade.lua`, `Class.lua`, `Professions.lua`, `QuestHelper.lua`, `Janti.lua` |
@@ -520,3 +520,13 @@ Oyun içi doğrulama için: `/ftrail test` (uyumluluk testi), `/ftrail debug`, `
 - **Yetenek planları:** kami-labs.fr "WoW Forever Leveling Builds".
 - **Zygor** kılavuzu yalnızca görev al/hedef/teslim iş akışını anlamak için incelenmiştir; kod, düzen, grafik, metin veya rota alınmamıştır.
 - Görev XP verisi, harita ve görev altyapısı için [Questie](https://github.com/Questie/Questie) ve QuestieDB ekibine; yetenek sekmesi entegrasyonu için OneForAll'a; Türkçe çeviri için WoWTR'ye teşekkürler.
+
+## Otomatik bölge rehberleri
+
+Rehber paneli > **Rehber seç** (ya da `/ftrail bolge`) penceresi üç bölümdür: hazır rehberler, seviyene uygun bölgeler ve tüm bölgeler (seviye bandına göre). Bölge rehberleri elle yazılmaz; görev veritabanından, karakterin ırkına, sınıfına ve seviyesine göre üretilir (`Guide/AutoGuide.lua`).
+
+- **Pencere:** her bölge 10 seviyelik dilimlere ayrılır; en az 10 görevi olmayan dilim listelenmez, komşu küçük dilimler en çok 20 seviyeye kadar birleşir.
+- **Sıra:** önce bir merkezde o seviyedeki görevler alınır, sonra hedeflere gidilir, en yakın teslim noktaları sırayla yapılır; zincirlerin devamı aynı NPC'den alınır. Ön koşullar, birbirini dışlayan görevler ve 16 görevlik günlük sınırı gözetilir.
+- **Konumsuz hedefler:** hedef konumu veride yoksa adım koordinatsız kalır; görev günlüğündeyken konum oyunun kendi yol noktasından bulunur.
+- **Kararlılık:** adım kimlikleri (`a<id>`, `o<id>`, `t<id>`) sabittir, bu yüzden ilerleme kaydı korunur. Seçilen rehber `ForeverTrailCharacter.autoGuide` içinde tutulur ve girişte yeniden üretilir.
+- Test: `tests/autoguide.lua` (gerçek veriyle bütün bölge pencereleri, üç karakter).

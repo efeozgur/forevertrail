@@ -458,6 +458,25 @@ try('ortak bileşenler', function()
    assert(label == c[3], 'sınıflandırma: ' .. c[1] .. ' -> ' .. tostring(label) .. ' (beklenen ' .. c[3] .. ')')
   end
  end
+ do -- rehber seçici: liste dolu, bölge satırına tıklayınca otomatik rehber seçilir, global sızıntı yok
+  assert(FT.ToggleGuidePicker(), 'seçici açılmalı')
+  local rows0, heads0 = FT.GuidePickerInfo()
+  assert(rows0 >= 5 and heads0 >= 2, 'seçici listesi dolu olmalı: ' .. rows0 .. '/' .. heads0)
+  assert(rawget(_G, 'row_first') == nil, 'seçici global değişken sızdırmamalı')
+  local picker = _G.ForeverTrailGuidePicker
+  assert(picker and picker:IsShown(), 'seçici penceresi görünür olmalı')
+  local row
+  for i = 1, rows0 do
+   local r = FT.GuidePickerRow(i)
+   if r:IsShown() and tostring(r.title:GetText() or ''):find('%d+%-%d+$') then row = r; break end
+  end
+  assert(row, 'listede bölge satırı olmalı')
+  row:GetScript('OnClick')(row)
+  assert(FT.guide and FT.guide.auto, 'bölge satırı otomatik rehberi seçmeli')
+  assert(not picker:IsShown(), 'seçimden sonra pencere kapanmalı')
+  assert(ForeverTrailCharacter.autoGuide, 'seçim karakter kaydına yazılmalı')
+  FT.ToggleGuidePicker(); assert(picker:IsShown(), 'ikinci açılış'); FT.ToggleGuidePicker()
+ end
  FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = false; FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = nil; FT.RefreshJourney()
  FT.OpenHub('rehber'); assert(FT.hub.rail and FT.hub.pageTitle:GetText() == 'Rehber', 'hub başlığı')
  FT.OpenHub('gorevler'); assert(FT.hub.pageDesc:GetText() ~= '', 'hub açıklaması')
