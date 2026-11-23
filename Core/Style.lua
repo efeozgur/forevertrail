@@ -97,6 +97,19 @@ FT.TypeColor = {
 }
 
 function FT.SoftBackdrop(frame)
+ if FT.Kit then
+  -- düz zemin + ince kenar + üstte vurgu çizgisi (görev kutusu, alınabilir kutu ve benzerleri)
+  local bg = CreateFrame('Frame', nil, frame)
+  bg:SetAllPoints(frame)
+  bg:SetFrameLevel(math.max(0, frame:GetFrameLevel() - 1))
+  FT.Kit.Skin(bg, 'mid', 'line')
+  local bar = bg:CreateTexture(nil, 'ARTWORK')
+  bar:SetHeight(2); bar:SetPoint('TOPLEFT', 1, -1); bar:SetPoint('TOPRIGHT', -1, -1)
+  FT.Kit.Fill(bar, 'accent')
+  frame.softBg = bg
+  frame:HookScript('OnShow', function(self) self.softBg:SetFrameLevel(math.max(0, self:GetFrameLevel() - 1)) end)
+  return bg
+ end
  local bg = CreateFrame('Frame', nil, frame, BackdropTemplateMixin and 'BackdropTemplate' or nil)
  bg:SetAllPoints(frame)
  bg:SetFrameLevel(math.max(0, frame:GetFrameLevel() - 1))

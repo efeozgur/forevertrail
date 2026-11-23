@@ -83,6 +83,13 @@ local card, shownKey
 local AMBER = setmetatable({}, {__index = function(_, k) local c = FT.Kit and FT.Kit.Color('line') or {0.82, 0.64, 0.32}; return c[k] end})
 
 local function borderFrame(parent, w, h, edgeSize)
+ if FT.Kit then
+  -- düz, 1 piksellik kenar (portre, eşya ve hedef çerçeveleri)
+  local f = CreateFrame('Frame', nil, parent)
+  f:SetSize(w, h)
+  FT.Kit.Skin(f, 'deep', 'line')
+  return f
+ end
  local f = CreateFrame('Frame', nil, parent, BackdropTemplateMixin and 'BackdropTemplate' or nil)
  f:SetSize(w, h)
  if f.SetBackdrop then
@@ -93,7 +100,9 @@ local function borderFrame(parent, w, h, edgeSize)
 end
 
 local function setBorder(f, r, g, b)
- if f and f.SetBackdropBorderColor then f:SetBackdropBorderColor(r, g, b, 1) end
+ if not f then return end
+ if f.edge then f.edge:SetColorTexture(r, g, b, 1)
+ elseif f.SetBackdropBorderColor then f:SetBackdropBorderColor(r, g, b, 1) end
 end
 
 local function qualityColor(itemId)
@@ -220,7 +229,10 @@ function FT.CreateTargetCard()
  card:SetSize(230, 478)
  card:SetPoint('TOPRIGHT', FT.panel, 'TOPLEFT', -4, 0)
  card.title = card:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
- card.title:SetPoint('TOP', 0, -7); card.title:SetText('Hedef'); applyFont(card.title); card.title:SetTextColor(1, 0.82, 0.45)
+ card.title:SetPoint('TOP', 0, -7); card.title:SetText('Hedef'); applyFont(card.title)
+ if FT.Kit then
+  FT.Kit.Track(function() local a = FT.Kit.Color('accent'); card.title:SetTextColor(a[1], a[2], a[3]) end)
+ else card.title:SetTextColor(1, 0.82, 0.45) end
  solid(card, 'ARTWORK', 206, 124, 'TOPLEFT', 12, -30, 0.07, 0.04, 0.02, 0.5)
  card.spot = card:CreateTexture(nil, 'ARTWORK')
  card.spot:SetTexture('Interface\\Cooldown\\star4'); card.spot:SetBlendMode('ADD'); card.spot:SetSize(150, 150)

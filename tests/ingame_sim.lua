@@ -370,6 +370,8 @@ try('ortak bileşenler', function()
  local got; local chk = Kit.Check(UIParent, 'x', function() return true end, function(v) got = v end)
  assert(chk:GetChecked() == true, 'onay kutusu başlangıcı'); chk:GetScript('OnClick')(chk); assert(got == false and chk:GetChecked() == false, 'onay kutusu değişimi')
  assert(FT.panel.activate and FT.panel.resume and FT.panel.prevButton and FT.panel.nextButton, 'rehber paneli düğmeleri')
+ assert(FT.panel.journeyRows and #FT.panel.journeyRows == 6 and FT.panel.journeyHead, 'yolculuk bölümü')
+ FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = false; FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = nil; FT.RefreshJourney()
  FT.OpenHub('rehber'); assert(FT.hub.rail and FT.hub.pageTitle:GetText() == 'Rehber', 'hub başlığı')
  FT.OpenHub('gorevler'); assert(FT.hub.pageDesc:GetText() ~= '', 'hub açıklaması')
  local w0, h0

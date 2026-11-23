@@ -23,7 +23,7 @@ end
 local typeIcons={accept='Interface\\GossipFrame\\AvailableQuestIcon',objective='Interface\\GossipFrame\\IncompleteQuestIcon',turnin='Interface\\GossipFrame\\ActiveQuestIcon',location='Interface\\Icons\\INV_Misc_Map_01',manual='Interface\\Buttons\\UI-CheckBox-Check'}
 local labels={accept='GÖREVİ AL',objective='HEDEF',turnin='TESLİM ET',location='KONUMA GİT',manual='ELLE ONAYLA'}
 local status={unknown='Bilinmiyor',not_taken='Alınmamış',active='Aktif',ready='Teslim edilebilir',turned_in='Teslim edilmiş'}
-local PANEL_W, FULL_H, COMPACT_H = ((FT.Kit and FT.Kit.CONTENT_W) or 450) - 4, 376, 226
+local PANEL_W, FULL_H, COMPACT_H = ((FT.Kit and FT.Kit.CONTENT_W) or 450) - 4, 540, 226
 local EXTRA_Y = -228 -- bunun altındaki düğmeler "küçük panel"de gizlenir
 local function button(parent,text,width,x,y,handler,help,kind)
  local b=FT.Kit and FT.Kit.Button(parent,text,width,24,kind) or FT.NewButton and FT.NewButton(parent,text,width,24)
@@ -225,6 +225,28 @@ function FT.CreatePanel()
  check:SetPoint('TOPLEFT',12,-324)
  f.autoCheck=check
  FT.panelExtras[#FT.panelExtras+1]=check
+ -- Yolculuk: seçili hedefe giden yol adım adım (Rota planı). Başlığa tıklayınca açılıp kapanır.
+ if FT.Kit then
+  local K=FT.Kit
+  local top=-360
+  local rule=K.Divider(f); rule:SetPoint('TOPLEFT',12,top+8); rule:SetPoint('TOPRIGHT',-12,top+8)
+  local head=CreateFrame('Button',nil,f); head:SetSize(PANEL_W-24,22); head:SetPoint('TOPLEFT',12,top)
+  head.text=K.Text(head,12,'accent'); head.text:SetPoint('LEFT',0,0)
+  head.hint=K.Text(head,10,'muted'); head.hint:SetPoint('RIGHT',0,0)
+  head:SetScript('OnClick',function() ForeverTrailSettings.journeyOpen=not (ForeverTrailSettings.journeyOpen~=false); FT.RefreshJourney() end)
+  f.journeyHead=head
+  f.journeyRows={}
+  for i=1,6 do
+   local r=CreateFrame('Frame',nil,f); r:SetSize(PANEL_W-24,22); r:SetPoint('TOPLEFT',12,top-26-(i-1)*24)
+   r.bar=r:CreateTexture(nil,'ARTWORK'); r.bar:SetSize(3,18); r.bar:SetPoint('LEFT',0,0); K.Fill(r.bar,'accent')
+   r.num=K.Text(r,11,'muted'); r.num:SetPoint('LEFT',12,0); r.num:SetWidth(16); r.num:SetJustifyH('LEFT')
+   r.text=K.Text(r,12,'text'); r.text:SetPoint('LEFT',32,0); r.text:SetWidth(PANEL_W-24-40); r.text:SetJustifyH('LEFT'); r.text:SetWordWrap(false)
+   f.journeyRows[i]=r
+   FT.panelExtras[#FT.panelExtras+1]=r
+  end
+  f.journeyEmpty=K.Text(f,11,'muted'); f.journeyEmpty:SetPoint('TOPLEFT',16,top-30); f.journeyEmpty:SetWidth(PANEL_W-40); f.journeyEmpty:SetJustifyH('LEFT')
+  for _,w in ipairs({rule,head,f.journeyEmpty}) do FT.panelExtras[#FT.panelExtras+1]=w end
+ end
  for _, region in ipairs({f.title, f.guide, f.info, f.instruction, f.state, check.text}) do
   applyFont(region)
  end
@@ -241,6 +263,27 @@ function FT.CreatePanel()
   region:SetShadowOffset(1,-1); region:SetShadowColor(0,0,0,0.8)
  end
  f:Show()
+end
+-- Yolculuk bölümü: hedefe giden adımlar (en çok 6); kapalıysa ya da küçük paneldeyse yalnızca başlık/hiçbiri görünür
+function FT.RefreshJourney()
+ local f=FT.panel
+ if not (f and f.journeyRows) then return end
+ local compact=ForeverTrailSettings.compact
+ local open=ForeverTrailSettings.journeyOpen~=false
+ local steps={}
+ if open and not compact and FT.RoutePlan then
+  local ok,list=pcall(FT.RoutePlan)
+  if ok and type(list)=='table' then steps=list end
+ end
+ f.journeyHead.text:SetText('Yolculuk')
+ f.journeyHead.hint:SetText(open and 'gizle' or 'göster')
+ for i,row in ipairs(f.journeyRows) do
+  local text=steps[i]
+  if text and open and not compact then row.num:SetText(i); row.text:SetText(text); row.bar:SetShown(i==1); row:Show() else row:Hide() end
+ end
+ f.journeyEmpty:SetText('Bir hedef seçince oraya giden yol burada adım adım görünür.')
+ f.journeyEmpty:SetShown(open and not compact and #steps==0)
+ if compact then f.journeyHead:Hide() else f.journeyHead:Show() end
 end
 function FT.Refresh()
  FT.RefreshMap()
@@ -287,6 +330,7 @@ function FT.Refresh()
  if FT.RefreshTarget then FT.RefreshTarget() end
  if FT.RefreshTracker then FT.RefreshTracker() end
  if FT.CheckProgress then pcall(FT.CheckProgress) end
+ pcall(FT.RefreshJourney)
 end
 local elapsed=0
 local retargetElapsed=0
