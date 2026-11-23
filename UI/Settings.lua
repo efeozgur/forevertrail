@@ -742,7 +742,7 @@ FT.QuestiePageDefs = {
   C('availbox', 'Solda alınabilir görevler kutusu'),
   {type='choice', key='c_trackerStyle', default='questie', label='Görünüm', list={{'questie', 'Questie'}, {'kutu', 'Kutulu'}, {'seffaf', 'Şeffaf'}}},
   {type='choice', key='c_trackerSort', default='bolge', label='Sıralama', list={{'bolge', 'Bölge'}, {'durum', 'Durum'}, {'yakin', 'Yakınlık'}, {'seviye', 'Seviye'}, {'yuzde', '% bitmiş'}}},
-  {type='choice', key='c_trackerView', default='detay', label='Gösterim', list={{'detay', 'Ayrıntılı'}, {'liste', 'Liste'}, {'tablo', 'Tablo'}}},
+  {type='choice', key='c_trackerView', default='detay', label='Gösterim', list={{'detay', 'Ayrıntılı'}, {'liste', 'Kompakt'}}},
   {type='choice', key='c_trackerMax', default='12', label='Görev sayısı', list={{'6', '6'}, {'8', '8'}, {'12', '12'}, {'20', '20'}}},
   C('trkColDist', 'Tablo görünümünde mesafe sütunu'),
   H('Alınabilir görevler kutusu'),

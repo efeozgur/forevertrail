@@ -11,7 +11,7 @@ DEFS.tracker = {
  title = 'Görevler: görünüm ayarları',
  opts = {
   {type = 'header', text = 'Biçim'},
-  {type = 'choice', key = 'c_trackerView', default = 'detay', label = 'Gösterim', list = {{'detay', 'Ayrıntılı'}, {'liste', 'Liste'}, {'tablo', 'Tablo'}}},
+  {type = 'choice', key = 'c_trackerView', default = 'detay', label = 'Gösterim', list = {{'detay', 'Ayrıntılı'}, {'liste', 'Kompakt'}}},
   {type = 'choice', key = 'c_trackerMax', default = '12', label = 'Görev sayısı', list = {{'6', '6'}, {'8', '8'}, {'12', '12'}, {'20', '20'}}},
   {type = 'choice', key = 'c_trackerSort', default = 'durum', label = 'Sıralama', list = {{'durum', 'Durum'}, {'bolge', 'Bölge'}, {'yakin', 'Yakınlık'}, {'seviye', 'Seviye'}, {'yuzde', '% bitmiş'}}},
   {type = 'choice', key = 'c_trackerDensity', default = 'normal', label = 'Satır sıklığı', list = {{'sikisik', 'Sıkışık'}, {'normal', 'Normal'}, {'ferah', 'Ferah'}}},

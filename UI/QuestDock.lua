@@ -5,9 +5,9 @@ local _, FT = ...
 -- ve başlık, sayaç, ayar ve daraltma düğmelerini kendisi sunar. Diğer modüllerin kutular üzerindeki Show/Hide/SetScale
 -- çağrıları pencereye yönlendirilir (kutuların "istenen görünürlüğü" olarak tutulur).
 
-local WIDTH, TAB_H = 276, 36
+local WIDTH, TAB_H = 360, 36
 -- Kutuların kendi (gizlenen) başlık bandı kadar yukarı kaydırılır; böylece liste sekmelerin hemen altından başlar
-local SHIFT = {tracker = 24, avail = 28}
+local SHIFT = {tracker = 0, avail = 28}
 local KINDS = {
  {key = 'tracker', label = 'Görevlerim'},
  {key = 'avail', label = 'Alınabilir'},
@@ -148,7 +148,12 @@ local function build()
  if FT.FixFonts then pcall(FT.FixFonts, dock) end
  -- kutuların yenileme işlevleri bittiğinde pencere de güncellenir
  local refreshTracker, refreshAvail = FT.RefreshTracker, FT.RefreshAvailableBox
- FT.RefreshTracker = function(...) local r = refreshTracker(...); FT.RefreshQuestDock(); return r end
+ FT.RefreshTracker = function(...)
+  local r
+  if FT.RefreshQuestList then r = FT.RefreshQuestList(...) else r = refreshTracker(...) end
+  FT.RefreshQuestDock()
+  return r
+ end
  FT.RefreshAvailableBox = function(...) local r = refreshAvail(...); FT.RefreshQuestDock(); return r end
  -- Alınabilir sekmesi artık her zaman görünür: eski "alınabilir kutusunu kapat" ayarı (ör. Sade düzey) bir kez temizlenir
  if ForeverTrailSettings.dockVersion ~= 1 then ForeverTrailSettings.availbox = nil; ForeverTrailSettings.dockVersion = 1 end

@@ -89,6 +89,8 @@ local function selectQuest(questId, noMap)
 end
 FT.SelectQuestTarget = selectQuest
 
+FT.SelectTrackedQuest = selectQuest -- QuestList kullanir
+
 local function getQuestRow(i)
  local row = questRows[i]
  if row then return row end
@@ -247,6 +249,7 @@ function FT.CreateTracker()
  moreText = newText(tracker, 11, '', 'LEFT')
  moreText:SetTextColor(0.78, 0.72, 0.64)
  tracker.headerText, tracker.toggleButton = header, toggle -- QuestDock bunları gizler
+ tracker.legacyParts = {header, summary, tracker.sumRested, tracker.sumGain, tracker.sumRoute, divider, toggle, emptyText, moreText} -- QuestList kullanmaz
  applyAlpha()
  if ForeverTrailSettings.tracker == false then tracker:Hide() end
 end

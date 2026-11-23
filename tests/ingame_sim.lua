@@ -367,6 +367,14 @@ try('görev penceresi', function()
  FT.tracker:Hide(); assert(not FT.tracker:IsShown(), 'Hide istenen görünürlüğü kapatmalı'); FT.tracker:Show(); assert(FT.tracker:IsShown(), 'Show açmalı')
  ForeverTrailSettings.dockCollapsed = true; FT.RefreshQuestDock(); ForeverTrailSettings.dockCollapsed = nil; FT.RefreshQuestDock()
  FT.RefreshTracker(); FT.RefreshAvailableBox()
+ local blocks0 = FT.QuestListInfo()
+ assert(blocks0 >= 1, 'görev listesi en az bir blok çizmeli: ' .. tostring(blocks0))
+ for _, sort in ipairs({'durum', 'bolge', 'yakin', 'seviye', 'yuzde'}) do
+  ForeverTrailSettings.c_trackerSort = sort; FT.RefreshTracker()
+  assert(FT.QuestListInfo() >= 1, 'sıralama ' .. sort)
+ end
+ for _, view in ipairs({'liste', 'tablo', 'detay'}) do ForeverTrailSettings.c_trackerView = view; FT.RefreshTracker() end
+ ForeverTrailSettings.c_trackerSort = nil; ForeverTrailSettings.c_trackerView = nil; FT.RefreshTracker()
  for _, kind in ipairs({'tracker', 'avail'}) do FT.ToggleViewOptions(kind); FT.ToggleViewOptions(kind) end
  assert(ForeverTrailSettings.availbox ~= false, 'eski "alınabilir kutusunu kapat" ayarı temizlenmeli')
  FT.RefreshAvailableBox(); assert(FT.availableBox:IsShown(), 'alınabilir sekmesi görünür olmalı')

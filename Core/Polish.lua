@@ -141,7 +141,7 @@ local function questItem(questId)
  end
 end
 
-function FT.TrackerItemButton(index, row, questId)
+function FT.TrackerItemButton(index, row, questId, place)
  if InCombatLockdown and InCombatLockdown() then return end
  local b = itemButtons[index]
  local id = on('trkitems') and questId and questItem(questId)
@@ -161,7 +161,7 @@ function FT.TrackerItemButton(index, row, questId)
  b:SetAttribute('item', 'item:' .. id)
  b.icon:SetTexture((GetItemIcon and GetItemIcon(id)) or 'Interface\\Icons\\INV_Misc_QuestionMark')
  b:SetFrameStrata('HIGH')
- b:ClearAllPoints(); b:SetPoint('RIGHT', row, 'LEFT', -20, 0)
+ if place then place(b) else b:ClearAllPoints(); b:SetPoint('RIGHT', row, 'LEFT', -20, 0) end
  b:Show()
 end
 

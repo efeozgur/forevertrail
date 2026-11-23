@@ -3,7 +3,7 @@ local _, FT = ...
 -- Ekranın sol kenarında "Alınabilir görevler" kutusu: bulunduğun bölgede alabileceğin görevler,
 -- en yakından uzağa; görev kutusu (sağ) ile aynı tasarım. Tıkla: yol göster.
 
-local WIDTH, PAD, MAX = 276, 12, 7
+local WIDTH, PAD, MAX = 360, 16, 7
 local box, header, toggle, emptyText
 local rows = {}
 
