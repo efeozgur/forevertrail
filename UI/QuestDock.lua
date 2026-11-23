@@ -96,7 +96,10 @@ end
 -- Bir kutuyu pencereye al ve Show/Hide/IsShown/SetScale çağrılarını yönlendir
 local function adopt(kind, frame)
  if raw[kind] then return end
- raw[kind] = {Show = frame.Show, Hide = frame.Hide}
+ raw[kind] = {Show = frame.Show, Hide = frame.Hide, GetScale = frame.GetScale, SetScale = frame.SetScale}
+ -- kutu pencereye alınmadan önce kendi ölçeğini taşıyabilir (ör. yazı boyutu ayarından); pencere içinde ikinci kez küçülüp
+ -- içeriği pencereden dar ve kısa bırakmasın diye 1'e sıfırlanır. Ölçeği bundan sonra yalnızca pencere taşır.
+ raw[kind].SetScale(frame, 1)
  if kind == 'tracker' then wanted.tracker = ForeverTrailSettings.tracker ~= false
  else wanted.avail = ForeverTrailSettings.availbox ~= false and not ForeverTrailSettings.simple end
  frame:SetParent(dock)
@@ -245,3 +248,10 @@ ev:SetScript('OnUpdate', function(self, dt)
  waited = 0
  if FT.BuildQuestDock() or FT.questDockError then self:SetScript('OnUpdate', nil) end
 end)
+
+-- Test ve tanı için: kutuların kendi (gerçek) ölçeği; hep 1 olmalı
+function FT.QuestDockChildScales()
+ local out = {}
+ for kind, r in pairs(raw) do local f = frameOf(kind); if f then out[kind] = r.GetScale(f) end end
+ return out
+end

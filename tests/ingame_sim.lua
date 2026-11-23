@@ -37,6 +37,7 @@ local methods = {
  GetRegions = function(self) local out = {} for _, f in ipairs(frames) do if f.__parent == self and (f.__kind == 'FontString' or f.__kind == 'Texture') then out[#out + 1] = f end end return unpack(out) end,
  GetChildren = function(self) local out = {} for _, f in ipairs(frames) do if f.__parent == self and f.__kind ~= 'FontString' and f.__kind ~= 'Texture' and f.__kind ~= 'Line' then out[#out + 1] = f end end return unpack(out) end,
  GetFrameLevel = function() return 1 end, GetFrameStrata = function() return 'MEDIUM' end,
+ SetScale = function(self, s) self.__scale = s end, GetScale = function(self) return self.__scale or 1 end,
  GetEffectiveScale = function() return 1 end, GetLeft = function() return 0 end, GetTop = function() return 0 end,
  GetCenter = function() return 0, 0 end, GetPoint = function() return 'CENTER', nil, 'CENTER', 0, 0 end,
  IsEnabled = function(self) return not self.__disabled end, Enable = function(self) self.__disabled = false end, Disable = function(self) self.__disabled = true end,
@@ -172,6 +173,8 @@ end
 
 fire('ADDON_LOADED', 'ForeverTrail')
 fire('PLAYER_LOGIN'); fire('PLAYER_ENTERING_WORLD', true, false); fire('QUEST_LOG_UPDATE')
+-- kutular görev penceresine alınmadan önce kendi ölçeğini taşıyabilir (yazı boyutu ayarı); pencere kurulunca 1'e sıfırlanmalı
+FT.tracker:SetScale(0.8); FT.availableBox:SetScale(0.8)
 runTimers(); tick(20)
 -- Questie tarzı tasarım
 for _, mode in ipairs({'yakin', 'seviye', 'bolge'}) do ForeverTrailSettings.c_trackerSort = mode; try('sıra ' .. mode, FT.RefreshTracker) end
@@ -365,6 +368,8 @@ try('görev penceresi', function()
  assert(legacy:IsShown(), 'ön koşul: eski satır görünür olmalı')
  assert(FT.BuildQuestDock(), 'görev penceresi kurulamadı: ' .. tostring(FT.questDockError))
  assert(FT.questDock and FT.QuestFrame() == FT.questDock, 'QuestFrame pencereyi döndürmeli')
+ for kind, scale in pairs(FT.QuestDockChildScales()) do assert(scale == 1, 'kutunun kendi ölçeği 1 olmalı: ' .. kind .. '=' .. tostring(scale)) end
+ FT.tracker:SetScale(0.9); for kind, scale in pairs(FT.QuestDockChildScales()) do assert(scale == 1, 'sonradan SetScale çağrısı pencereyi ölçeklemeli, kutuyu değil: ' .. kind) end
  ForeverTrailSettings.dockTab = 'avail'; FT.RefreshQuestDock()
  assert(FT.questDock.activeTab == 'avail' or not FT.availableBox:IsShown(), 'alınabilir sekmesi')
  ForeverTrailSettings.dockTab = 'tracker'; FT.RefreshQuestDock()
