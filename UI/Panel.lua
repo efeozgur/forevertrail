@@ -25,8 +25,8 @@ local labels={accept='GÖREVİ AL',objective='HEDEF',turnin='TESLİM ET',locatio
 local status={unknown='Bilinmiyor',not_taken='Alınmamış',active='Aktif',ready='Teslim edilebilir',turned_in='Teslim edilmiş'}
 local PANEL_W, FULL_H, COMPACT_H = 446, 376, 226
 local EXTRA_Y = -228 -- bunun altındaki düğmeler "küçük panel"de gizlenir
-local function button(parent,text,width,x,y,handler,help)
- local b=FT.NewButton and FT.NewButton(parent,text,width,24)
+local function button(parent,text,width,x,y,handler,help,kind)
+ local b=FT.Kit and FT.Kit.Button(parent,text,width,24,kind) or FT.NewButton and FT.NewButton(parent,text,width,24)
  if not b then b=CreateFrame('Button',nil,parent,'UIPanelButtonTemplate'); b:SetSize(width,24) end
  b:SetPoint('TOPLEFT',x,y); b:SetText(text); b:SetScript('OnClick',handler)
  if FT.panelExtras and parent==FT.panel and y<=EXTRA_Y then FT.panelExtras[#FT.panelExtras+1]=b end
@@ -77,11 +77,18 @@ function FT.CreatePanel()
  f.instruction=f:CreateFontString(nil,'OVERLAY','GameFontHighlight'); f.instruction:SetPoint('TOPLEFT',24,-104); f.instruction:SetWidth(W-22); f.instruction:SetHeight(58); f.instruction:SetJustifyH('LEFT'); f.instruction:SetJustifyV('TOP')
  f.stateBg=solid(f,'ARTWORK',W,44,'TOPLEFT',12,-174,0.10,0.06,0.03,0.5)
  f.state=f:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall'); f.state:SetPoint('TOPLEFT',20,-179); f.state:SetWidth(W-16); f.state:SetHeight(36); f.state:SetJustifyH('LEFT'); f.state:SetJustifyV('TOP')
- -- 4) düğmeler: ADIMLAR / YOL VE GÖREVLER / DİĞER
- section(f,'ADIMLAR',-230)
- button(f,'Önceki',100,12,-244,function() FT.view=math.max(1,FT.view-1); FT.Refresh() end,'Bir önceki adımı incele (etkin adımı değiştirmez).')
- button(f,'Sonraki',100,116,-244,function() if FT.guide.live then FT.view=math.min(#FT.guide.steps,FT.view+1) elseif FT.view<FT.active then FT.view=FT.view+1 elseif not FT.complete then FT.Advance(); FT.Evaluate() end; FT.Refresh() end,'Bir sonraki adıma geç.')
- button(f,'Aktif yap',100,220,-244,function() if FT.view~=FT.active then FT.active=FT.view; FT.complete=false; FT.SaveStep() end; FT.Evaluate(); FT.OpenMap() end,'İncelediğin adımı etkin yap ve haritada göster; ok bu adıma yönelir.')
+ if FT.Kit then
+  local K=FT.Kit
+  K.Fill(f.guideBg,'card'); K.Fill(f.barBg,'line'); K.Fill(f.boxBg,'card'); K.Fill(f.stateBg,'panel')
+  f.icon:Hide()
+ end
+ -- adım okları: ince, üst satırda (küçük panelde de görünür)
+ local function previousStep() FT.view=math.max(1,FT.view-1); FT.Refresh() end
+ local function nextStep() if FT.guide.live then FT.view=math.min(#FT.guide.steps,FT.view+1) elseif FT.view<FT.active then FT.view=FT.view+1 elseif not FT.complete then FT.Advance(); FT.Evaluate() end; FT.Refresh() end
+ f.prevButton=button(f,'<',26,PANEL_W-12-54,-62,previousStep,'Bir önceki adımı incele (etkin adımı değiştirmez).')
+ f.nextButton=button(f,'>',26,PANEL_W-12-26,-62,nextStep,'Bir sonraki adıma geç.')
+ -- 4) eylemler: ana düğme "Aktif yap", altında yol ve görev düğmeleri
+ f.activate=button(f,'Aktif yap',130,12,-244,function() if FT.view~=FT.active then FT.active=FT.view; FT.complete=false; FT.SaveStep() end; FT.Evaluate(); FT.OpenMap() end,'İncelediğin adımı etkin yap ve haritada göster; ok bu adıma yönelir.','primary')
  local suggestions = newWindow(nil, f)
  suggestions:SetSize(420, 330); suggestions:SetPoint('TOPLEFT', f, 'TOPRIGHT', 4, 0)
  suggestions:SetFrameLevel(f:GetFrameLevel()+10)
@@ -178,11 +185,10 @@ function FT.CreatePanel()
   if suggestionsElapsed>=3 then suggestionsElapsed=0; refreshSuggestions(true) end
  end)
  FT.ShowSuggestions=function() suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end
- section(f,'YOL VE GÖREVLER',-276)
- button(f,'Haritada göster',100,12,-290,FT.OpenMap,'Dünya haritasını aç; hedef ve yol çizgisi görünür.')
- button(f,'En yakın',100,116,-290,function() FT.SelectNearest() end,'Bulunduğun yere en yakın görev adımını seç ve haritada göster.')
- button(f,'Rota oluştur',100,220,-290,function() FT.BuildRoute() end,'Günlüğündeki görevlerden, en yakından başlayan bir rota çıkar.')
- button(f,'Öneriler',110,324,-290,function() if FT.OpenHub then return FT.OpenHub('gorevler') end if suggestions:IsShown() then suggestions:Hide() else suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end end,'Seviyene uygun görevler: günlükte olanlar, alınabilecekler, bulunduğun bölge, zincir.')
+ button(f,'Haritada göster',100,12,-282,FT.OpenMap,'Dünya haritasını aç; hedef ve yol çizgisi görünür.')
+ button(f,'En yakın',100,116,-282,function() FT.SelectNearest() end,'Bulunduğun yere en yakın görev adımını seç ve haritada göster.')
+ button(f,'Rota oluştur',100,220,-282,function() FT.BuildRoute() end,'Günlüğündeki görevlerden, en yakından başlayan bir rota çıkar.')
+ button(f,'Öneriler',110,324,-282,function() if FT.OpenHub then return FT.OpenHub('gorevler') end if suggestions:IsShown() then suggestions:Hide() else suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end end,'Seviyene uygun görevler: günlükte olanlar, alınabilecekler, bulunduğun bölge, zincir.')
  local picker = newWindow(nil, f)
  picker:SetPoint('TOPLEFT', f, 'TOPLEFT', 12, -56)
  picker:SetSize(PANEL_W-24, 45 + 28 * #FT.validGuides)
@@ -201,22 +207,32 @@ function FT.CreatePanel()
   end)
  end
  picker:Hide()
- button(f,'Buradan sürdür',110,324,-244,FT.ResumeViewed,'Geri dönüp incelediğin adımdan devam et; sonraki adımlar yeniden etkinleşir.')
+ f.resume=button(f,'Buradan sürdür',130,148,-244,FT.ResumeViewed,'Geri dönüp incelediğin adımdan devam et; sonraki adımlar yeniden etkinleşir. Yalnızca başka bir adımı incelerken görünür.')
  local pick=button(f,'Rehber seç',104,PANEL_W-12-104,-30,function()
   if picker:IsShown() then picker:Hide() else picker:Show() end
  end,'Hangi rehberin izleneceğini seç (Görev günlüğü, bölge rehberleri...).')
- section(f,'DİĞER',-322)
- button(f,'Ayarlar',100,12,-336,function() if FT.ToggleSettings then FT.ToggleSettings() end end,'ForeverTrail ayarlarını aç.')
- local check=CreateFrame('CheckButton',nil,f,'UICheckButtonTemplate'); check:SetPoint('TOPLEFT',116,-335); check:SetChecked(ForeverTrailSettings.auto); check:SetScript('OnClick',function(self) ForeverTrailSettings.auto=self:GetChecked() and true or false; FT.Evaluate() end)
- local label=f:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall'); label:SetPoint('LEFT',check,'RIGHT',0,0); label:SetText('Otomatik ilerle')
- FT.panelExtras[#FT.panelExtras+1]=check; FT.panelExtras[#FT.panelExtras+1]=label
- for _, region in ipairs({f.title, f.guide, f.info, f.instruction, f.state, label}) do
+ -- Ayarlar artık ana pencerenin sol şeridinde; burada yalnızca "Otomatik ilerle" kalır
+ local check
+ if FT.Kit then
+  check=FT.Kit.Check(f,'Otomatik ilerle',function() return ForeverTrailSettings.auto end,function(v) ForeverTrailSettings.auto=v and true or false; FT.Evaluate() end)
+ else
+  check=CreateFrame('CheckButton',nil,f,'UICheckButtonTemplate'); check:SetChecked(ForeverTrailSettings.auto)
+  check:SetScript('OnClick',function(self) ForeverTrailSettings.auto=self:GetChecked() and true or false; FT.Evaluate() end)
+  check.text=f:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall'); check.text:SetPoint('LEFT',check,'RIGHT',0,0); check.text:SetText('Otomatik ilerle')
+ end
+ check:SetPoint('TOPLEFT',12,-324)
+ f.autoCheck=check
+ FT.panelExtras[#FT.panelExtras+1]=check
+ for _, region in ipairs({f.title, f.guide, f.info, f.instruction, f.state, check.text}) do
   applyFont(region)
  end
- f.title:SetTextColor(1,0.82,0.45)
- f.guide:SetTextColor(1,0.88,0.6)
- f.info:SetTextColor(1,0.94,0.82)
- f.instruction:SetTextColor(1,0.96,0.88)
+ if FT.Kit then
+  FT.Kit.Track(function()
+   local K=FT.Kit; local a,t=K.Color('accent'),K.Color('text')
+   f.title:SetTextColor(a[1],a[2],a[3]); f.guide:SetTextColor(a[1],a[2],a[3])
+   f.info:SetTextColor(t[1],t[2],t[3]); f.instruction:SetTextColor(t[1],t[2],t[3])
+  end)
+ end
  for _, region in ipairs({f.title,f.guide,f.instruction}) do
   local path,size,flags=region:GetFont()
   if path and size then region:SetFont(path,size+1,flags or '') end
@@ -236,7 +252,9 @@ function FT.Refresh()
  local tc=typeColor[s.type] or typeColor.manual
  f.typeIcon:SetTexture(typeIcons[s.type] or typeIcons.manual)
  f.boxBar:SetColorTexture(tc[1],tc[2],tc[3],1)
- f.barFill:SetColorTexture(tc[1],tc[2],tc[3],1)
+ local barColor=FT.Kit and FT.Kit.Color('accent') or tc
+ f.barFill:SetColorTexture(barColor[1],barColor[2],barColor[3],1)
+ if f.resume then f.resume:SetShown(FT.view~=FT.active and not ForeverTrailSettings.compact) end
  f.barFill:SetWidth(math.max(1,(f.barW or 366)*math.min(1,(FT.complete and FT.view==FT.active) and 1 or FT.view/math.max(1,#g.steps))))
  f.info:SetText(('Adım %d / %d  |cff%s[%s]|r%s'):format(FT.view,#g.steps,hex(tc),labels[s.type] or s.type, FT.view~=FT.active and '  |cffc8b89f(inceleme)|r' or ''))
  local record = type(QTR_QuestData) == 'table' and QTR_QuestData[tostring(s.questId)]

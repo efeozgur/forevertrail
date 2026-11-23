@@ -84,6 +84,7 @@ function Kit.RailButton(parent, def, onClick)
  b.bar = b:CreateTexture(nil, 'ARTWORK'); b.bar:SetPoint('TOPLEFT'); b.bar:SetPoint('BOTTOMLEFT'); b.bar:SetWidth(3); Kit.Fill(b.bar, 'accent'); b.bar:Hide()
  b.icon = b:CreateTexture(nil, 'ARTWORK'); b.icon:SetSize(22, 22); b.icon:SetPoint('TOP', 0, -9)
  b.icon:SetTexture('Interface\\AddOns\\ForeverTrail\\Media\\' .. def.icon)
+ b.icon:SetDesaturated(true) -- simgeler renkli olabilir; tek renge boyanmaları için önce grileştirilir
  b.text = Kit.Text(b, 10, 'muted'); b.text:SetPoint('BOTTOM', 0, 8); b.text:SetText(def.label)
  b:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.05)
  b:SetScript('OnClick', onClick)
@@ -108,4 +109,56 @@ function Kit.CloseButton(parent, onClick)
  b:SetScript('OnLeave', function(self) local c = Kit.Color('muted'); self.text:SetTextColor(c[1], c[2], c[3]) end)
  b:SetScript('OnClick', onClick)
  return b
+end
+
+-- Düz düğme. kind = 'primary' (vurgu rengi dolgulu, ana eylem) ya da boş (kart zeminli, ince çizgili).
+-- SetText / GetFontString / Enable / Disable oyunun düğmesi gibi çalışır.
+local function lighten(c, k) return {math.min(c[1] * k, 1), math.min(c[2] * k, 1), math.min(c[3] * k, 1), 1} end
+function Kit.Button(parent, text, width, height, kind)
+ local b = CreateFrame('Button', nil, parent)
+ b:SetSize(width, height or 24)
+ b.kind = kind
+ b.edge = b:CreateTexture(nil, 'BACKGROUND', nil, 0); b.edge:SetAllPoints()
+ b.fill = b:CreateTexture(nil, 'BACKGROUND', nil, 1); b.fill:SetPoint('TOPLEFT', 1, -1); b.fill:SetPoint('BOTTOMRIGHT', -1, 1)
+ b.label = b:CreateFontString(nil, 'OVERLAY'); Kit.Font(b.label, 12); b.label:SetPoint('CENTER', 0, 0)
+ b.label:SetText(text or '')
+ function b:SetText(t) self.label:SetText(t or '') end
+ function b:GetText() return self.label:GetText() end
+ function b:GetFontString() return self.label end
+ function b:Refresh()
+  local off = self.IsEnabled and self:IsEnabled() == false
+  local fill, edge, text
+  if off then fill, edge, text = Kit.Color('mid'), Kit.Color('line'), Kit.Color('muted')
+  elseif self.kind == 'primary' then
+   fill = self.hover and lighten(Kit.Color('accent'), 1.12) or Kit.Color('accent')
+   edge, text = fill, Kit.Color('deep')
+  else
+   fill = self.hover and lighten(Kit.Color('card'), 1.3) or Kit.Color('card')
+   edge, text = Kit.Color('line'), Kit.Color(self.hover and 'accent' or 'text')
+  end
+  self.fill:SetColorTexture(fill[1], fill[2], fill[3], 1); self.edge:SetColorTexture(edge[1], edge[2], edge[3], 1)
+  self.label:SetTextColor(text[1], text[2], text[3])
+ end
+ local enable, disable = b.Enable, b.Disable
+ function b:Enable() if enable then enable(self) end; self:Refresh() end
+ function b:Disable() if disable then disable(self) end; self:Refresh() end
+ b:SetScript('OnEnter', function(self) self.hover = true; self:Refresh() end)
+ b:SetScript('OnLeave', function(self) self.hover = false; self:Refresh() end)
+ track(function() b:Refresh() end)
+ return b
+end
+
+-- Düz onay kutusu + yazı. get() açık mı döndürür, set(v) değişince çağrılır.
+function Kit.Check(parent, label, get, set)
+ local c = CreateFrame('Button', nil, parent)
+ c:SetSize(170, 20)
+ c.box = Kit.Frame(c, 'deep', 'line'); c.box:SetSize(16, 16); c.box:SetPoint('LEFT', 0, 0)
+ c.mark = c.box:CreateTexture(nil, 'ARTWORK'); c.mark:SetPoint('TOPLEFT', 4, -4); c.mark:SetPoint('BOTTOMRIGHT', -4, 4)
+ Kit.Fill(c.mark, 'accent')
+ c.text = Kit.Text(c, 12, 'text'); c.text:SetPoint('LEFT', c.box, 'RIGHT', 8, 0); c.text:SetText(label)
+ function c:SetChecked(v) self.on = v and true or false; self.mark:SetShown(self.on) end
+ function c:GetChecked() return self.on end
+ c:SetScript('OnClick', function(self) self:SetChecked(not self.on); if set then set(self.on) end end)
+ c:SetChecked(get and get())
+ return c
 end
