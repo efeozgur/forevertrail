@@ -169,18 +169,10 @@ local EMPTY = {
  mine = 'Kayıt yok. Aşağıdan bulunduğun yeri adıyla kaydedebilirsin.',
 }
 
--- Satıra tıklayınca: hedefi seç, haritayı aç ve ne bekleyeceğini söyle. Ok, mini harita işareti ve harita çizgisi yalnızca
--- oyuncu hedefle aynı bölgedeyken yön gösterebilir; başka bölgede ok gri "Başka bölge" olarak kalır, bu yüzden yol tarifi yazılır.
+-- Satıra tıklayınca: hedefi seç ve haritayı aç. Sohbete yazılmaz: başka bölgedeki hedefler için yolculuk kartı (UI/RouteCard.lua)
+-- uçuş, zeplin, gemi gibi adımları simgeyle gösterir; aynı bölgedeyken ok, mini harita ve harita çizgisi yön verir.
 function FT.PlacesGo(row)
- FT.SetCustomTarget(row.map, row.x, row.y, row.name)
- local map = playerSpot()
- if map and row.map and map ~= row.map then
-  local lines = FT.RoutePlan and FT.RoutePlan(FT.customTarget) or {}
-  FT.Print(('%s başka bölgede (%s): ok yönü göstermez, aşağıdaki adımları izle.'):format(row.name, (FT.MapName and FT.MapName(row.map)) or '?'))
-  for n, text in ipairs(lines) do FT.Print(('  %d. %s'):format(n, text)) end
- elseif row.dist and row.dist < 15 then
-  FT.Print('Zaten oradasın (' .. math.floor(row.dist + 0.5) .. ' yd).')
- end
+ FT.SetCustomTarget(row.map, row.x, row.y, row.name, true)
  if FT.OpenMap then FT.OpenMap() end
 end
 

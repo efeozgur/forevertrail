@@ -34,6 +34,7 @@ Guide/Recommendations.lua
 Guide/Guides.lua
 UI/Panel.lua
 UI/Suggestions.lua
+UI/RouteCard.lua
 UI/Target.lua
 UI/Tracker.lua
 Map/Minimap.lua

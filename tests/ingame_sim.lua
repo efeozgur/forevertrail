@@ -38,6 +38,8 @@ local methods = {
  GetChildren = function(self) local out = {} for _, f in ipairs(frames) do if f.__parent == self and f.__kind ~= 'FontString' and f.__kind ~= 'Texture' and f.__kind ~= 'Line' then out[#out + 1] = f end end return unpack(out) end,
  GetFrameLevel = function() return 1 end, GetFrameStrata = function() return 'MEDIUM' end,
  SetScale = function(self, s) self.__scale = s end, GetScale = function(self) return self.__scale or 1 end,
+ SetTexture = function(self, t) self.__tex = t end, GetTexture = function(self) return self.__tex end,
+ SetAlpha = function(self, a) self.__alpha = a end, GetAlpha = function(self) return self.__alpha or 1 end,
  GetEffectiveScale = function() return 1 end, GetLeft = function() return 0 end, GetTop = function() return 0 end,
  GetCenter = function() return 0, 0 end, GetPoint = function() return 'CENTER', nil, 'CENTER', 0, 0 end,
  IsEnabled = function(self) return not self.__disabled end, Enable = function(self) self.__disabled = false end, Disable = function(self) self.__disabled = true end,
@@ -553,15 +555,39 @@ try('ortak bileşenler', function()
   local first = shown[1]
   first:GetScript('OnClick')(first)
   assert(FT.customTarget and FT.customTarget.text == first.row.name, 'satıra tıklayınca yer hedef olmalı')
-  -- başka bölgedeki yer: yol tarifi sohbete yazılır (ok başka bölgede yön gösteremez)
+  -- başka bölgedeki yer: sohbete yazılmaz, yolculuk kartı simgeli adımlarla açılır
   do
    local printed, realPrint = {}, FT.Print
    FT.Print = function(m) printed[#printed + 1] = tostring(m) end
    FT.PlacesGo({name = 'Uzak Han', cat = 'Han', map = 1426, x = 0.3, y = 0.3})
    FT.Print = realPrint
-   local all = table.concat(printed, ' / ')
-   assert(all:find('başka bölgede', 1, true) and all:find('1%.'), 'başka bölge hedefinde yol tarifi yazılmalı: ' .. all)
-   assert(FT.customTarget and FT.customTarget.text == 'Uzak Han', 'hedef yine de seçilmeli')
+   assert(#printed == 0, 'yerler seçimi sohbete yazmamalı: ' .. table.concat(printed, ' / '))
+   assert(FT.customTarget and FT.customTarget.text == 'Uzak Han', 'hedef seçilmeli')
+   local card = FT.routeCard
+   assert(card and card:IsShown(), 'başka bölge hedefinde yolculuk kartı açılmalı')
+   local rows = FT.RouteCardRows()
+   assert(#rows >= 1, 'kartta adım olmalı')
+   assert(rows[#rows].icon:GetTexture():find('route_flag'), 'son adım varış simgesi olmalı: ' .. tostring(rows[#rows].icon:GetTexture()))
+   assert(card.title:GetText() == 'Uzak Han', 'kart hedef adını göstermeli')
+   -- animasyon: açılışta saydam başlar, süre dolunca tam görünür
+   card:GetScript('OnUpdate')(card, 0.05)
+   assert(card:GetAlpha() < 1, 'açılışta kart yarı saydam başlamalı: ' .. card:GetAlpha())
+   card:GetScript('OnUpdate')(card, 0.5)
+   assert(card:GetAlpha() == 1, 'açılış animasyonu tamamlanmalı')
+   -- aynı bölgeye gelince kart kapanır
+   local realMap = C_Map.GetBestMapForUnit
+   C_Map.GetBestMapForUnit = function() return 1426 end
+   FT.RefreshRouteCard()
+   assert(not card:IsShown(), 'hedefin bölgesine gelince kart kapanmalı')
+   C_Map.GetBestMapForUnit = realMap
+   FT.RefreshRouteCard(true); assert(card:IsShown(), 'başka bölgede yeniden açılmalı')
+   -- kapat düğmesi bu hedef için kartı gizler, yeni hedefte yeniden açılır
+   card.close:GetScript('OnClick')(card.close)
+   assert(not card:IsShown(), 'kapat düğmesi kartı gizlemeli')
+   FT.SetCustomTarget(1426, 0.5, 0.5, 'Başka Han', true)
+   assert(card:IsShown(), 'yeni hedefte kart yeniden açılmalı')
+   FT.customTarget = nil; FT.RefreshRouteCard()
+   assert(not card:IsShown(), 'hedef yokken kart gizli olmalı')
   end
   FT.PlacesCategory('mine')
   assert(#FT.PlacesRows() == 0 and pw.empty:IsShown() and pw.empty:GetText() ~= '', 'boş sekmede açıklama görünmeli')

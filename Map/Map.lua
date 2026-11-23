@@ -9,41 +9,89 @@ function FT.AtLocation(s)
 end
 FT.TypeColor = FT.TypeColor or {accept={0.55,0.82,0.5}, objective={0.98,0.8,0.4}, turnin={0.55,0.72,0.95}, location={0.75,0.62,0.95}, manual={0.78,0.74,0.68}}
 local typeColor = FT.TypeColor
-local overlay, marker, glow, label, player, route, caption
+local overlay, marker, glow, label, player, route, routeGlow, caption
 local dots, pulse = {}, 0
 local trail, trailFrom, trailTo = {}, nil, nil
 local mapRing = {}
 
--- Güzergah: oyuncudan hedefe akan, hedefe yaklaştıkça belirginleşen noktalar
+-- Güzergah: oyuncudan hedefe giden, tema renginde parıltılı çizgi; üzerinde ince bir nokta izi ve hedefe doğru akan kuyruklu ışıklar.
+-- Işıkların sayısı mesafeyle artar; hedefe yaklaştıkça hepsi belirginleşir.
+local comets, tails = {}, {}
+local TAIL = 5
+local function trailColor()
+ local c = FT.Kit and FT.Kit.Color and FT.Kit.Color('accent')
+ if c then return c[1], c[2], c[3] end
+ return 1, 0.82, 0.4
+end
+FT.MapTrailColor = trailColor
+
+local function dotTexture(list, i, size, blend)
+ local d = list[i]
+ if not d then
+  d = overlay:CreateTexture(nil, 'ARTWORK')
+  d:SetTexture(blend and 'Interface\\Cooldown\\star4' or 'Interface\\Buttons\\WHITE8X8')
+  if blend then d:SetBlendMode('ADD') end
+  list[i] = d
+ end
+ d:SetSize(size, size)
+ return d
+end
+
 local function updateTrail()
- local count = 0
+ local base, head, tail = 0, 0, 0
  if overlay and trailFrom and trailTo then
   local dx, dy = trailTo[1] - trailFrom[1], trailTo[2] - trailFrom[2]
   local length = math.sqrt(dx * dx + dy * dy)
-  local spacing = 22
-  if length > spacing then
-   local shift = (pulse * 26) % spacing
-   local distance = shift
-   while distance < length and count < 60 do
-    count = count + 1
-    local dot = trail[count]
-    if not dot then
-     dot = overlay:CreateTexture(nil, 'ARTWORK')
-     dot:SetTexture('Interface\\Cooldown\\star4'); dot:SetSize(11, 11)
-     trail[count] = dot
+  if length > 24 then
+   local r, g, b = trailColor()
+   local ux, uy = dx / length, dy / length
+   -- ince nokta izi (sabit)
+   local spacing = 15
+   local n = math.min(90, math.floor(length / spacing))
+   for i = 1, n do
+    base = base + 1
+    local d = dotTexture(trail, base, 4, false)
+    local t = (i * spacing) / length
+    d:ClearAllPoints(); d:SetPoint('CENTER', overlay, 'TOPLEFT', trailFrom[1] + dx * t, trailFrom[2] + dy * t)
+    d:SetVertexColor(r, g, b, 0.18 + 0.32 * t)
+    d:Show()
+   end
+   -- akan ışıklar: baş + kuyruk
+   local count = math.max(1, math.min(4, math.floor(length / 260) + 1))
+   local speed = 120 + math.min(160, length * 0.25)
+   for c = 1, count do
+    local pos = (pulse * speed + (c - 1) * length / count) % length
+    for k = 0, TAIL do
+     local at = pos - k * 9
+     if at > 0 then
+      local t = at / length
+      local x, y = trailFrom[1] + ux * at, trailFrom[2] + uy * at
+      local falloff = 1 - k / (TAIL + 1)
+      local strength = (0.35 + 0.65 * t) * falloff
+      if k == 0 then
+       head = head + 1
+       local h = dotTexture(comets, head, 17 + 4 * math.sin(pulse * 7 + c), true)
+       h:ClearAllPoints(); h:SetPoint('CENTER', overlay, 'TOPLEFT', x, y)
+       h:SetVertexColor(1, 1, 1, 0.55 + 0.4 * t)
+       h:Show()
+      else
+       tail = tail + 1
+       local d = dotTexture(tails, tail, math.max(3, 9 - k), false)
+       d:ClearAllPoints(); d:SetPoint('CENTER', overlay, 'TOPLEFT', x, y)
+       d:SetVertexColor(r, g, b, strength)
+       d:Show()
+      end
+     end
     end
-    local t = distance / length
-    dot:ClearAllPoints()
-    dot:SetPoint('CENTER', overlay, 'TOPLEFT', trailFrom[1] + dx * t, trailFrom[2] + dy * t)
-    dot:SetVertexColor(1, 0.82, 0.4, 0.3 + 0.65 * t)
-    dot:Show()
-    distance = distance + spacing
    end
   end
  end
- for i = count + 1, #trail do trail[i]:Hide() end
+ for i = base + 1, #trail do trail[i]:Hide() end
+ for i = head + 1, #comets do comets[i]:Hide() end
+ for i = tail + 1, #tails do tails[i]:Hide() end
 end
 FT.mapDots = dots
+FT.UpdateMapTrail = function(advance) pulse = pulse + (advance or 0); updateTrail() end -- test ve tanı için
 
 function FT.MapDebug()
  local step = FT.TargetStep() or {}
@@ -106,12 +154,13 @@ local function customStep(map, x, y, name)
  return {stepId='custom-target', type='location', text=name, questTitle=name, uiMapID=map, x=x, y=y, fixed=true}
 end
 
-function FT.SetCustomTarget(map, x, y, name)
+function FT.SetCustomTarget(map, x, y, name, silent)
  FT.customTarget = customStep(map, x, y, name)
  if ForeverTrailCharacter then ForeverTrailCharacter.customTarget = {map=map, x=x, y=y, name=name} end
- FT.Print(('Hedef: %s (%.1f, %.1f). Kaldırmak için /ftrail iptal'):format(name or 'Seçtiğin nokta', x * 100, y * 100))
+ if not silent then FT.Print(('Hedef: %s (%.1f, %.1f). Kaldırmak için /ftrail iptal'):format(name or 'Seçtiğin nokta', x * 100, y * 100)) end
  FT.RefreshMap()
  if FT.Refresh then FT.Refresh() end
+ if FT.RefreshRouteCard then FT.RefreshRouteCard(true) end
 end
 
 function FT.ClearCustomTarget()
@@ -121,6 +170,7 @@ function FT.ClearCustomTarget()
  FT.Print('Özel hedef kaldırıldı.')
  FT.RefreshMap()
  if FT.Refresh then FT.Refresh() end
+ if FT.RefreshRouteCard then FT.RefreshRouteCard() end
 end
 
 function FT.RestoreCustomTarget()
@@ -286,6 +336,7 @@ function FT.RefreshMap()
  if FT.DrawChain then pcall(FT.DrawChain, WorldMapFrame:GetMapID()) end
  player:Hide()
  route:Hide()
+ if routeGlow then routeGlow:Hide() end
  trailFrom, trailTo = nil, nil
  if FT.HideRing then FT.HideRing(mapRing) end
  glow:Hide()
@@ -363,9 +414,16 @@ function FT.RefreshMap()
   return
  end
  if px ~= tx or py ~= ty then
+  local r, g, b = 1, 0.82, 0.4
+  if FT.MapTrailColor then r, g, b = FT.MapTrailColor() end
   route:SetStartPoint('TOPLEFT', overlay, px, py)
   route:SetEndPoint('TOPLEFT', overlay, tx, ty)
+  route:SetColorTexture(r, g, b, 0.5)
   route:Show()
+  routeGlow:SetStartPoint('TOPLEFT', overlay, px, py)
+  routeGlow:SetEndPoint('TOPLEFT', overlay, tx, ty)
+  routeGlow:SetColorTexture(r, g, b, 0.10)
+  routeGlow:Show()
   local gx, gy = tx, ty
   local nav = FT.nav
   if nav and nav.hint and nav.step and nav.step.uiMapID == step.uiMapID then gx, gy = nav.step.x * w, -nav.step.y * h end
@@ -411,9 +469,12 @@ if not overlay then
  player = overlay:CreateTexture(nil, 'OVERLAY')
  player:SetSize(16, 16)
  player:SetTexture('Interface\\TargetingFrame\\UI-RaidTargetingIcon_6')
+ routeGlow = overlay:CreateLine(nil, 'ARTWORK')
+ routeGlow:SetThickness(9)
+ routeGlow:SetColorTexture(1, 0.82, 0.4, 0.10)
  route = overlay:CreateLine(nil, 'ARTWORK')
- route:SetThickness(2)
- route:SetColorTexture(0.98, 0.78, 0.38, 0.28)
+ route:SetThickness(3)
+ route:SetColorTexture(1, 0.82, 0.4, 0.5)
  caption = WorldMapFrame:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
  caption:SetPoint('BOTTOM', WorldMapFrame, 'BOTTOM', 0, 12)
  caption:SetShadowOffset(1, -1)
@@ -423,7 +484,7 @@ if not overlay then
   caption:SetFont(WOWTR_Font2, size, flags)
  end
  local elapsed = 0
- FT.mapParts = {overlay=overlay, marker=marker, glow=glow, label=label, player=player, route=route, caption=caption}
+ FT.mapParts = {overlay=overlay, marker=marker, glow=glow, label=label, player=player, route=route, routeGlow=routeGlow, caption=caption}
  overlay:SetScript('OnUpdate', function(_, dt)
   pulse = pulse + dt
   updateTrail()
