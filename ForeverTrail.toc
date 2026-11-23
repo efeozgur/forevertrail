@@ -1,0 +1,76 @@
+## Interface: 16001
+## Title: ForeverTrail
+## Notes: Independent quest guide prototype
+## OptionalDeps: WoWTR
+## Version: 0.1.0
+## SavedVariables: ForeverTrailSettings, ForeverTrailData, ForeverTrailBackup
+## SavedVariablesPerCharacter: ForeverTrailCharacter
+Core.lua
+Compat.lua
+QuestieMerge.lua
+DataZones.lua
+DataQuests.lua
+DataNpcs.lua
+DataObjects.lua
+DataItems.lua
+DataNewQuests.lua
+DataXP.lua
+DataStations.lua
+DataDungeons.lua
+OwnDB.lua
+LiveSync.lua
+Data.lua
+OwnData.lua
+Diagnostics.lua
+Style.lua
+Quest.lua
+Engine.lua
+Map.lua
+Arrow.lua
+Journal.lua
+Recommendations.lua
+Guides.lua
+Panel.lua
+Target.lua
+Tracker.lua
+Minimap.lua
+Settings.lua
+Extras.lua
+Features.lua
+Gear.lua
+QuestItems.lua
+Places.lua
+Advisor.lua
+Assist.lua
+Focus.lua
+Helpers.lua
+Recorder.lua
+Hub.lua
+Discovery.lua
+Objectives.lua
+Journey.lua
+MapRoute.lua
+Flow.lua
+Toolbox.lua
+Atlas.lua
+Design.lua
+Available.lua
+ViewOptions.lua
+QuestInfo.lua
+Layout.lua
+Polish.lua
+Wizard.lua
+Upgrade.lua
+DataTalents.lua
+Class.lua
+Professions.lua
+Guide2.lua
+Janti.lua
+QuestieUI.lua
+Rares.lua
+QuestHelper.lua
+MinimapTips.lua
+QuestieBridge.lua
+QuestonTR1.lua
+QuestonTR2.lua
+QuestonBridge.lua
