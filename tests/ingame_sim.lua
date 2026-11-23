@@ -264,6 +264,27 @@ INV[16] = 'item:100'
 SCORE = ('puan yeni %.1f / eski %.1f'):format(FT.ItemScore('item:200'), FT.ItemScore('item:100'))
 try('çanta dolu', FT.ShowSwapCompare, 'item:400', 5000, {{bag = 0, slot = 2, link = 'item:300', value = 3, count = 1}}, function(v) SWAPPED = v.link end)
 try('çanta seç', function() local r = FT.swapCompare.rows[1]; r:GetScript('OnClick')(r) end)
+-- Ok: aynı kıtada başka haritadaki hedefe (şehir içi, komşu bölge) dünya koordinatından yön verir; kıta farklıysa "Başka bölge"
+do
+ local maps = {[1429] = {inst = 0, top = 1000, bottom = 0, left = 1000, right = 0}, [1431] = {inst = 0, top = 2000, bottom = 1000, left = 1000, right = 0},
+  [1411] = {inst = 1, top = 1000, bottom = 0, left = 1000, right = 0}}
+ local realW, realM, realV = C_Map.GetWorldPosFromMapPos, C_Map.GetMapPosFromWorldPos, CreateVector2D
+ CreateVector2D = function(x, y) return {x = x, y = y, GetXY = function(self) return self.x, self.y end} end
+ C_Map.GetWorldPosFromMapPos = function(map, v) local m = maps[map]; if not m then return nil end return m.inst, CreateVector2D(m.top + (m.bottom - m.top) * v.y, m.left + (m.right - m.left) * v.x) end
+ C_Map.GetMapPosFromWorldPos = function(inst, v, map) local m = maps[map]; if not m or m.inst ~= inst then return nil end
+  return map, CreateVector2D((v.y - m.left) / (m.right - m.left), (v.x - m.top) / (m.bottom - m.top)) end
+ local savedTarget = FT.customTarget
+ FT.customTarget = {stepId = 'proj', type = 'location', questTitle = 'Komşu', text = 'Komşu', uiMapID = 1431, x = 0.5, y = 0.5}
+ FT.nav = nil; FT.UpdateArrow()
+ assert(FT.nav and FT.nav.step and FT.nav.step.projected and FT.nav.step.uiMapID == 1429, 'aynı kıtada başka haritadaki hedefe yön verilmeli (ok başka bölge demeli değil)')
+ assert(FT.nav.final == FT.customTarget and FT.nav.dist > 100, 'son hedef özgün adım olmalı, mesafe dünya koordinatından hesaplanmalı: ' .. tostring(FT.nav.dist))
+ FT.customTarget = {stepId = 'far', type = 'location', questTitle = 'Uzak', text = 'Uzak', uiMapID = 1411, x = 0.5, y = 0.5}
+ FT.nav = nil; FT.UpdateArrow()
+ assert(FT.nav == nil, 'farklı kıtadaki hedefe projeksiyon yapılmamalı')
+ FT.customTarget = savedTarget
+ C_Map.GetWorldPosFromMapPos, C_Map.GetMapPosFromWorldPos, CreateVector2D = realW, realM, realV
+ FT.nav = nil
+end
 -- En yakın adım (ok sağ tık): seçili bölge rehberinde kalır, günlük rehberine geçmez
 do
  local saved = FT.guide

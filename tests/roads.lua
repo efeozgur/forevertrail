@@ -156,4 +156,51 @@ do
  assert(ft.CurrentRoute(7, 0.20, 0.20, 0.80, 0.80, ww, wh) == nil and ft.RoadsSource() == nil, 'eklenti yokken sorunsuz nil')
 end
 
+-- dünya koordinatları: şehir haritası (20) bölge haritasının (10) içinde; çevirme, harita kimlikleri arasındaki ilişkiye bakmaz
+do
+ local maps = {[10] = {inst = 1, top = 1000, bottom = 0, left = 1000, right = 0}, [20] = {inst = 1, top = 600, bottom = 500, left = 700, right = 600},
+  [30] = {inst = 2, top = 1000, bottom = 0, left = 1000, right = 0}}
+ CreateVector2D = function(x, y) return {x = x, y = y, GetXY = function(self) return self.x, self.y end} end
+ C_Map.GetWorldPosFromMapPos = function(map, v) local m = maps[map]; if not m then return nil end return m.inst, CreateVector2D(m.top + (m.bottom - m.top) * v.y, m.left + (m.right - m.left) * v.x) end
+ C_Map.GetMapPosFromWorldPos = function(inst, v, map) local m = maps[map]; if not m or m.inst ~= inst then return nil end
+  return map, CreateVector2D((v.y - m.left) / (m.right - m.left), (v.x - m.top) / (m.bottom - m.top)) end
+ local inst, wx, wy = ft.ToWorld(20, 0.5, 0.5)
+ assert(inst == 1 and wx == 550 and wy == 650, 'ToWorld: ' .. tostring(inst) .. ',' .. tostring(wx) .. ',' .. tostring(wy))
+ local x, y = ft.FromWorld(1, 550, 650, 10)
+ assert(math.abs(x - 0.35) < 1e-9 and math.abs(y - 0.45) < 1e-9, 'FromWorld: şehir merkezi bölge haritasında (0.35, 0.45) olmalı')
+ -- şehir haritasının dışındaki bir noktanın şehir koordinatı 0-1 dışında çıkar ama geçerlidir
+ x, y = ft.ProjectToMap(10, 0.1, 0.1, 20)
+ assert(math.abs(x - -2) < 1e-9 and math.abs(y - -3) < 1e-9, 'harita dışı projeksiyon 0-1 dışı değer vermeli: ' .. tostring(x) .. ',' .. tostring(y))
+ -- gidiş-dönüş tutarlı
+ local bx, by = ft.ProjectToMap(20, x, y, 10)
+ assert(math.abs(bx - 0.1) < 1e-9 and math.abs(by - 0.1) < 1e-9, 'gidiş-dönüş aynı noktaya dönmeli')
+ -- farklı kıta: çevrilemez
+ assert(ft.ProjectToMap(30, 0.5, 0.5, 10) == nil, 'farklı kıtadaki nokta çevrilmemeli')
+ assert(ft.ProjectToMap(99, 0.5, 0.5, 10) == nil, 'bilinmeyen harita çevrilmemeli')
+ -- adım projeksiyonu: oyuncunun haritasında hedef + dünya koordinatı
+ local goal = ft.ProjectStep(10, {stepId = 's1', type = 'accept', questId = 5, questTitle = 'Q', uiMapID = 20, x = 0.5, y = 0.5})
+ assert(goal and goal.projected and goal.uiMapID == 10 and math.abs(goal.x - 0.35) < 1e-9 and math.abs(goal.y - 0.45) < 1e-9, 'ProjectStep hedefi oyuncunun haritasında vermeli')
+ assert(goal.world[1] == 1 and goal.world[2] == 550 and goal.world[3] == 650 and goal.stepId == 's1' and goal.questId == 5, 'ProjectStep dünya koordinatını ve adım bilgisini taşımalı')
+ assert(ft.ProjectStep(10, {uiMapID = 30, x = 0.5, y = 0.5}) == nil, 'farklı kıtadaki adım projekte edilmemeli')
+ assert(ft.ProjectStep(10, {uiMapID = 20}) == nil, 'koordinatsız adım projekte edilmemeli')
+
+ -- rota: hedefin dünya koordinatı verilmişse ona gidilir (harita koordinatından çevrilmez)
+ local askedTo
+ UnitPosition = function() return 900, 900, 0, 1 end
+ UnitFactionGroup = function() return 'Horde' end
+ ForeverTrail_NavEngine = {Available = function() return true end, Cancel = function() end,
+  Find = function(inst2, from, to, callback) askedTo = {to.x, to.y}; return {} end}
+ ft.RoadsNavReset(); clock = 600
+ ft.CurrentRoute(10, 0.1, 0.1, 0.35, 0.45, 3000, 2000, {1, 111, 222})
+ assert(askedTo and askedTo[1] == 111 and askedTo[2] == 222, 'dünya hedefi verilince yönlendiriciye o iletilmeli')
+ -- öğrenilmiş yollar yalnızca harita içindeyken kullanılır
+ ForeverTrail_NavEngine = nil; ft.RoadsNavReset(); clock = 700
+ -- haritanın sol kenarında bir yol öğren: harita dışındaki oyuncu kenara sıkıştırılıp bu yola bağlanmış gibi görünmemeli
+ ft.RoadsBreak(); walk(1, 0.002, 0.50, 0.002, 0.80)
+ assert(ft.CurrentRoute(1, 0.002, 0.52, 0.002, 0.79, 3000, 2000), 'kenar yolu harita içindeyken kullanılmalı')
+ ft.RoadsNavReset(); clock = 800
+ assert(ft.CurrentRoute(1, -0.5, 0.52, 0.002, 0.79, 3000, 2000) == nil, 'oyuncu harita dışındayken öğrenilmiş yol kullanılmamalı')
+ assert(ft.CurrentRoute(1, 0.10, 0.12, 0.90, 0.80, 3000, 2000), 'harita içindeyken öğrenilmiş yol kullanılmalı')
+end
+
 print('Roads tests passed (' .. nodes() .. ' hücre)')

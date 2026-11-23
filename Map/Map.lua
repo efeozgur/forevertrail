@@ -345,6 +345,37 @@ local lastLayerKey, lastLayerTime = nil, -100
 -- Harita katmanlarını yeniden çizmeye zorla (veri ya da ayar değişince)
 function FT.BumpLayers() FT.layerVersion = (FT.layerVersion or 0) + 1 end
 
+-- Çizgiyi tuvale (x: 0..w, y: -h..0) kırpar (Liang-Barsky). Dönüş: kırpılmış uç noktalar ve giriş/çıkış oranları ya da nil
+local function clipSegment(x1, y1, x2, y2, w, h)
+ local dx, dy = x2 - x1, y2 - y1
+ local t0, t1 = 0, 1
+ local function edge(p, q)
+  if p == 0 then return q >= 0 end
+  local r = q / p
+  if p < 0 then if r > t1 then return false end; if r > t0 then t0 = r end
+  else if r < t0 then return false end; if r < t1 then t1 = r end end
+  return true
+ end
+ if edge(-dx, x1) and edge(dx, w - x1) and edge(-dy, y1 + h) and edge(dy, -y1) then
+  return x1 + t0 * dx, y1 + t0 * dy, x1 + t1 * dx, y1 + t1 * dy, t0, t1
+ end
+end
+
+-- Çok noktalı yolun tuvalde görünen ilk bitişik parçası ({{x, y}, ...}); hiç görünmüyorsa nil
+local function clipToCanvas(pts, w, h)
+ local run
+ for i = 2, #pts do
+  local ax, ay, bx, by, _, t1 = clipSegment(pts[i - 1][1], pts[i - 1][2], pts[i][1], pts[i][2], w, h)
+  if ax then
+   if not run then run = {{ax, ay}} end
+   run[#run + 1] = {bx, by}
+   if t1 < 1 then break end -- yol tuvalden çıktı
+  elseif run then break end
+ end
+ return run
+end
+FT.MapClipToCanvas = clipToCanvas -- test için
+
 local switchedKey -- açık haritanın en son hangi hedef için çevrildiği
 function FT.RefreshMap()
  if not caption then return end
@@ -429,6 +460,22 @@ function FT.RefreshMap()
  end
  caption:Show()
  local ok, x, y, reason = pcall(playerPosition, step.uiMapID)
+ -- Oyuncu hedefin haritasında değilse (şehir dışında, komşu bölgede) konumu dünya koordinatlarından hedef haritasına çevir.
+ -- Sonuç 0-1 dışında olabilir (oyuncu haritanın dışında); çizim tuvale kırpılır.
+ local projected = false
+ if ok and not x and FT.ProjectToMap and C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
+  local okBest, best = pcall(C_Map.GetBestMapForUnit, 'player')
+  if okBest and best and best ~= step.uiMapID then
+   local okPos, pos = pcall(C_Map.GetPlayerMapPosition, best, 'player')
+   if okPos and pos then
+    local okXY, bx, by = pcall(function() return pos:GetXY() end)
+    if okXY and type(bx) == 'number' and type(by) == 'number' and not (bx == 0 and by == 0) then
+     local nx, ny = FT.ProjectToMap(best, bx, by, step.uiMapID)
+     if nx then x, y, projected = nx, ny, true end
+    end
+   end
+  end
+ end
  if not ok or not x then
   caption:SetText('ForeverTrail  |  ' .. (ok and reason or 'Karakter konumu okunamıyor.'))
   return
@@ -436,7 +483,7 @@ function FT.RefreshMap()
  local px, py = x*w, -y*h
  player:ClearAllPoints()
  player:SetPoint('CENTER', overlay, 'TOPLEFT', px, py)
- player:Show()
+ if projected and (x < 0 or x > 1 or y < 0 or y > 1) then player:Hide() else player:Show() end
  if not tx then
   caption:SetText(('ForeverTrail  |  Sen: %.1f, %.1f  |  Görev hedefi bulunamadı'):format(x*100,y*100))
   return
@@ -448,11 +495,11 @@ function FT.RefreshMap()
   local nav = FT.nav
   local viaHint = nav and nav.hint and nav.step and nav.step.uiMapID == step.uiMapID
   if viaHint then gx, gy = nav.step.x * w, -nav.step.y * h end
-  -- yol verisi varsa (Polestar_Nav ya da öğrenilmiş yollar) rota kıvrımlıdır; yoksa düz çizgi
+  -- yol verisi varsa (ForeverTrail_Nav ya da öğrenilmiş yollar) rota kıvrımlıdır; yoksa düz çizgi
   local pts
   if not viaHint and FT.CurrentRoute and step.x and C_Map and C_Map.GetBestMapForUnit then
    local okMap, pm = pcall(C_Map.GetBestMapForUnit, 'player')
-   if okMap and pm == step.uiMapID then
+   if okMap and (pm == step.uiMapID or projected) then
     local okSize, ww, wh = pcall(C_Map.GetMapWorldSize, step.uiMapID)
     local list = okSize and ww and FT.CurrentRoute(step.uiMapID, x, y, step.x, step.y, ww, wh)
     if list and #list >= 2 then
@@ -461,32 +508,38 @@ function FT.RefreshMap()
     end
    end
   end
-  pts = pts or {{px, py}, {tx, ty}}
-  route:SetStartPoint('TOPLEFT', overlay, pts[1][1], pts[1][2])
-  route:SetEndPoint('TOPLEFT', overlay, pts[2][1], pts[2][2])
-  route:SetColorTexture(r, g, b, 0.5)
-  route:Show()
-  routeGlow:SetStartPoint('TOPLEFT', overlay, pts[1][1], pts[1][2])
-  routeGlow:SetEndPoint('TOPLEFT', overlay, pts[2][1], pts[2][2])
-  routeGlow:SetColorTexture(r, g, b, 0.10)
-  routeGlow:Show()
-  for i = 3, #pts do
-   local k = i - 2
-   if not segCore[k] then
-    segGlow[k] = overlay:CreateLine(nil, 'ARTWORK'); segGlow[k]:SetThickness(9)
-    segCore[k] = overlay:CreateLine(nil, 'ARTWORK'); segCore[k]:SetThickness(3)
+  pts = clipToCanvas(pts or {{px, py}, {tx, ty}}, w, h)
+  if pts and #pts >= 2 then
+   route:SetStartPoint('TOPLEFT', overlay, pts[1][1], pts[1][2])
+   route:SetEndPoint('TOPLEFT', overlay, pts[2][1], pts[2][2])
+   route:SetColorTexture(r, g, b, 0.5)
+   route:Show()
+   routeGlow:SetStartPoint('TOPLEFT', overlay, pts[1][1], pts[1][2])
+   routeGlow:SetEndPoint('TOPLEFT', overlay, pts[2][1], pts[2][2])
+   routeGlow:SetColorTexture(r, g, b, 0.10)
+   routeGlow:Show()
+   for i = 3, #pts do
+    local k = i - 2
+    if not segCore[k] then
+     segGlow[k] = overlay:CreateLine(nil, 'ARTWORK'); segGlow[k]:SetThickness(9)
+     segCore[k] = overlay:CreateLine(nil, 'ARTWORK'); segCore[k]:SetThickness(3)
+    end
+    segGlow[k]:SetColorTexture(r, g, b, 0.10); segCore[k]:SetColorTexture(r, g, b, 0.5)
+    segGlow[k]:SetStartPoint('TOPLEFT', overlay, pts[i - 1][1], pts[i - 1][2]); segGlow[k]:SetEndPoint('TOPLEFT', overlay, pts[i][1], pts[i][2]); segGlow[k]:Show()
+    segCore[k]:SetStartPoint('TOPLEFT', overlay, pts[i - 1][1], pts[i - 1][2]); segCore[k]:SetEndPoint('TOPLEFT', overlay, pts[i][1], pts[i][2]); segCore[k]:Show()
    end
-   segGlow[k]:SetColorTexture(r, g, b, 0.10); segCore[k]:SetColorTexture(r, g, b, 0.5)
-   segGlow[k]:SetStartPoint('TOPLEFT', overlay, pts[i - 1][1], pts[i - 1][2]); segGlow[k]:SetEndPoint('TOPLEFT', overlay, pts[i][1], pts[i][2]); segGlow[k]:Show()
-   segCore[k]:SetStartPoint('TOPLEFT', overlay, pts[i - 1][1], pts[i - 1][2]); segCore[k]:SetEndPoint('TOPLEFT', overlay, pts[i][1], pts[i][2]); segCore[k]:Show()
+   trailPts = viaHint and clipToCanvas({{px, py}, {gx, gy}}, w, h) or pts
   end
-  trailPts = viaHint and {{px, py}, {gx, gy}} or pts
  end
  local measured, yards = pcall(distanceYards, step, x, y)
  local distance = measured and yards and ('%.0f yd'):format(yards) or 'Mesafe okunamıyor'
  label:SetText(title .. '\n|cffffffff' .. distance .. '|r')
  label:Show()
- caption:SetText(('ForeverTrail  |  Sen: %.1f, %.1f  |  Hedef: %s'):format(x*100,y*100,distance))
+ if projected then
+  caption:SetText(('ForeverTrail  |  Hedef: %s  |  Hedefin haritasının dışındasın'):format(distance))
+ else
+  caption:SetText(('ForeverTrail  |  Sen: %.1f, %.1f  |  Hedef: %s'):format(x*100,y*100,distance))
+ end
 end
 
 ensureOverlay = function()

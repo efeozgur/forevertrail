@@ -276,12 +276,53 @@ local function xyOf(pos)
  return plain(pos.x), plain(pos.y)
 end
 
-local function ask(P, map, gx, gy)
+-- Harita koordinatı <-> dünya koordinatı (UnitPosition çerçevesi: x kuzey, y batı). Harita kimlikleri arasındaki ilişkiye
+-- (şehir haritası, alt bölge, komşu bölge) bakmadan, aynı kıtadaki iki noktayı karşılaştırmayı sağlar.
+-- ToWorld: kıta/instance, wx, wy. FromWorld: x, y (harita dışında kalan noktalar için 0-1 dışı değerler döner).
+function FT.ToWorld(map, x, y)
+ if not (C_Map and C_Map.GetWorldPosFromMapPos and CreateVector2D and map and x and y) then return nil end
+ local ok, c, pos = pcall(C_Map.GetWorldPosFromMapPos, map, CreateVector2D(x, y))
+ if not ok then return nil end
+ local wx, wy = xyOf(pos)
+ c = plain(c)
+ if c == nil or type(wx) ~= 'number' or type(wy) ~= 'number' then return nil end
+ return c, wx, wy
+end
+
+function FT.FromWorld(inst, wx, wy, map)
+ if not (C_Map and C_Map.GetMapPosFromWorldPos and CreateVector2D and inst ~= nil and wx and wy and map) then return nil end
+ local ok, m, pos = pcall(C_Map.GetMapPosFromWorldPos, inst, CreateVector2D(wx, wy), map)
+ if not ok or plain(m) ~= map then return nil end
+ local x, y = xyOf(pos)
+ if type(x) ~= 'number' or type(y) ~= 'number' then return nil end
+ return x, y
+end
+
+-- Bir haritadaki noktayı başka bir haritanın koordinatına çevirir (aynı kıtada); olmuyorsa nil
+function FT.ProjectToMap(srcMap, x, y, dstMap)
+ local inst, wx, wy = FT.ToWorld(srcMap, x, y)
+ if not inst then return nil end
+ return FT.FromWorld(inst, wx, wy, dstMap)
+end
+
+-- Rehber adımını oyuncunun haritasının koordinatlarında bir hedef olarak ver (ok ve mini harita için). Aynı kıtada değilse nil.
+function FT.ProjectStep(map, step)
+ if not (step and step.uiMapID and step.x and step.y and map) then return nil end
+ local inst, wx, wy = FT.ToWorld(step.uiMapID, step.x, step.y)
+ if not inst then return nil end
+ local x, y = FT.FromWorld(inst, wx, wy, map)
+ if not x then return nil end
+ return {x = x, y = y, uiMapID = map, stepId = step.stepId or 'projected', type = step.type, questId = step.questId, questTitle = step.questTitle,
+  projected = true, world = {inst, wx, wy}}
+end
+
+local function ask(P, map, gx, gy, gworld)
  local ux, uy, inst = playerWorld()
  if not ux or not (C_Map and C_Map.GetWorldPosFromMapPos and CreateVector2D) then return end
- local ok, c, gpos = pcall(C_Map.GetWorldPosFromMapPos, map, CreateVector2D(gx, gy))
- local wx, wy = xyOf(ok and gpos)
- if not (ok and wx and wy) or plain(c) ~= inst then return end -- hedef bu kıtada değil
+ -- hedefin dünya koordinatı verilmişse (başka haritadaki hedef) onu kullan, yoksa harita koordinatından çevir
+ local c, wx, wy
+ if gworld then c, wx, wy = gworld[1], gworld[2], gworld[3] else c, wx, wy = FT.ToWorld(map, gx, gy) end
+ if not (wx and wy) or plain(c) ~= inst then return end -- hedef bu kıtada değil
  if P.Available and not P.Available(inst) then return end
  if PS.job and P.Cancel then pcall(P.Cancel, PS.job); PS.job = nil end
  local faction = UnitFactionGroup and select(1, UnitFactionGroup('player')) or nil
@@ -296,7 +337,7 @@ local function ask(P, map, gx, gy)
   for _, pt in ipairs(points) do
    local okMap, m, mpos = pcall(C_Map.GetMapPosFromWorldPos, inst, CreateVector2D(pt.x, pt.y), map)
    local x, y = xyOf(okMap and mpos)
-   if not (x and y) or x < -0.02 or x > 1.02 or y < -0.02 or y > 1.02 then break end -- harita dışına çıkan kısım çizilmez
+   if not (x and y) or x < -2 or x > 3 or y < -2 or y > 3 then break end -- harita dışında kalan noktalar korunur (çizim tuvale kırpar); uçlar atılır
    out[#out + 1] = {x, y}
   end
   if #out >= 2 then PS.points, PS.key, PS.failedAt = out, key, -999 else PS.points, PS.key, PS.failedAt = nil, nil, nowTime() end
@@ -318,7 +359,7 @@ local function trimmed(points, px, py, gx, gy, ww, wh)
  return out, math.sqrt(bestD or 0)
 end
 
-local function polestarRoute(P, map, px, py, gx, gy, ww, wh)
+local function polestarRoute(P, map, px, py, gx, gy, ww, wh, gworld)
  local key = ('%d:%.4f:%.4f'):format(map, gx, gy)
  local now = nowTime()
  local points, off
@@ -326,7 +367,7 @@ local function polestarRoute(P, map, px, py, gx, gy, ww, wh)
  local stale = not points or (off and off > 60)
  if stale and (not PS.job or PS.askedKey ~= key) and now - PS.askedAt >= 2 and not (PS.failedAt > -999 and PS.askedKey == key and now - PS.failedAt < 15)
   and not (InCombatLockdown and InCombatLockdown()) then
-  ask(P, map, gx, gy)
+  ask(P, map, gx, gy, gworld)
  end
  if points and not (off and off > 120) then return points end
  return nil
@@ -336,14 +377,16 @@ end
 FT.RoadsSource = function() return PS.usedSource end
 
 -- Çizim için rota. Dönüş: {{x, y}, ...} (ilk nokta oyuncu, son nokta hedef; 0-1 harita koordinatı) ya da nil.
-function FT.CurrentRoute(map, px, py, gx, gy, ww, wh)
+function FT.CurrentRoute(map, px, py, gx, gy, ww, wh, gworld)
  if not (map and px and gx) then PS.usedSource = nil; return nil end
  local P = psEngine()
  if P then
-  local pts = polestarRoute(P, map, px, py, gx, gy, ww, wh)
+  local pts = polestarRoute(P, map, px, py, gx, gy, ww, wh, gworld)
   if pts then PS.usedSource = 'nav'; return pts end
  end
- local pts = learnedRoute(map, px, py, gx, gy, ww, wh)
+ -- öğrenilmiş yollar harita başınadır: oyuncu ya da hedef bu haritanın dışındaysa kullanılamaz
+ local inside = px >= 0 and px <= 1 and py >= 0 and py <= 1 and gx >= 0 and gx <= 1 and gy >= 0 and gy <= 1
+ local pts = inside and learnedRoute(map, px, py, gx, gy, ww, wh) or nil
  PS.usedSource = pts and 'learned' or nil
  return pts
 end

@@ -78,7 +78,13 @@ function FT.UpdateArrow()
    else
     local travel, text
     if FT.TravelHint then travel, text = FT.TravelHint(map, step) end
-    if travel then goal, hint = travel, travel.hint else FT.travelText = text; return otherZone(step, map) end
+    if travel then goal, hint = travel, travel.hint
+    else
+     -- aynı kıtada başka bir haritadaki hedef (şehir içi, komşu bölge): dünya koordinatlarından doğrudan yön
+     local projected = FT.ProjectStep and FT.ProjectStep(map, step)
+     if projected then goal = projected
+     else FT.travelText = text; return otherZone(step, map) end
+    end
    end
   end
  end

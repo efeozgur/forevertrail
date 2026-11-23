@@ -193,7 +193,7 @@ local function routePixels(nav, ex, ey, half, radius, facing, rotate)
   local okMap, map = pcall(C_Map.GetBestMapForUnit, 'player')
   if okMap and map == step.uiMapID then
    local okSize, ww, wh = pcall(C_Map.GetMapWorldSize, map)
-   local pts = okSize and ww and FT.CurrentRoute(map, nav.px, nav.py, step.x, step.y, ww, wh)
+   local pts = okSize and ww and FT.CurrentRoute(map, nav.px, nav.py, step.x, step.y, ww, wh, step.world)
    if pts then
     local out = {}
     for i, p in ipairs(pts) do
