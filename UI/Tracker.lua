@@ -101,6 +101,7 @@ local function getQuestRow(i)
  row.tag:SetPoint('RIGHT', 0, 0)
  row.hl = row:CreateTexture(nil, 'HIGHLIGHT')
  row.hl:SetAllPoints(); row.hl:SetColorTexture(1, 1, 1, 0.07)
+ if FT.Kit then FT.Kit.Fill(row.hl, 'card', 0.9) end
  row:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
  row:SetScript('OnClick', function(self, button)
   if not self.questId then return end
@@ -130,7 +131,7 @@ local function getQuestRow(i)
   if FT.QuestRowTip then FT.QuestRowTip(self, self.questId) end
  end)
  row:SetScript('OnLeave', function()
-  if GameTooltip then GameTooltip:Hide() end
+  if FT.Kit then FT.Kit.HideTips() elseif GameTooltip then GameTooltip:Hide() end
   if not tracker:IsMouseOver() then tracker.hovering = false; applyAlpha() end
  end)
  questRows[i] = row
@@ -175,7 +176,8 @@ local function getObjectiveRow(i)
  row.count = newText(row, 13, 'OUTLINE', 'RIGHT')
  row.count:SetPoint('TOPRIGHT', 0, 1)
  row.barBg = solid(row, 'ARTWORK', WIDTH - PAD * 2 - 8, 3)
- row.barBg:SetPoint('TOPLEFT', 8, -16); row.barBg:SetColorTexture(1, 1, 1, 0.12)
+ row.barBg:SetPoint('TOPLEFT', 8, -16)
+ if FT.Kit then FT.Kit.Fill(row.barBg, 'line') else row.barBg:SetColorTexture(1, 1, 1, 0.12) end
  row.barFill = solid(row, 'OVERLAY', 1, 3)
  row.barFill:SetPoint('TOPLEFT', 8, -16)
  objectiveRows[i] = row
@@ -344,6 +346,26 @@ local function styleCompact(row, info, view, title, pinned, dist)
  row.title:SetText((pinned and '|cffffd100•|r ' or '') .. (FT.focusQuest == info.questID and '|cff55ddff◆|r ' or '') .. title)
 end
 
+-- Modern satır: solda seviye rozeti (zorluk renginde), satırlar arasında ince ayırıcı. modern kapalıysa ikisi de gizlenir.
+function FT.StyleQuestRow(row, level, first, modern)
+ if not (FT.Kit and FT.Kit.LevelBadge) then return end
+ if not modern then
+  if row.badge then row.badge:Hide() end
+  if row.sep then row.sep:Hide() end
+  return
+ end
+ if not row.badge then row.badge = FT.Kit.LevelBadge(row); row.badge:SetPoint('LEFT', 0, 0) end
+ if not row.sep then
+  row.sep = row:CreateTexture(nil, 'ARTWORK'); row.sep:SetHeight(1)
+  row.sep:SetPoint('BOTTOMLEFT', row, 'TOPLEFT', 0, 3); row.sep:SetPoint('BOTTOMRIGHT', row, 'TOPRIGHT', 0, 3)
+  FT.Kit.Fill(row.sep, 'line', 0.6)
+ end
+ local r, g, b = 1, 0.82, 0
+ if FT.DiffColor and level and level > 0 then r, g, b = FT.DiffColor(level) end
+ row.badge:SetLevel(level, r, g, b); row.badge:Show()
+ row.sep:SetShown(not first)
+end
+
 function FT.RefreshTracker()
  if not tracker or not tracker:IsShown() then return end
  local q = C_QuestLog
@@ -364,7 +386,8 @@ function FT.RefreshTracker()
    end
   end
  end
- local qs = FT.TrackerStyle and FT.TrackerStyle() == 'questie'
+ -- görev penceresi (QuestDock) varken her zaman modern görünüm; Questie görünümü yalnızca eski ayrı kutuda
+ local qs = FT.TrackerStyle and FT.TrackerStyle() == 'questie' and not FT.questDock
  local sort = ForeverTrailSettings.c_trackerSort or (qs and 'bolge' or 'durum')
  -- Biçim: detay (hedefler ve çubuklar), liste (tek satır) ya da tablo (sütunlar). Liste/tablo Questie görünümünü kullanmaz.
  local view = ForeverTrailSettings.c_trackerView or 'detay'
@@ -503,11 +526,14 @@ function FT.RefreshTracker()
  local lastZone, usedZones, hidden = nil, 0, 0
  if view == 'tablo' then y = y + drawColumnHeader(y) end
  local diff = ForeverTrailSettings.trkdiff ~= false
+ local modern = FT.questDock and FT.Kit and not qs and not compact
+ local zoneJustAdded = false
  for _, entry in ipairs(entries) do
   local info = entry.info
   if used >= maxQuests then break end
   if useZones and entry.zone ~= lastZone then
    lastZone = entry.zone
+   zoneJustAdded = true
    usedZones = usedZones + 1
    if usedZones > 1 then y = y + 5 end -- bölge grupları arasında nefes payı
    local z = getZoneRow(usedZones)
@@ -520,8 +546,13 @@ function FT.RefreshTracker()
    else
     setFont(z.text, 12, 'OUTLINE')
     z.text:SetText(('%s %s |cff9aa0a6(%d)|r'):format(zoneCollapsed[entry.zone] and '+' or '-', entry.zone, zoneCount[entry.zone]))
-    z.text:SetTextColor(ar, ag, ab)
-    z.line:SetColorTexture(ar, ag, ab, 0.3)
+    if FT.questDock and FT.Kit then
+     local m, l = FT.Kit.Color('muted'), FT.Kit.Color('line')
+     z.text:SetTextColor(m[1], m[2], m[3]); z.line:SetColorTexture(l[1], l[2], l[3], 1)
+    else
+     z.text:SetTextColor(ar, ag, ab)
+     z.line:SetColorTexture(ar, ag, ab, 0.3)
+    end
    end
    z:Show()
    y = y + 18
@@ -550,10 +581,12 @@ function FT.RefreshTracker()
    row.exp.tex:SetTexture(mini and 'Interface\\Buttons\\UI-PlusButton-Up' or 'Interface\\Buttons\\UI-MinusButton-Up')
    row.exp:Show()
   else
-   setFont(row.title, 13, ''); row.title:ClearAllPoints(); row.title:SetPoint('LEFT', 0, 0); row.title:SetPoint('RIGHT', row, 'RIGHT', -46, 0)
+   setFont(row.title, 13, ''); row.title:ClearAllPoints(); row.title:SetPoint('LEFT', modern and 30 or 0, 0); row.title:SetPoint('RIGHT', row, 'RIGHT', -46, 0)
    if row.exp then row.exp:Hide() end
   end
-  row.title:SetText((pinned and '|cffffd100•|r ' or '') .. ((mini and not qs) and '|cff9aa0a6+|r ' or '') .. (FT.focusQuest == info.questID and '|cff55ddff◆|r ' or '') .. ((diff and info.level and info.level > 0) and ('[' .. info.level .. '] ') or '') .. title)
+  row.title:SetText((pinned and '|cffffd100•|r ' or '') .. ((mini and not qs) and '|cff9aa0a6+|r ' or '') .. (FT.focusQuest == info.questID and '|cff55ddff◆|r ' or '') .. ((diff and not modern and info.level and info.level > 0) and ('[' .. info.level .. '] ') or '') .. title)
+  FT.StyleQuestRow(row, info.level, used == 1 or zoneJustAdded, modern)
+  zoneJustAdded = false
   row:SetAlpha(FT.focusQuest and FT.focusQuest ~= info.questID and 0.5 or 1)
   local tag = (not diff and info.level) and tostring(info.level) or ''
   if entry.dist and entry.dist < 1e9 then tag = ('%d m'):format(entry.dist) end

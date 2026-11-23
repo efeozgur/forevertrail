@@ -150,6 +150,8 @@ local function build()
  local refreshTracker, refreshAvail = FT.RefreshTracker, FT.RefreshAvailableBox
  FT.RefreshTracker = function(...) local r = refreshTracker(...); FT.RefreshQuestDock(); return r end
  FT.RefreshAvailableBox = function(...) local r = refreshAvail(...); FT.RefreshQuestDock(); return r end
+ -- Alınabilir sekmesi artık her zaman görünür: eski "alınabilir kutusunu kapat" ayarı (ör. Sade düzey) bir kez temizlenir
+ if ForeverTrailSettings.dockVersion ~= 1 then ForeverTrailSettings.availbox = nil; ForeverTrailSettings.dockVersion = 1 end
  FT.questDock = dock -- kutular pencereye alınmadan önce ilan edilmez (kurulum yarıda kalırsa eski düzen bozulmasın)
  adopt('tracker', FT.tracker)
  adopt('avail', FT.availableBox)

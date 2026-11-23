@@ -96,9 +96,9 @@ local AUTO = {'autosell', 'autorepair', 'autoloot'}
 local function L(rows) return function(p) drawList(p, rows) end end
 local STEPS = {
  {title = 'Nasıl kullanmak istersin?', hint = 'Tek tıkla başla. Ayrıntılar sonraki adımlarda; istemezsen Atla\'ya bas.', cards = {
-  {label = 'Sade', draw = L({{'Yön oku ve görev kutusu', true}, {'Alınabilir görevler kutusu', false}, {'Düğme çubuğu ve hedef kartı', false}, {'Nadir, tehlike ve bölge uyarıları', false}}),
+  {label = 'Sade', draw = L({{'Yön oku ve görev kutusu', true}, {'Efektler (+1, görev afişi)', false}, {'Düğme çubuğu ve hedef kartı', false}, {'Nadir, tehlike ve bölge uyarıları', false}}),
    pick = function() FT.ApplyUsageLevel('sade') end, is = function() return S().usageLevel == 'sade' end},
-  {label = 'Standart', draw = L({{'Yön oku ve görev kutusu', true}, {'Alınabilir görevler kutusu', true}, {'Düğme çubuğu ve hedef kartı', true}, {'Nadir, tehlike ve bölge uyarıları', true}}),
+  {label = 'Standart', draw = L({{'Yön oku ve görev kutusu', true}, {'Efektler (+1, görev afişi)', true}, {'Düğme çubuğu ve hedef kartı', true}, {'Nadir, tehlike ve bölge uyarıları', true}}),
    pick = function() FT.ApplyUsageLevel('standart') end, is = function() return S().usageLevel == nil or S().usageLevel == 'standart' end},
   {label = 'Tam', draw = L({{'Yön oku ve görev kutusu', true}, {'Her kutu ve çubuk açık', true}, {'Tüm uyarılar ve efektler', true}, {'Harita işaretleri (kasaba, nadir)', true}}),
    pick = function() FT.ApplyUsageLevel('tam') end, is = function() return S().usageLevel == 'tam' end},
@@ -154,13 +154,13 @@ local function applyAll()
 end
 
 -- Kullanım düzeyleri: yalnızca ekrandaki kutuları ve uyarı kalabalığını belirler. Standart = eklentinin varsayılanları (anahtar silinir).
-local MANAGED = {'availbox', 'dock', 'card', 'infobar', 'rarecard', 'rares', 'raremap', 'townsfolk', 'trkfx', 'donebanner',
+local MANAGED = {'dock', 'card', 'infobar', 'rarecard', 'rares', 'raremap', 'townsfolk', 'trkfx', 'donebanner',
  'creaturenear', 'danger', 'elitewarn', 'zonefit', 'sessionsummary'}
 local LEVELS = {
- sade = {availbox = false, dock = false, card = false, infobar = false, rarecard = false, rares = false, raremap = false, townsfolk = false,
+ sade = {dock = false, card = false, infobar = false, rarecard = false, rares = false, raremap = false, townsfolk = false,
   trkfx = false, donebanner = false, creaturenear = false, danger = false, elitewarn = false, zonefit = false, sessionsummary = false},
  standart = {},
- tam = {availbox = true, dock = true, card = true, infobar = true, rarecard = true, rares = true, raremap = true, townsfolk = true,
+ tam = {dock = true, card = true, infobar = true, rarecard = true, rares = true, raremap = true, townsfolk = true,
   trkfx = true, donebanner = true, creaturenear = true, danger = true, elitewarn = true, zonefit = true, sessionsummary = true},
 }
 FT.UsageLevels = {'sade', 'standart', 'tam'}

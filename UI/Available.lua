@@ -40,7 +40,9 @@ local function getRow(i)
  r.sub = newText(r, 11, '', 'LEFT')
  r.sub:SetPoint('TOPLEFT', 8, -16); r.sub:SetPoint('RIGHT', r, 'RIGHT', 0, 0); r.sub:SetWordWrap(false)
  r.sub:SetTextColor(0.75, 0.71, 0.64)
+ if FT.Kit then local mu = FT.Kit.Color('muted'); r.sub:SetTextColor(mu[1], mu[2], mu[3]) end
  r.hl = r:CreateTexture(nil, 'HIGHLIGHT'); r.hl:SetAllPoints(); r.hl:SetColorTexture(1, 1, 1, 0.07)
+ if FT.Kit then FT.Kit.Fill(r.hl, 'card', 0.9) end
  r:SetScript('OnClick', function(self)
   local m = self.mark
   if m then FT.SetCustomTarget(m.map, m.x, m.y, FT.QuestTitle and FT.QuestTitle(m.questId) or m.giver) end
@@ -48,18 +50,19 @@ local function getRow(i)
  r:SetScript('OnEnter', function(self)
   hover(true)
   local m = self.mark
-  if not (m and GameTooltip) then return end
-  GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
+  local tipObj = FT.Kit and FT.Kit.Tooltip() or GameTooltip
+  if not (m and tipObj) then return end
+  tipObj:SetOwner(self, FT.questDock and 'ANCHOR_LEFT' or 'ANCHOR_RIGHT')
   if FT.QuestInfoTip then
-   FT.QuestInfoTip(GameTooltip, m.questId, m, self.distValue)
+   FT.QuestInfoTip(tipObj, m.questId, m, self.distValue)
   else
    GameTooltip:SetText(('[%s] %s'):format(m.level or '?', FT.QuestTitle and FT.QuestTitle(m.questId) or ''), 1, 0.82, 0)
    GameTooltip:AddLine('Görev veren: ' .. (m.giver or '?'), 1, 1, 1)
    GameTooltip:AddLine('Sol tık: yol göster', 0.55, 0.55, 0.55)
   end
-  if FT.ShowTip then FT.ShowTip(GameTooltip) else GameTooltip:Show() end
+  if FT.ShowTip then FT.ShowTip(tipObj) else tipObj:Show() end
  end)
- r:SetScript('OnLeave', function() if GameTooltip then GameTooltip:Hide() end hover(false) end)
+ r:SetScript('OnLeave', function() if FT.Kit then FT.Kit.HideTips() elseif GameTooltip then GameTooltip:Hide() end hover(false) end)
  rows[i] = r
  return r
 end
@@ -167,6 +170,7 @@ function FT.RefreshAvailableBox()
  local view = ForeverTrailSettings.c_availView or 'kart'
  if view ~= 'liste' and view ~= 'tablo' then view = 'kart' end
  local maxRows = tonumber(ForeverTrailSettings.c_availMax) or MAX
+ local modern = FT.questDock and FT.Kit and view ~= 'tablo'
  local sortBy = ForeverTrailSettings.c_availSort or 'yakin'
  local hideLow = ForeverTrailSettings.availHideLow == true
  local showGiver = ForeverTrailSettings.availShowGiver ~= false
@@ -224,10 +228,19 @@ function FT.RefreshAvailableBox()
    r.title:SetText(title .. (new and ' |cff55bbff*|r' or ''))
    r.giver:SetText(m.giver or '')
   else
-   r.title:SetText(((m.level and ('[' .. m.level .. '] ')) or '') .. title .. (new and ' |cff55bbff*|r' or ''))
+   r.title:SetText(((m.level and not modern) and ('[' .. m.level .. '] ') or '') .. title .. (new and ' |cff55bbff*|r' or ''))
    r.sub:SetText(m.giver or '')
   end
   if FT.DiffColor then r.title:SetTextColor(FT.DiffColor(m.level)) else r.title:SetTextColor(1, 0.92, 0.75) end
+  if FT.StyleQuestRow then FT.StyleQuestRow(r, m.level, i == 1, modern) end
+  if modern then
+   if view == 'kart' then
+    r.title:ClearAllPoints(); r.title:SetPoint('TOPLEFT', 30, -1); r.title:SetPoint('RIGHT', r, 'RIGHT', -44, 0)
+    r.sub:ClearAllPoints(); r.sub:SetPoint('TOPLEFT', 30, -16); r.sub:SetPoint('RIGHT', r, 'RIGHT', 0, 0)
+   else
+    r.title:ClearAllPoints(); r.title:SetPoint('LEFT', 30, 0); r.title:SetPoint('RIGHT', r, 'RIGHT', -48, 0)
+   end
+  end
   r.distValue = e.d
   r.dist:SetText(e.d < 1e9 and ('%d m'):format(math.floor(e.d + 0.5)) or '')
   r.dist:SetTextColor(a[1], a[2], a[3])

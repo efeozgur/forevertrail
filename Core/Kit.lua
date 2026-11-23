@@ -336,3 +336,121 @@ function Kit.Switch(parent)
  track(function() s:Refresh() end)
  return s
 end
+
+-- Seviye rozeti: görev zorluk renginde yarı saydam zemin üzerinde seviye numarası
+function Kit.LevelBadge(parent)
+ local b = CreateFrame('Frame', nil, parent)
+ b:SetSize(24, 16)
+ b.bg = b:CreateTexture(nil, 'BACKGROUND'); b.bg:SetAllPoints()
+ b.text = b:CreateFontString(nil, 'OVERLAY'); Kit.Font(b.text, 11); b.text:SetPoint('CENTER', 0, 0)
+ function b:SetLevel(level, r, g, bl)
+  level = tonumber(level)
+  self.text:SetText(level and level > 0 and tostring(level) or '?')
+  self.bg:SetColorTexture(r, g, bl, 0.18); self.text:SetTextColor(r, g, bl)
+ end
+ return b
+end
+
+-- Modern ipucu: oyunun GameTooltip yöntemlerini (SetOwner, SetText, AddLine, AddDoubleLine) sunar, ama düz çerçevede,
+-- sabit genişlikte, kaydırmasız satır aralığıyla çizer. AddBar (ilerleme çubuklu satır) ve AddRule (ince çizgi) ek yöntemlerdir.
+local tipObject
+function Kit.Tooltip()
+ if tipObject then return tipObject end
+ local W, PAD = 288, 14
+ local f = CreateFrame('Frame', 'ForeverTrailTip', UIParent)
+ f:SetFrameStrata('TOOLTIP'); f:SetClampedToScreen(true); f:SetSize(W + PAD * 2, 40); f:Hide()
+ Kit.Skin(f, 'panel', 'line')
+ local top = f:CreateTexture(nil, 'ARTWORK'); top:SetHeight(2)
+ top:SetPoint('TOPLEFT', 1, -1); top:SetPoint('TOPRIGHT', -1, -1)
+ Kit.Fill(top, 'accent')
+ local tip = {frame = f}
+ local items, pool = {}, {}
+ local function color(r, g, b)
+  if r == nil then return Kit.Color('text') end
+  if r > 0.98 and g > 0.98 and b > 0.98 then return Kit.Color('text') end
+  if math.abs(r - g) < 0.03 and math.abs(g - b) < 0.03 and r < 0.72 then return Kit.Color('muted') end
+  return {r, g, b, 1}
+ end
+ local function part(i)
+  local p = pool[i]
+  if not p then
+   p = {left = f:CreateFontString(nil, 'OVERLAY'), right = f:CreateFontString(nil, 'OVERLAY'),
+    rule = f:CreateTexture(nil, 'ARTWORK'), barBg = f:CreateTexture(nil, 'ARTWORK'), barFill = f:CreateTexture(nil, 'OVERLAY')}
+   p.left:SetJustifyH('LEFT'); p.left:SetJustifyV('TOP'); p.right:SetJustifyH('RIGHT')
+   p.rule:SetHeight(1); p.barBg:SetHeight(3); p.barFill:SetHeight(3)
+   pool[i] = p
+  end
+  p.left:Hide(); p.right:Hide(); p.rule:Hide(); p.barBg:Hide(); p.barFill:Hide()
+  return p
+ end
+ local function font(fs, size) Kit.Font(fs, size) end
+ function tip:ClearLines() items = {} end
+ function tip:SetOwner(owner, anchor) self.owner, self.anchor = owner, anchor or 'ANCHOR_RIGHT'; items = {} end
+ function tip:SetText(text, r, g, b) items = {{kind = 'title', text = text, r = r, g = g, b = b}} end
+ function tip:AddLine(text, r, g, b) items[#items + 1] = {kind = (text == ' ' or text == '') and 'space' or 'line', text = text, r = r, g = g, b = b} end
+ function tip:AddDoubleLine(left, right, lr, lg, lb, rr, rg, rb) items[#items + 1] = {kind = 'double', left = left, right = right, lr = lr, lg = lg, lb = lb, rr = rr, rg = rg, rb = rb} end
+ function tip:AddRule() items[#items + 1] = {kind = 'rule'} end
+ function tip:AddBar(text, have, need, r, g, b) items[#items + 1] = {kind = 'bar', text = text, have = have, need = need, r = r, g = g, b = b} end
+ function tip:NumLines() return #items end
+ function tip:GetName() return nil end
+ function tip:IsShown() return f:IsShown() end
+ function tip:Hide() f:Hide() end
+ function tip:Show()
+  local y, used = 12, 0
+  for _, it in ipairs(items) do
+   used = used + 1
+   local p = part(used)
+   if it.kind == 'title' then
+    local c = color(it.r, it.g, it.b)
+    font(p.left, 14); p.left:SetWidth(W); p.left:SetWordWrap(true); p.left:ClearAllPoints(); p.left:SetPoint('TOPLEFT', PAD, -y)
+    p.left:SetText(it.text or ''); p.left:SetTextColor(c[1], c[2], c[3]); p.left:Show()
+    y = y + math.max(16, p.left:GetStringHeight() or 16) + 8
+   elseif it.kind == 'line' then
+    local c = color(it.r, it.g, it.b)
+    font(p.left, 12); p.left:SetWidth(W); p.left:SetWordWrap(true); p.left:ClearAllPoints(); p.left:SetPoint('TOPLEFT', PAD, -y)
+    p.left:SetText(it.text or ''); p.left:SetTextColor(c[1], c[2], c[3]); p.left:Show()
+    y = y + math.max(14, p.left:GetStringHeight() or 14) + 3
+   elseif it.kind == 'space' then y = y + 5
+   elseif it.kind == 'rule' then
+    p.rule:ClearAllPoints(); p.rule:SetPoint('TOPLEFT', PAD, -(y + 3)); p.rule:SetWidth(W)
+    local c = Kit.Color('line'); p.rule:SetColorTexture(c[1], c[2], c[3], 1); p.rule:Show()
+    y = y + 8
+   elseif it.kind == 'double' or it.kind == 'bar' then
+    local lc = color(it.lr or it.r, it.lg or it.g, it.lb or it.b)
+    local rr = it.kind == 'bar' and (it.need and it.need > 0 and ('%d/%d'):format(it.have or 0, it.need) or '') or (it.right or '')
+    local rc = it.kind == 'bar' and {it.r or 1, it.g or 1, it.b or 1} or color(it.rr, it.rg, it.rb)
+    font(p.right, 12); p.right:ClearAllPoints(); p.right:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -PAD, -y)
+    p.right:SetText(rr); p.right:SetTextColor(rc[1], rc[2], rc[3]); p.right:Show()
+    local rw = (p.right:GetStringWidth() or 0) + 10
+    font(p.left, 12); p.left:SetWidth(math.max(60, W - rw)); p.left:SetWordWrap(false); p.left:ClearAllPoints(); p.left:SetPoint('TOPLEFT', PAD, -y)
+    p.left:SetText(it.kind == 'bar' and it.text or it.left or ''); p.left:SetTextColor(lc[1], lc[2], lc[3]); p.left:Show()
+    y = y + 16
+    if it.kind == 'bar' then
+     local track = Kit.Color('line')
+     p.barBg:ClearAllPoints(); p.barBg:SetPoint('TOPLEFT', PAD, -y); p.barBg:SetWidth(W); p.barBg:SetColorTexture(track[1], track[2], track[3], 1); p.barBg:Show()
+     local frac = (it.need and it.need > 0) and math.min(1, (it.have or 0) / it.need) or 0
+     p.barFill:ClearAllPoints(); p.barFill:SetPoint('TOPLEFT', PAD, -y); p.barFill:SetWidth(math.max(1, W * frac))
+     p.barFill:SetColorTexture(it.r or 1, it.g or 1, it.b or 1, 1); p.barFill:Show()
+     y = y + 8
+    else y = y + 2 end
+   end
+  end
+  f:SetSize(W + PAD * 2, y + 10)
+  local owner, a = self.owner, self.anchor
+  f:ClearAllPoints()
+  if not owner then f:SetPoint('CENTER', UIParent, 'CENTER', 0, 0)
+  elseif a == 'ANCHOR_LEFT' then f:SetPoint('TOPRIGHT', owner, 'TOPLEFT', -8, 0)
+  elseif a == 'ANCHOR_BOTTOM' then f:SetPoint('TOP', owner, 'BOTTOM', 0, -6)
+  elseif a == 'ANCHOR_TOP' then f:SetPoint('BOTTOM', owner, 'TOP', 0, 6)
+  else f:SetPoint('TOPLEFT', owner, 'TOPRIGHT', 8, 0) end
+  f:Show()
+ end
+ tipObject = tip
+ return tip
+end
+
+-- Hem modern ipucunu hem oyunun ipucunu kapatır (satırların OnLeave'inde kullanılır)
+function Kit.HideTips()
+ if tipObject then tipObject:Hide() end
+ if GameTooltip then GameTooltip:Hide() end
+end

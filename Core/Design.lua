@@ -232,7 +232,48 @@ end
 -- Görev kutusu satırı ipucu
 ----------------------------------------------------------------------
 function FT.QuestRowTip(owner, questId)
- if not (questId and GameTooltip) then return end
+ if not questId then return end
+ if FT.Kit then
+  -- Modern ipucu: başlık, ne yapılacak, ilerleme çubuklu hedefler, ödül/teslim/uzaklık ve kısayollar
+  local tip = FT.Kit.Tooltip()
+  tip:SetOwner(owner, 'ANCHOR_LEFT')
+  local lvl = FT.QuestLevel(questId)
+  local r, g, b = FT.DiffColor(lvl)
+  tip:SetText((lvl and ('[' .. lvl .. '] ') or '') .. (FT.QuestTitle and FT.QuestTitle(questId) or ('Görev ' .. questId)), r, g, b)
+  local tr = QTR_QuestData and QTR_QuestData[tostring(questId)]
+  local d = db()
+  local obj = tr and tr.Objectives or (d and d.QueryQuestSingle(questId, 'objectivesText'))
+  if type(obj) == 'table' then obj = table.concat(obj, ' ') end
+  if obj and obj ~= '' then tip:AddLine(obj, 0.67, 0.7, 0.76) end
+  local q = C_QuestLog
+  local listed = false
+  if q and q.GetLogIndexForQuestID and q.GetQuestObjectives and (q.GetLogIndexForQuestID(questId) or 0) > 0 then
+   local ok, list = pcall(q.GetQuestObjectives, questId)
+   if ok and type(list) == 'table' then
+    for _, o in ipairs(list) do
+     if not listed then tip:AddRule(); listed = true end
+     local need, have = o.numRequired or 0, o.numFulfilled or 0
+     local done = o.finished or (need > 0 and have >= need)
+     local pr, pg, pb = FT.ProgressColor(have, need, done)
+     local text = FT.ParseObjective and FT.ParseObjective(o.text or '') or (o.text or '')
+     tip:AddBar(text, have, need, pr, pg, pb)
+    end
+   end
+  end
+  tip:AddRule()
+  local xpText = FT.QuestXPText and FT.QuestXPText(questId)
+  if xpText then tip:AddDoubleLine('Ödül', xpText, 0.67, 0.7, 0.76, 0.6, 0.8, 1) end
+  local ender = FT.TurnInName(questId)
+  if ender then tip:AddDoubleLine('Teslim', ender, 0.67, 0.7, 0.76, 0.55, 1, 0.55) end
+  local dist = FT.QuestDistance(questId)
+  if dist then tip:AddDoubleLine('Uzaklık', ('%d m'):format(dist), 0.67, 0.7, 0.76, 1, 1, 1) end
+  tip:AddLine(' ')
+  tip:AddLine('Sol tık: yol göster  ·  Sağ tık: odak', 0.55, 0.57, 0.62)
+  tip:AddLine('Shift: daralt  ·  Ctrl: sabitle  ·  Alt: yukarı taşı', 0.55, 0.57, 0.62)
+  tip:Show()
+  return
+ end
+ if not GameTooltip then return end
  local tip = GameTooltip
  tip:SetOwner(owner, 'ANCHOR_LEFT')
  local lvl = FT.QuestLevel(questId)
