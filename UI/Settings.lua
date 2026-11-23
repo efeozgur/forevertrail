@@ -846,6 +846,12 @@ FT.QuestiePageDefs = {
   C('noglow', 'Ekran parlamasını kapat', nil, function() if FT.ApplyCamera then FT.ApplyCamera() end end),
  },
  q_profil = {
+  H('Kullanım düzeyi: Sade / Standart / Tam'),
+  {type='buttons', list={
+   {'Sade', function() FT.ApplyUsageLevel('sade') end},
+   {'Standart', function() FT.ApplyUsageLevel('standart') end},
+   {'Tam', function() FT.ApplyUsageLevel('tam') end},
+  }},
   H('Profiller'),
   {type='buttons', list={{'Profiller', function() FT.ToggleProfiles() end}, {'Ayarları aktar', function() FT.ToggleTransfer() end}}},
   H('Yedekler'),

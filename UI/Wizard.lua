@@ -95,6 +95,14 @@ end
 local AUTO = {'autosell', 'autorepair', 'autoloot'}
 local function L(rows) return function(p) drawList(p, rows) end end
 local STEPS = {
+ {title = 'Nasıl kullanmak istersin?', hint = 'Tek tıkla başla. Ayrıntılar sonraki adımlarda; istemezsen Atla\'ya bas.', cards = {
+  {label = 'Sade', draw = L({{'Yön oku ve görev kutusu', true}, {'Alınabilir görevler kutusu', false}, {'Düğme çubuğu ve hedef kartı', false}, {'Nadir, tehlike ve bölge uyarıları', false}}),
+   pick = function() FT.ApplyUsageLevel('sade') end, is = function() return S().usageLevel == 'sade' end},
+  {label = 'Standart', draw = L({{'Yön oku ve görev kutusu', true}, {'Alınabilir görevler kutusu', true}, {'Düğme çubuğu ve hedef kartı', true}, {'Nadir, tehlike ve bölge uyarıları', true}}),
+   pick = function() FT.ApplyUsageLevel('standart') end, is = function() return S().usageLevel == nil or S().usageLevel == 'standart' end},
+  {label = 'Tam', draw = L({{'Yön oku ve görev kutusu', true}, {'Her kutu ve çubuk açık', true}, {'Tüm uyarılar ve efektler', true}, {'Harita işaretleri (kasaba, nadir)', true}}),
+   pick = function() FT.ApplyUsageLevel('tam') end, is = function() return S().usageLevel == 'tam' end},
+ }},
  {title = 'Yön oku ve rota', cards = {
   {label = 'Ok + Yol sor', draw = L({{'Yön oku', true}, {'Haritada Yol sor', true}, {'Yol noktaları', true}}),
    pick = function() S().arrow = true; S().mapRoute = true end, is = function() return S().arrow ~= false and S().mapRoute ~= false end},
@@ -128,6 +136,13 @@ local STEPS = {
   {label = 'Hepsi kapalı', draw = L({{'Çöp sat', false}, {'Tamir', false}, {'Otomatik toplama', false}}),
    pick = function() for _, k in ipairs(AUTO) do S()[k] = false end end, is = function() return S().autosell == false end},
  }},
+ {title = 'Nereden ne yapılır?', tips = {
+  '|cffffd060Hedef seçmek için|r  görev kutusunda bir göreve tıkla, ya da haritada Ctrl + sol tık yap.',
+  '|cffffd060Yer bulmak için|r  haritayı aç (M), sağdaki "Yol sor" ile en yakın tamirci, han, uçuş ustası ve bankayı bul.',
+  '|cffffd060Minimap düğmesi|r  sol tık: Rehber  |  sağ tık: Araçlar  |  Shift + sağ tık: Ayarlar.',
+  '|cffffd060Ayarlar|r  /ftrail ayar  (üstte arama kutusu var)  |  en sık değişenler için  /ftrail hizli',
+  '|cffffd060Yardım|r  /ftrail yardim komut listesini yazar; bu ekranı  /ftrail kurulum  ile yeniden açarsın.',
+ }},
 }
 
 local function applyAll()
@@ -136,6 +151,35 @@ local function applyAll()
  if FT.RefreshAvailableBox then pcall(FT.RefreshAvailableBox) end
  if FT.BumpLayers then FT.BumpLayers() end
  if FT.RefreshTracker then pcall(FT.RefreshTracker) end
+end
+
+-- Kullanım düzeyleri: yalnızca ekrandaki kutuları ve uyarı kalabalığını belirler. Standart = eklentinin varsayılanları (anahtar silinir).
+local MANAGED = {'availbox', 'dock', 'card', 'infobar', 'rarecard', 'rares', 'raremap', 'townsfolk', 'trkfx', 'donebanner',
+ 'creaturenear', 'danger', 'elitewarn', 'zonefit', 'sessionsummary'}
+local LEVELS = {
+ sade = {availbox = false, dock = false, card = false, infobar = false, rarecard = false, rares = false, raremap = false, townsfolk = false,
+  trkfx = false, donebanner = false, creaturenear = false, danger = false, elitewarn = false, zonefit = false, sessionsummary = false},
+ standart = {},
+ tam = {availbox = true, dock = true, card = true, infobar = true, rarecard = true, rares = true, raremap = true, townsfolk = true,
+  trkfx = true, donebanner = true, creaturenear = true, danger = true, elitewarn = true, zonefit = true, sessionsummary = true},
+}
+FT.UsageLevels = {'sade', 'standart', 'tam'}
+
+function FT.ApplyUsageLevel(name)
+ local level = LEVELS[name]
+ if not level then return false end
+ for _, key in ipairs(MANAGED) do S()[key] = level[key] end
+ S().usageLevel = name ~= 'standart' and name or nil
+ if not S().simple then
+  if FT.dock then FT.dock:SetShown(S().dock ~= false) end
+  if FT.card then FT.card:SetShown(S().card ~= false) end
+ end
+ if FT.RefreshAvailableBox then pcall(FT.RefreshAvailableBox) end
+ if FT.RefreshTracker then pcall(FT.RefreshTracker) end
+ if FT.UpdateInfoBar then pcall(FT.UpdateInfoBar) end
+ if FT.RefreshDock then pcall(FT.RefreshDock) end
+ if FT.BumpLayers then FT.BumpLayers() end
+ return true
 end
 
 local cardPool, chosen = {}, {}
@@ -154,7 +198,10 @@ local function show(n)
  local st = STEPS[n]
  win.step:SetText(('%d / %d'):format(n, #STEPS))
  win.question:SetText(st.title)
- local cards = st.cards
+ win.hint:SetText(st.hint or (st.tips and 'Bunları sonradan da bulabilirsin.' or 'Bir karta tıkla. Hepsi sonradan Ayarlar\'dan değiştirilebilir.'))
+ win.tips:SetText(st.tips and table.concat(st.tips, '\n\n') or '')
+ win.tips:SetShown(st.tips ~= nil)
+ local cards = st.cards or {}
  if st.themes then
   cards = {}
   for _, key in ipairs(FT.themeOrder) do
@@ -218,8 +265,10 @@ function FT.ShowSetupWizard()
   if FT.StyleTitle then FT.StyleTitle(title); font(title, 18, 'OUTLINE') end
   win.step = text(win, 11, ''); win.step:SetPoint('TOPRIGHT', -16, -16); win.step:SetTextColor(0.6, 0.6, 0.6)
   win.question = text(win, 15, ''); win.question:SetPoint('TOP', 0, -50); win.question:SetTextColor(1, 0.94, 0.82)
-  local hint = text(win, 11, ''); hint:SetPoint('TOP', win.question, 'BOTTOM', 0, -6)
-  hint:SetText('Bir karta tıkla. Hepsi sonradan Ayarlar\'dan değiştirilebilir.'); hint:SetTextColor(0.65, 0.62, 0.56)
+  win.hint = text(win, 11, ''); win.hint:SetPoint('TOP', win.question, 'BOTTOM', 0, -6)
+  win.hint:SetTextColor(0.65, 0.62, 0.56)
+  win.tips = text(win, 12, ''); win.tips:SetPoint('TOPLEFT', 36, -96); win.tips:SetWidth(W - 72); win.tips:SetJustifyH('LEFT')
+  win.tips:SetTextColor(0.9, 0.88, 0.82); win.tips:Hide()
   win.dots = {}
   for i = 1, #STEPS do
    local d = tex(win, 'ARTWORK', BLOB); d:SetSize(9, 9)

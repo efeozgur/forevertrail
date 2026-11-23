@@ -288,7 +288,7 @@ Ekranın solunda, **bulunduğunuz bölgede alabileceğiniz** görevler; seviye, 
 - **Düzen modu** (`/ftrail yerlesim`): ızgara, sürükle-bırak; hazır düzenler (Varsayılan, Sade, Geniş ekran, HUD); `Konumları sıfırla`.
 - **Sade görünüm**, **sessiz mod** (`/ftrail sessiz`), **küçük mod** (`/ftrail kucuk`), arayüz ölçeği, yazı boyutu, görev kutusu saydamlığı, yazı tipi (`/ftrail font`: WoWTR / Arial; Türkçe harfler için).
 - **Savaş/zindan:** Gereksiz kutular otomatik gizlenir; zindana girince rehber önerilir.
-- **Kurulum sihirbazı:** İlk girişte 3–4 adım (hedef görünümü, ekran düzeni, tema, otomatik işler); `/ftrail kurulum`.
+- **Kurulum sihirbazı:** İlk girişte açılır (`/ftrail kurulum` ile yeniden). İlk adımda tek tıkla **Sade / Standart / Tam** kullanım düzeyi seçilir (Sade: yalnızca ok ve görev kutusu, daha az uyarı; Standart: eklentinin varsayılanları; Tam: tüm kutular ve uyarılar açık). Sonraki adımlar ok, yetenek, eşya, tema ve çanta ayrıntılarıdır; "Atla" ile bırakılabilir. Son adım "Nereden ne yapılır?" özetidir. Aynı düzey seçimi Ayarlar > Profil ve gelişmiş sayfasında da vardır.
 
 ### 15. Ayarlar, profiller ve yedekler
 

@@ -194,9 +194,16 @@ try('ayar arama', function()
  FT.SettingsTab('q_genel')
 end)
 try('hızlı ayarlar', function() FT.ToggleQuickSettings(); FT.ToggleQuickSettings() end)
+try('kullanım düzeyi', function()
+ local S = ForeverTrailSettings
+ assert(FT.ApplyUsageLevel('sade') and S.card == false and S.availbox == false and S.usageLevel == 'sade', 'sade')
+ assert(FT.ApplyUsageLevel('tam') and S.card == true and S.availbox == true and S.usageLevel == 'tam', 'tam')
+ assert(FT.ApplyUsageLevel('standart') and S.card == nil and S.availbox == nil and S.usageLevel == nil, 'standart varsayılana döner')
+ assert(not FT.ApplyUsageLevel('yok'), 'bilinmeyen düzey reddedilmeli')
+end)
 try('seçenek yenile', FT.RefreshOptions)
 try('kurulum', FT.ShowSetupWizard)
-for i = 1, 4 do try('kurulum adım ' .. i, function() ForeverTrailWizard.next:GetScript('OnClick')(ForeverTrailWizard.next) end) end
+for i = 1, 6 do try('kurulum adım ' .. i, function() ForeverTrailWizard.next:GetScript('OnClick')(ForeverTrailWizard.next) end) end
 WIZ = ForeverTrailSettings.setupVersion
 try('afiş', FT.ShowDoneBanner, 7)
 ForeverTrailSettings.c_trackerDensity = 'sikisik'; try('sıkışık', FT.RefreshTracker); ForeverTrailSettings.c_trackerDensity = 'ferah'; try('ferah', FT.RefreshTracker)
