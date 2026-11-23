@@ -4,17 +4,18 @@ local _, FT = ...
 -- Var olan pencereler bu pencerenin içine taşınır; ekranda yalnızca yön oku, görev kutusu ve ikon şeridi kalır.
 
 local hub, holders, nav, current = nil, {}, {}, nil
-local WIDTH, HEIGHT, SIDE = 590, 700, 128
+local WIDTH, HEIGHT, SIDE, HEADER = 554, 730, 84, 58
 
+-- bottom = sol şeridin altında durur (Polestar'daki İçe aktar / Seçenekler gibi)
 local PAGES = {
- {key='rehber', label='Rehber', icon='Interface\\Icons\\INV_Misc_Book_09', flat='tracker_quests'},
- {key='gorevler', label='Görevler', icon='Interface\\Icons\\INV_Misc_Note_01', flat='tracker_giver'},
- {key='ansiklopedi', label='Ansiklopedi', icon='Interface\\Icons\\INV_Misc_Book_11', flat='tracker_database'},
- {key='sinif', label='Sınıf', icon='Interface\\Icons\\INV_Misc_Book_09', flat='startend'},
- {key='meslek', label='Meslekler', icon='Interface\\Icons\\Trade_Engineering', flat='tracker_clean'},
- {key='yerler', label='Yerler', icon='Interface\\Icons\\Ability_Mount_Gryphon_01', flat='fav'},
- {key='araclar', label='Araçlar', icon='Interface\\Icons\\Trade_Engineering', flat='tracker_search'},
- {key='ayarlar', label='Ayarlar', icon='Interface\\Icons\\INV_Misc_Gear_01', flat='tracker_settings'},
+ {key='rehber', label='Rehber', icon='tracker_quests', desc='Şimdi ne yapman gerektiğini ve nereye gideceğini gösterir.'},
+ {key='gorevler', label='Görevler', icon='tracker_giver', desc='Bulunduğun yerde alabileceğin ve önerilen görevler.'},
+ {key='ansiklopedi', label='Ansiklopedi', icon='tracker_database', desc='Bütün görevlerde ara; durumunu ve yolunu gör.'},
+ {key='sinif', label='Sınıf', icon='startend', desc='Yetenek planı, seviye kartı ve sınıf görevleri.'},
+ {key='meslek', label='Meslekler', icon='tracker_clean', desc='Meslek önerileri, rütbeler ve eğitmenler.'},
+ {key='yerler', label='Yerler', icon='fav', desc='Uçuş noktaları, hizmetler ve kayıtlı yerler.'},
+ {key='araclar', label='Araçlar', icon='tracker_search', desc='Rota, çanta, sınıf ve veri araçları.', bottom=true},
+ {key='ayarlar', label='Ayarlar', icon='tracker_settings', desc='Tüm ayarlar; üstte arama kutusu var.', bottom=true},
 }
 
 local function font(fs, size, flags)
@@ -42,16 +43,7 @@ local function adopt(frame, page, x, y)
 end
 
 local function refreshNav()
- local a = FT.Style.accent
- for _, b in ipairs(nav) do
-  local on = b.key == current
-  b.bar:SetShown(on)
-  b.bar:SetColorTexture(a[1], a[2], a[3], 1)
-  if b.flat then if on then b.icon:SetVertexColor(a[1], a[2], a[3]) else b.icon:SetVertexColor(0.8, 0.78, 0.72) end end
-  b.bg:SetColorTexture(1, 1, 1, on and 0.08 or 0)
-  if on then b.text:SetTextColor(a[1], a[2], a[3]) else b.text:SetTextColor(0.85, 0.82, 0.76) end
-  b.icon:SetDesaturated(not on)
- end
+ for _, b in ipairs(nav) do b:SetSelected(b.key == current) end
 end
 
 FT.RefreshHub = function() if hub then refreshNav() end end
@@ -85,9 +77,10 @@ function FT.OpenHub(page)
  page = page or current or 'rehber'
  current = page
  for key, h in pairs(holders) do if key == page then h:Show() else h:Hide() end end
- local label = page
- for _, p in ipairs(PAGES) do if p.key == page then label = p.label end end
+ local label, desc = page, ''
+ for _, p in ipairs(PAGES) do if p.key == page then label, desc = p.label, p.desc or '' end end
  hub.pageTitle:SetText(label)
+ hub.pageDesc:SetText(desc)
  hub:SetWidth(page == 'ayarlar' and WIDTH + 170 or WIDTH)
  fill(page)
  hub:Show()
@@ -193,7 +186,11 @@ end
 
 function FT.CreateHub()
  if hub then return hub end
- hub = FT.NewWindow('ForeverTrailHub', UIParent)
+ local Kit = FT.Kit
+ hub = CreateFrame('Frame', 'ForeverTrailHub', UIParent)
+ Kit.Skin(hub, 'mid', 'line')
+ FT.fontRoots[#FT.fontRoots + 1] = hub
+ hub:HookScript('OnShow', function(self) if FT.FixFonts then FT.FixFonts(self) end end)
  FT.hub = hub
  if FT.AddShowAnim then FT.AddShowAnim(hub) end
  hub:SetSize(WIDTH, HEIGHT)
@@ -210,40 +207,41 @@ function FT.CreateHub()
  if p and p[1] then hub:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else hub:SetPoint('CENTER', UIParent, 'CENTER', 60, 40) end
  tinsert(UISpecialFrames, 'ForeverTrailHub')
 
- local title = hub:CreateFontString(nil, 'OVERLAY'); font(title, 14, 'OUTLINE')
- title:SetPoint('TOPLEFT', 14, -8); title:SetText('ForeverTrail')
- if FT.StyleTitle then FT.StyleTitle(title) end
- hub.pageTitle = hub:CreateFontString(nil, 'OVERLAY'); font(hub.pageTitle, 13)
- hub.pageTitle:SetPoint('TOPLEFT', SIDE + 12, -9); hub.pageTitle:SetTextColor(0.9, 0.86, 0.78)
+ -- Sol şerit
+ local rail = Kit.Frame(hub, 'rail')
+ rail:SetPoint('TOPLEFT', 1, -1); rail:SetPoint('BOTTOMLEFT', 1, 1); rail:SetWidth(SIDE)
+ local railLine = Kit.Divider(rail)
+ railLine:SetWidth(1)
+ railLine:SetPoint('TOPRIGHT', rail, 'TOPRIGHT', 0, 0); railLine:SetPoint('BOTTOMRIGHT', rail, 'BOTTOMRIGHT', 0, 0)
+ local brand = Kit.Text(rail, 11, 'accent', 'OUTLINE'); brand:SetPoint('TOP', 0, -12); brand:SetText('ForeverTrail')
+ hub.rail = rail
 
- -- Sol menü
- local side = hub:CreateTexture(nil, 'BACKGROUND', nil, 1)
- side:SetPoint('TOPLEFT', 5, -30); side:SetPoint('BOTTOMLEFT', 5, 5); side:SetWidth(SIDE - 8)
- side:SetColorTexture(0, 0, 0, 0.25)
+ -- Üst başlık: sayfa adı ve ne işe yaradığı
+ local header = Kit.Frame(hub, 'panel')
+ header:SetPoint('TOPLEFT', SIDE + 1, -1); header:SetPoint('TOPRIGHT', -1, -1); header:SetHeight(HEADER)
+ local headLine = Kit.Divider(header); headLine:SetPoint('BOTTOMLEFT', 0, 0); headLine:SetPoint('BOTTOMRIGHT', 0, 0)
+ hub.pageTitle = Kit.Text(header, 20, 'text'); hub.pageTitle:SetPoint('TOPLEFT', 16, -9)
+ hub.pageDesc = Kit.Text(header, 11, 'muted'); hub.pageDesc:SetPoint('BOTTOMLEFT', 16, 9)
+ hub.close = Kit.CloseButton(header, function() hub:Hide() end); hub.close:SetPoint('TOPRIGHT', -6, -6)
+
+ -- Düğmeler: üst grup yukarıdan, alt grup aşağıdan dizilir
+ local top, bottom = 0, 0
  for i, pdef in ipairs(PAGES) do
-  local b = CreateFrame('Button', nil, hub)
-  b:SetSize(SIDE - 8, 34); b:SetPoint('TOPLEFT', 5, -34 - (i - 1) * 36)
-  b.key = pdef.key
-  b.bg = b:CreateTexture(nil, 'BACKGROUND', nil, 2); b.bg:SetAllPoints()
-  b.bar = b:CreateTexture(nil, 'ARTWORK'); b.bar:SetPoint('TOPLEFT'); b.bar:SetPoint('BOTTOMLEFT'); b.bar:SetWidth(3)
-  b.icon = b:CreateTexture(nil, 'ARTWORK'); b.icon:SetSize(22, 22); b.icon:SetPoint('LEFT', 10, 0)
-  b.flat = pdef.flat
-  if pdef.flat then b.icon:SetTexture('Interface\\AddOns\\ForeverTrail\\Media\\' .. pdef.flat); b.icon:SetSize(18, 18)
-  else b.icon:SetTexture(pdef.icon); b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
-  b.text = b:CreateFontString(nil, 'OVERLAY'); font(b.text, 13)
-  b.text:SetPoint('LEFT', b.icon, 'RIGHT', 8, 0); b.text:SetText(pdef.label)
-  b:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.05)
-  b:SetScript('OnClick', function() FT.OpenHub(pdef.key) end)
+  local b = Kit.RailButton(rail, pdef, function() FT.OpenHub(pdef.key) end)
+  if pdef.bottom then
+   b:SetPoint('BOTTOMLEFT', rail, 'BOTTOMLEFT', 0, 20 + bottom * 58); bottom = bottom + 1
+  else
+   b:SetPoint('TOPLEFT', rail, 'TOPLEFT', 0, -36 - top * 58); top = top + 1
+  end
   nav[i] = b
   local holder = CreateFrame('Frame', nil, hub)
-  holder:SetPoint('TOPLEFT', SIDE + 8, -34); holder:SetPoint('BOTTOMRIGHT', -8, 8)
+  holder:SetPoint('TOPLEFT', SIDE + 10, -(HEADER + 10)); holder:SetPoint('BOTTOMRIGHT', -10, 10)
   holder:Hide()
   holders[pdef.key] = holder
  end
- local version = hub:CreateFontString(nil, 'OVERLAY'); font(version, 10)
- version:SetPoint('BOTTOMLEFT', 12, 12); version:SetTextColor(0.5, 0.48, 0.45)
- local q = FT.DBStats and FT.DBStats() or 0
- version:SetText(('Görev verisi: %d görev'):format(q))
+ local version = Kit.Text(rail, 9, 'muted'); version:SetPoint('BOTTOM', 0, 6)
+ local v = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata('ForeverTrail', 'Version')
+ version:SetText(v and ('v' .. v) or '')
  toolsPage(holders.araclar)
  if FT.BuildEncyclopedia then FT.BuildEncyclopedia(holders.ansiklopedi) end
  if FT.BuildClassPage then FT.BuildClassPage(holders.sinif) end

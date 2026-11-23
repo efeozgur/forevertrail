@@ -16,7 +16,7 @@ ForeverTrail is a WoW addon (Lua, Interface 16001, client 1.60.1 "World of Warcr
 
 Lua files live in folders; `ForeverTrail.toc` lists each by path (load order is unchanged). `Media/` and `Bindings.xml` stay at the root, and `tests/` loads modules by the same paths (e.g. `loadfile('Core/Engine.lua')`).
 
-- `Core/`: Core, Compat, Diagnostics, Engine, Quest, Style, Design, Polish, Layout
+- `Core/`: Core, Compat, Diagnostics, Engine, Quest, Style, Kit (shared flat UI components: tiered fills from the theme, rail button, divider), Design, Polish, Layout
 - `Data/`: generated `Data*.lua` tables, `OwnDB`, `OwnData`, `LiveSync`
 - `Guide/`: Guides, Guide2, Journal, Recommendations, Recorder, Flow, Journey
 - `Map/`: Map, MapRoute, Minimap, MinimapTips, Atlas, Discovery, Objectives, Places, Rares

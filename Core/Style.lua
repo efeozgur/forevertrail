@@ -30,6 +30,8 @@ FT.Themes.g_grafit = {name='Grafit', bg={0.102, 0.110, 0.125, 0.95}, border={0.1
 FT.Themes.g_orman = {name='Orman', bg={0.078, 0.122, 0.102, 0.95}, border={0.149, 0.220, 0.184, 1}, band={0.122, 0.200, 0.161, 0.90}, accent={0.604, 0.804, 0.478}}
 FT.Themes.g_erik = {name='Erik', bg={0.118, 0.082, 0.153, 0.95}, border={0.227, 0.165, 0.278, 1}, band={0.180, 0.125, 0.251, 0.90}, accent={0.898, 0.561, 0.659}}
 FT.defaultTheme = 'g_gece'
+-- Tema değişince çağrılacak işlevler (Kit bileşenleri kendini yeniden boyar)
+FT.themeListeners = {}
 FT.themeOrder = {'g_gece', 'g_grafit', 'g_orman', 'g_erik'}
 -- Eski tema anahtarları: kayıtlı ayarda kalmışsa yeni varsayılana çevrilir (kendi temam ve sınıf rengi korunur)
 FT.legacyThemes = {sicak = true, gece = true, orman = true, safak = true, mor = true, kum = true, aurora = true, kozmik = true, gunbatimi = true, okyanus = true, klasik = true}
@@ -80,6 +82,7 @@ function FT.ApplyTheme(key)
  for _, fs in ipairs(titles) do fs:SetTextColor(s.accent[1], s.accent[2], s.accent[3]) end
  for _, entry in ipairs(accents) do entry.texture:SetColorTexture(s.accent[1], s.accent[2], s.accent[3], entry.alpha) end
  for _, b in ipairs(buttons) do FT.SkinButton(b) end
+ for _, listener in ipairs(FT.themeListeners) do pcall(listener) end
  if FT.RefreshDock then pcall(FT.RefreshDock) end
  if FT.RefreshTracker then pcall(FT.RefreshTracker) end
  if FT.StylePanel then pcall(FT.StylePanel) end

@@ -23,6 +23,7 @@ Data/Data.lua
 Data/OwnData.lua
 Core/Diagnostics.lua
 Core/Style.lua
+Core/Kit.lua
 Core/Quest.lua
 Core/Engine.lua
 Map/Map.lua

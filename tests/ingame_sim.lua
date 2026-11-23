@@ -357,6 +357,18 @@ DESIGN = ('teslim(7)=%s, zorluk(5)=%.2f/%.2f/%.2f, uzaklık(6)=%s'):format(FT.Tu
 for _, page in ipairs({'rehber', 'gorevler', 'yerler', 'ansiklopedi', 'araclar', 'ayarlar'}) do try('hub ' .. page, FT.OpenHub, page) end
 for _, tab in ipairs({'gorev', 'yol', 'canta', 'uyari', 'gorunum', 'ozel'}) do try('ayar sekmesi ' .. tab, FT.SettingsTab, tab) end
 for _, key in ipairs(FT.themeOrder or {}) do try('tema ' .. key, FT.ApplyTheme, key) end
+try('ortak bileşenler', function()
+ local Kit = FT.Kit
+ assert(Kit and Kit.RAIL_W == 84, 'Kit yok')
+ FT.ApplyTheme('g_gece'); local a = Kit.Color('mid')
+ FT.ApplyTheme('g_orman'); local b = Kit.Color('mid')
+ assert(a[2] ~= b[2] or a[1] ~= b[1], 'zemin rengi temayla değişmeli')
+ for _, role in ipairs({'rail', 'mid', 'panel', 'card', 'line', 'deep', 'accent', 'text', 'muted'}) do assert(#Kit.Color(role) == 4, 'rol ' .. role) end
+ assert(Kit.Color('rail')[1] < Kit.Color('panel')[1], 'şerit paneli koyu olmalı')
+ FT.OpenHub('rehber'); assert(FT.hub.rail and FT.hub.pageTitle:GetText() == 'Rehber', 'hub başlığı')
+ FT.OpenHub('gorevler'); assert(FT.hub.pageDesc:GetText() ~= '', 'hub açıklaması')
+ FT.ApplyTheme('g_gece')
+end)
 try('renk şemaları', function()
  assert(FT.defaultTheme == 'g_gece' and FT.Themes.g_gece, 'varsayılan şema')
  local shown = {}
