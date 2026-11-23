@@ -228,11 +228,12 @@ local function learnedRoute(map, px, py, gx, gy, ww, wh)
 end
 
 ----------------------------------------------------------------------
--- Polestar_Nav (kuruluysa): gerçek yürüme haritaları
--- Polestar'ın yürüme yönlendirici eklentisi, "Polestar_NavEngine" global'ini açar. Veriyi kopyalamayız; yalnızca onu çağırırız.
+-- ForeverTrail_Nav (yürüme yönlendiricisi ve yürüme haritaları): gerçek yürüme rotaları
+-- Klasörleri depoda ForeverTrail_Nav, ForeverTrail_Nav_EK ve ForeverTrail_Nav_Kalimdor'dur (Polestar_Nav'ın değiştirilmiş
+-- kopyası, GPL-3.0-or-later; ForeverTrail_Nav/NOTICE.md). Eklenti gerektiğinde yüklenir ve "ForeverTrail_NavEngine" global'ini açar.
 -- Arama eşzamansızdır (kareler arasında dilimlenir): sonuç gelene dek öğrenilmiş yollara ya da düz çizgiye düşülür.
 -- Noktalar UnitPosition çerçevesindedir (x kuzey, y batı); harita koordinatına C_Map ile çevrilir.
--- Kapatmak için ForeverTrailSettings.roadsPolestar = false.
+-- Kapatmak için ForeverTrailSettings.roadsNav = false. walkLevel gönderilmez: sıkı politika işi Polestar'ın tehlike tablosunu ister.
 ----------------------------------------------------------------------
 local PS = {tried = -999, failedAt = -999, askedAt = -999}
 
@@ -240,17 +241,17 @@ local function plain(v) if FT.Plain then return FT.Plain(v) end return v end
 local function nowTime() return GetTime and GetTime() or 0 end
 
 local function psEngine()
- if ForeverTrailSettings and ForeverTrailSettings.roadsPolestar == false then return nil end
+ if ForeverTrailSettings and ForeverTrailSettings.roadsNav == false then return nil end
  if PS.engine then return PS.engine end
  local now = nowTime()
  if now - PS.tried < 30 then return nil end
  if InCombatLockdown and InCombatLockdown() then return nil end -- eklentiyi yüklemek birkaç MB bellek kurar; savaşta yapılmaz
  PS.tried = now
- local P = _G.Polestar_NavEngine
+ local P = _G.ForeverTrail_NavEngine
  if type(P) ~= 'table' then
   local load = (C_AddOns and C_AddOns.LoadAddOn) or LoadAddOn
-  if load then pcall(load, 'Polestar_Nav') end
-  P = _G.Polestar_NavEngine
+  if load then pcall(load, 'ForeverTrail_Nav') end
+  P = _G.ForeverTrail_NavEngine
  end
  if type(P) == 'table' and type(P.Find) == 'function' and type(P.Cancel) == 'function' then PS.engine = P; return P end
  return nil
@@ -299,7 +300,7 @@ local function ask(P, map, gx, gy)
    out[#out + 1] = {x, y}
   end
   if #out >= 2 then PS.points, PS.key, PS.failedAt = out, key, -999 else PS.points, PS.key, PS.failedAt = nil, nil, nowTime() end
- end, {waterWalking = false, profile = faction, walkLevel = 0})
+ end, {waterWalking = false, profile = faction})
  if okFind then PS.job = job else PS.failedAt = nowTime() end
 end
 
@@ -331,7 +332,7 @@ local function polestarRoute(P, map, px, py, gx, gy, ww, wh)
  return nil
 end
 
--- Şu an hangi kaynak kullanılıyor: 'polestar', 'learned' ya da nil (düz çizgi)
+-- Şu an hangi kaynak kullanılıyor: 'nav' (yürüme haritası), 'learned' ya da nil (düz çizgi)
 FT.RoadsSource = function() return PS.usedSource end
 
 -- Çizim için rota. Dönüş: {{x, y}, ...} (ilk nokta oyuncu, son nokta hedef; 0-1 harita koordinatı) ya da nil.
@@ -340,15 +341,15 @@ function FT.CurrentRoute(map, px, py, gx, gy, ww, wh)
  local P = psEngine()
  if P then
   local pts = polestarRoute(P, map, px, py, gx, gy, ww, wh)
-  if pts then PS.usedSource = 'polestar'; return pts end
+  if pts then PS.usedSource = 'nav'; return pts end
  end
  local pts = learnedRoute(map, px, py, gx, gy, ww, wh)
  PS.usedSource = pts and 'learned' or nil
  return pts
 end
 
--- Test için: Polestar durumunu sıfırla
-function FT.RoadsPolestarReset() PS = {tried = -999, failedAt = -999, askedAt = -999} end
+-- Test için: yürüme yönlendiricisi durumunu sıfırla
+function FT.RoadsNavReset() PS = {tried = -999, failedAt = -999, askedAt = -999} end
 
 ----------------------------------------------------------------------
 -- Öğrenme: yürürken (uçmadan, binekle uçmadan, gemide olmadan) konum kaydı
@@ -397,14 +398,13 @@ end
 -- /ftrail yolbilgi: rota kaynağı ve öğrenilen yol sayısı
 function FT.RoadsInfo()
  local maps, nodes = FT.RoadsStatus()
- local P = _G.Polestar_NavEngine
- local polestar
- if ForeverTrailSettings and ForeverTrailSettings.roadsPolestar == false then polestar = 'kapalı'
- elseif type(P) == 'table' then polestar = 'yüklü'
- elseif C_AddOns and C_AddOns.GetAddOnInfo and select(5, C_AddOns.GetAddOnInfo('Polestar_Nav')) ~= nil then polestar = 'kurulu (ilk rotada yüklenir)'
- else polestar = 'kurulu değil' end
+ local nav
+ if ForeverTrailSettings and ForeverTrailSettings.roadsNav == false then nav = 'kapalı'
+ elseif type(_G.ForeverTrail_NavEngine) == 'table' then nav = 'yüklü'
+ elseif C_AddOns and C_AddOns.GetAddOnInfo and select(1, C_AddOns.GetAddOnInfo('ForeverTrail_Nav')) ~= nil then nav = 'kurulu (ilk rotada yüklenir)'
+ else nav = 'kurulu değil (tools/link_nav_addons.ps1)' end
  local source = FT.RoadsSource and FT.RoadsSource()
- FT.Print(('Rota kaynağı: %s  |  Polestar_Nav: %s  |  Öğrenilen yol: %d harita, %d hücre%s'):format(
-  source == 'polestar' and 'Polestar yürüme haritası' or (source == 'learned' and 'öğrenilmiş yollar' or 'düz çizgi'), polestar, maps, nodes,
+ FT.Print(('Rota kaynağı: %s  |  ForeverTrail_Nav: %s  |  Öğrenilen yol: %d harita, %d hücre%s'):format(
+  source == 'nav' and 'yürüme haritası' or (source == 'learned' and 'öğrenilmiş yollar' or 'düz çizgi'), nav, maps, nodes,
   (ForeverTrailSettings and ForeverTrailSettings.roadsLearn == false) and ' (öğrenme kapalı)' or ''))
 end

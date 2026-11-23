@@ -1,0 +1,19 @@
+## Interface: 16001
+## Title: ForeverTrail Nav
+## Notes: Walking router and walking maps for ForeverTrail's winding routes. A modified copy of Polestar_Nav 0.4.2.2 (GPL-3.0-or-later): the router started from Shortest Path Forever by Cillian Berragan, the maps are Leffe's navigation maps. See NOTICE.md and CREDITS.md. Loaded on demand.
+## Notes-trTR: ForeverTrail kıvrımlı rotaları için yürüme yönlendiricisi ve yürüme haritaları. Polestar_Nav 0.4.2.2'nin (GPL-3.0-or-later) değiştirilmiş bir kopyasıdır: yönlendirici Cillian Berragan'ın Shortest Path Forever'ından, haritalar Leffe'nin navigasyon haritalarından gelir. NOTICE.md ve CREDITS.md'ye bakın. Gerektiğinde yüklenir.
+## Author: Polestar authors; router started from Cillian Berragan's Shortest Path Forever; maps: Leffe's navigation maps; modified for ForeverTrail
+## Version: 0.4.2.2-ft1
+## Category: ForeverTrail
+## Group: ForeverTrail
+## LoadOnDemand: 1
+## X-License: GPL-3.0-or-later
+## X-Website: https://github.com/fitzforge/polestar
+
+Nav\Nav.xml
+Trails\Trails.lua
+Routing\Costs.lua
+Routing\PathGrid.lua
+Routing\Path.lua
+Routing\PathJobs.lua
+API.lua

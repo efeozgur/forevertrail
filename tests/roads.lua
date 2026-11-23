@@ -65,7 +65,7 @@ taxi = false; ForeverTrailSettings.roadsLearn = false; ft.RoadsTick(); assert(no
 ForeverTrailSettings.roadsLearn = nil; ft.RoadsTick(); assert(nodes() == before + 1, 'yürürken kayıt olmalı')
 IsFlying = function() return true end; pos = {0.4, 0.4}; ft.RoadsTick(); assert(nodes() == before + 1, 'uçarken kayıt olmamalı')
 
--- Polestar_Nav arka ucu: sahte yönlendirici; arama eşzamansız, sonuç sonradan gelir
+-- ForeverTrail_Nav arka ucu: sahte yönlendirici; arama eşzamansız, sonuç sonradan gelir
 do
  local ww, wh = 3000, 2000
  -- dünya çerçevesi: x = 1000 * harita y, y = 1000 * harita x (UnitPosition: x kuzey, y batı gibi eksenler yer değiştirir)
@@ -80,17 +80,17 @@ do
  UnitPosition = function() return here[2] * 1000, here[1] * 1000, 0, 1 end
  UnitFactionGroup = function() return 'Alliance' end
  local asked, cancelled, pending, result = 0, 0, nil, nil
- Polestar_NavEngine = {
+ ForeverTrail_NavEngine = {
   Available = function(inst) return inst == 1 end,
   Cancel = function() cancelled = cancelled + 1 end,
   Find = function(inst, from, to, callback, opts)
    asked = asked + 1
-   assert(inst == 1 and opts.walkLevel == 0 and opts.profile == 'Alliance', 'Find parametreleri')
+   assert(inst == 1 and opts.walkLevel == nil and opts.profile == 'Alliance', 'Find parametreleri (walkLevel gönderilmez: sıkı politika Polestar tablosu ister)')
    pending = function() callback(result, 100, {}) end
    return {}
   end,
  }
- ft.RoadsPolestarReset()
+ ft.RoadsNavReset()
  -- kıvrımlı bir yol (harita 7): köşeli
  local function world(mx, my) return {x = my * 1000, y = mx * 1000} end
  result = {world(0.20, 0.20), world(0.20, 0.50), world(0.60, 0.50), world(0.80, 0.80)}
@@ -104,7 +104,7 @@ do
  local route = ft.CurrentRoute(7, 0.20, 0.20, 0.80, 0.80, ww, wh)
  assert(route and #route == 4, 'gelen yol çizilmeli: ' .. tostring(route and #route))
  assert(route[1][1] == 0.20 and route[1][2] == 0.20 and math.abs(route[4][1] - 0.80) < 1e-9 and math.abs(route[4][2] - 0.80) < 1e-9, 'oyuncudan hedefe')
- assert(ft.RoadsSource() == 'polestar', 'kaynak polestar olmalı')
+ assert(ft.RoadsSource() == 'nav', 'kaynak yürüme haritası olmalı')
  assert(asked == 1, 'yol geçerliyken yeniden sorulmamalı')
 
  -- yolda ilerleyince geride kalan noktalar atılır, ilk nokta oyuncu olur
@@ -128,7 +128,7 @@ do
  assert(asked == before + 1, 'beklemeden sonra yeniden sorulmalı')
 
  -- hedef değişince yeni arama; eski sonucun callback'i yok sayılır
- ft.RoadsPolestarReset(); asked = 0
+ ft.RoadsNavReset(); asked = 0
  result = {world(0.20, 0.20), world(0.30, 0.30)}
  clock = 200; ft.CurrentRoute(7, 0.20, 0.20, 0.30, 0.30, ww, wh)
  local first = pending
@@ -142,17 +142,17 @@ do
  assert(ft.CurrentRoute(7, 0.20, 0.20, 0.90, 0.90, ww, wh), 'yeni hedefin sonucu eskisinin geç gelmesiyle kaybolmamalı')
 
  -- kapatma ve yokluk
- ft.RoadsPolestarReset(); asked = 0
- ForeverTrailSettings.roadsPolestar = false; clock = 300
+ ft.RoadsNavReset(); asked = 0
+ ForeverTrailSettings.roadsNav = false; clock = 300
  ft.CurrentRoute(7, 0.20, 0.20, 0.80, 0.80, ww, wh)
- assert(asked == 0, 'roadsPolestar=false iken sorulmamalı')
- ForeverTrailSettings.roadsPolestar = nil
+ assert(asked == 0, 'roadsNav=false iken sorulmamalı')
+ ForeverTrailSettings.roadsNav = nil
  InCombatLockdown = function() return true end
- ft.RoadsPolestarReset(); clock = 400
+ ft.RoadsNavReset(); clock = 400
  ft.CurrentRoute(7, 0.20, 0.20, 0.80, 0.80, ww, wh)
  assert(asked == 0, 'savaşta sorulmamalı')
  InCombatLockdown = nil
- Polestar_NavEngine = nil; ft.RoadsPolestarReset(); clock = 500
+ ForeverTrail_NavEngine = nil; ft.RoadsNavReset(); clock = 500
  assert(ft.CurrentRoute(7, 0.20, 0.20, 0.80, 0.80, ww, wh) == nil and ft.RoadsSource() == nil, 'eklenti yokken sorunsuz nil')
 end
 

@@ -530,3 +530,16 @@ Rehber paneli > **Rehber seç** (ya da `/ftrail bolge`) penceresi üç bölümd�
 - **Konumsuz hedefler:** hedef konumu veride yoksa adım koordinatsız kalır; görev günlüğündeyken konum oyunun kendi yol noktasından bulunur.
 - **Kararlılık:** adım kimlikleri (`a<id>`, `o<id>`, `t<id>`) sabittir, bu yüzden ilerleme kaydı korunur. Seçilen rehber `ForeverTrailCharacter.autoGuide` içinde tutulur ve girişte yeniden üretilir.
 - Test: `tests/autoguide.lua` (gerçek veriyle bütün bölge pencereleri, üç karakter).
+
+## Kıvrımlı rotalar ve yürüme haritaları (ForeverTrail_Nav)
+
+Rota çizgisi (mini harita ve dünya haritası) yolu izleyen kıvrımlı bir yol olabilir. Kaynaklar, sırayla: **ForeverTrail_Nav** yürüme
+yönlendiricisi ve haritaları, yoksa yürüdüğün yollardan öğrenilen ağ, o da yoksa düz çizgi. `/ftrail yolbilgi` hangisinin kullanıldığını gösterir.
+
+`ForeverTrail_Nav`, `ForeverTrail_Nav_EK` ve `ForeverTrail_Nav_Kalimdor` klasörleri **Polestar_Nav 0.4.2.2**'nin değiştirilmiş bir
+kopyasıdır ve **GPL-3.0-or-later** ile lisanslıdır (ForeverTrail'in geri kalanı MIT'tir). Yönlendirici Cillian Berragan'ın Shortest Path Forever
+kodundan, haritalar Leffe'nin navigasyon haritalarından gelir; ayrıntı için `ForeverTrail_Nav/NOTICE.md` ve `CREDITS.md`.
+
+**Kurulum:** oyun iç içe klasörleri yüklemez; bu üç klasör `Interface\AddOns` içinde üst düzey durmalıdır. Depodan çalışıyorsan
+`powershell -ExecutionPolicy Bypass -File tools\link_nav_addons.ps1` bunları bağlar (junction); elle kuruyorsan üç klasörü AddOns'a kopyala.
+Eklenti ilk rotada yüklenir (birkaç MB bellek); kapatmak için `ForeverTrailSettings.roadsNav = false`.
