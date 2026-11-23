@@ -38,19 +38,7 @@ local function hex(c) return ('%02x%02x%02x'):format(math.floor(c[1] * 255 + 0.5
 ----------------------------------------------------------------------
 -- Küçük bileşenler
 ----------------------------------------------------------------------
--- Etiket: yarı saydam renkli zemin üzerinde küçük yazı ("Teslim", "Yeni", "Grup 3")
-local function newChip(parent)
- local c = CreateFrame('Frame', nil, parent)
- c:SetHeight(16)
- c.bg = c:CreateTexture(nil, 'BACKGROUND'); c.bg:SetAllPoints()
- c.text = c:CreateFontString(nil, 'OVERLAY'); FT.Kit.Font(c.text, 10); c.text:SetPoint('CENTER', 0, 0)
- function c:Set(text, r, g, b)
-  self.text:SetText(text); self.text:SetTextColor(r, g, b)
-  self.bg:SetColorTexture(r, g, b, 0.16)
-  self:SetWidth(math.floor((self.text:GetStringWidth() or 20) + 12))
- end
- return c
-end
+local function newChip(parent) return FT.Kit.Chip(parent) end
 
 local function newObjective(block)
  local K = FT.Kit
@@ -290,6 +278,7 @@ local function drawSummary()
  local xp, max = UnitXP and UnitXP('player') or 0, UnitXPMax and UnitXPMax('player') or 0
  local rested = GetXPExhaustion and GetXPExhaustion() or 0
  state.level:SetText(('Seviye %d'):format(level))
+ state.barBg:SetWidth(CW)
  local f1 = max > 0 and math.min(1, xp / max) or 0
  local f2 = max > 0 and math.min(1 - f1, rested / max) or 0
  state.pct:SetText(('%%%d'):format(math.floor(f1 * 100)))
@@ -321,6 +310,7 @@ local function fillBlock(b, e, ctx)
  local info = e.info
  local id = info.questID
  b.questId = id
+ b:SetWidth(CW)
  local translation = QTR_QuestData and QTR_QuestData[tostring(id)]
  local title = translation and translation.Title or info.title or ('Görev ' .. id)
  local ready = q.IsComplete and q.IsComplete(id) and true or false
@@ -426,6 +416,7 @@ end
 function FT.RefreshQuestList()
  local t = FT.tracker
  if not (t and ForeverTrailSettings and C_QuestLog) then return end
+ CW = (FT.QuestDockWidth and FT.QuestDockWidth() or WIDTH) - PAD * 2 -- pencere boyutlandırılabilir
  if not setup() then return end
  hideLegacy()
  local sumH = drawSummary()
@@ -455,6 +446,7 @@ function FT.RefreshQuestList()
    usedZones = usedZones + 1
    local z = zones[usedZones] or newZone(usedZones)
    z.zone = e.zone
+   z:SetWidth(CW)
    z:ClearAllPoints(); z:SetPoint('TOPLEFT', state.content, 'TOPLEFT', 0, -y)
    z.text:SetText((zoneCollapsed[e.zone] and '+  ' or '') .. e.zone)
    z.count:SetText(tostring(zoneCount[e.zone]))
@@ -481,11 +473,12 @@ function FT.RefreshQuestList()
   state.empty:ClearAllPoints(); state.empty:SetPoint('TOPLEFT', 0, -(y + 12))
   state.empty:SetText('Günlükte görev yok.'); state.empty:Show(); y = y + 40
  end
- state.content:SetHeight(math.max(10, y))
+ state.content:SetHeight(math.max(10, y)); state.content:SetWidth(CW)
  -- liste yüksekliği ekrana göre sınırlanır, taşarsa kaydırılır
  local screen = UIParent and UIParent:GetHeight() or 800
  local maxView = math.max(160, math.floor(screen * 0.58) - sumH)
- local viewH = math.min(y, maxView)
+ local fixed = FT.QuestDockViewHeight and FT.QuestDockViewHeight(sumH)
+ local viewH = fixed or math.min(y, maxView)
  state.scroll:ClearAllPoints(); state.scroll:SetPoint('TOPLEFT', t, 'TOPLEFT', PAD, -sumH)
  state.scroll:SetSize(CW, viewH)
  state.rule:ClearAllPoints(); state.rule:SetPoint('TOPLEFT', t, 'TOPLEFT', 0, -(sumH - 4)); state.rule:SetPoint('TOPRIGHT', t, 'TOPRIGHT', 0, -(sumH - 4))

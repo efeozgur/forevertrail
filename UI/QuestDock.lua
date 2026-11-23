@@ -7,13 +7,28 @@ local _, FT = ...
 
 local WIDTH, TAB_H = 360, 36
 -- Kutuların kendi (gizlenen) başlık bandı kadar yukarı kaydırılır; böylece liste sekmelerin hemen altından başlar
-local SHIFT = {tracker = 0, avail = 28}
+local SHIFT = {tracker = 0, avail = 0}
 local KINDS = {
  {key = 'tracker', label = 'Görevlerim'},
  {key = 'avail', label = 'Alınabilir'},
 }
 
+local MIN_W, MAX_W, MIN_H = 300, 640, 220
+
 local dock, tabs, gear, collapse
+
+-- Pencere boyutlandırılabilir: genişlik her zaman, yükseklik yalnızca elle ayarlandıysa sabittir (aksi halde içeriğe göre)
+local function dockWidth()
+ local w = ForeverTrailSettings and ForeverTrailSettings.dockW
+ return w and math.max(MIN_W, math.min(MAX_W, w)) or WIDTH
+end
+FT.QuestDockWidth = dockWidth
+-- Listenin görünen yüksekliği (özet bölümü ve sekme şeridi çıkarıldıktan sonra); elle ayarlanmadıysa nil
+function FT.QuestDockViewHeight(sumH)
+ local h = ForeverTrailSettings and ForeverTrailSettings.dockH
+ if not h then return nil end
+ return math.max(80, h - TAB_H - sumH - 10)
+end
 local raw, wanted = {}, {}
 
 local function frameOf(kind) return kind == 'tracker' and FT.tracker or FT.availableBox end
@@ -42,6 +57,7 @@ function FT.RefreshQuestDock()
  local tab = ForeverTrailSettings.dockTab
  if not has[tab] then tab = has.tracker and 'tracker' or 'avail' end
  dock.activeTab = tab
+ dock:SetWidth(dockWidth())
  dock:Show()
  local collapsed = ForeverTrailSettings.dockCollapsed or FT.trkCombatCollapsed
  -- sekmeler: yalnızca istenen kutular görünür; seçili olanın altında vurgu çizgisi
@@ -67,10 +83,13 @@ function FT.RefreshQuestDock()
    if k.key == tab and not collapsed then raw[k.key].Show(f) else raw[k.key].Hide(f) end
   end
  end
+ for _, k in ipairs(KINDS) do local f = frameOf(k.key); if f then f:SetWidth(dockWidth()) end end
  local active = frameOf(tab)
  local h = TAB_H
  if not collapsed and active then h = TAB_H + math.max(8, (active:GetHeight() or 0) - SHIFT[tab]) + 6 end
+ if ForeverTrailSettings.dockH and not collapsed then h = ForeverTrailSettings.dockH end
  dock:SetHeight(h)
+ if dock.grip then dock.grip:SetShown(not collapsed) end
  collapse:SetText(ForeverTrailSettings.dockCollapsed and '+' or '-')
 end
 
@@ -102,7 +121,7 @@ end
 local function build()
  local K = FT.Kit
  dock = CreateFrame('Frame', 'ForeverTrailQuestDock', UIParent)
- dock:SetSize(WIDTH, TAB_H + 40)
+ dock:SetSize(dockWidth(), TAB_H + 40)
  dock:SetMovable(true); dock:EnableMouse(true); dock:SetClampedToScreen(true)
  dock:RegisterForDrag('LeftButton')
  dock:SetScript('OnDragStart', function(self) if not ForeverTrailSettings.locked then self:StartMoving() end end)
@@ -145,6 +164,47 @@ local function build()
   GameTooltip:AddLine('Seçili sekmenin biçimi, sıralaması ve görev sayısı.', 0.9, 0.9, 0.9, true); GameTooltip:Show()
  end)
  gear:HookScript('OnLeave', function() if GameTooltip then GameTooltip:Hide() end end)
+ -- Sağ alt köşede boyutlandırma tutamacı: sürükleyince genişlik ve yükseklik değişir, çift tıklayınca otomatik boyuta döner
+ local grip = CreateFrame('Button', nil, dock)
+ grip:SetSize(18, 18); grip:SetPoint('BOTTOMRIGHT', -2, 2); grip:SetFrameLevel(dock:GetFrameLevel() + 20)
+ grip:SetNormalTexture('Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up')
+ grip:SetHighlightTexture('Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight')
+ grip:SetPushedTexture('Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down')
+ dock.grip = grip
+ local function applySize()
+  if FT.RefreshTracker then FT.RefreshTracker() end
+  if FT.RefreshAvailableBox then FT.RefreshAvailableBox() end
+ end
+ grip:SetScript('OnMouseDown', function(self)
+  -- sağ kenara yaslıysa genişleme sola kayar; sürüklemeden önce sol üst köşeye sabitle ki tutamak imleci izlesin
+  self.left, self.top = dock:GetLeft(), dock:GetTop()
+  if self.left and self.top then dock:ClearAllPoints(); dock:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', self.left, self.top) end
+  self.dragging, self.waited = true, 1
+ end)
+ grip:SetScript('OnMouseUp', function(self)
+  self.dragging = false
+  local point, _, relative, x, y = dock:GetPoint()
+  if point then ForeverTrailSettings.trackerPoint = {point, relative, x, y} end
+ end)
+ grip:SetScript('OnUpdate', function(self, dt)
+  if not self.dragging or not (self.left and self.top and GetCursorPosition) then return end
+  self.waited = self.waited + dt
+  if self.waited < 0.05 then return end
+  self.waited = 0
+  local cx, cy = GetCursorPosition()
+  local es = dock:GetEffectiveScale()
+  local w = math.max(MIN_W, math.min(MAX_W, cx / es - self.left))
+  local h = math.max(MIN_H, math.min((UIParent:GetHeight() or 800) / dock:GetScale() * 0.95, self.top - cy / es))
+  ForeverTrailSettings.dockW, ForeverTrailSettings.dockH = math.floor(w), math.floor(h)
+  applySize()
+ end)
+ grip:SetScript('OnDoubleClick', function() ForeverTrailSettings.dockW, ForeverTrailSettings.dockH = nil, nil; applySize() end)
+ grip:SetScript('OnEnter', function(self)
+  if not GameTooltip then return end
+  GameTooltip:SetOwner(self, 'ANCHOR_LEFT'); GameTooltip:SetText('Boyutu değiştir', 1, 0.82, 0)
+  GameTooltip:AddLine('Sürükle: genişlik ve yükseklik. Çift tık: otomatik boyut.', 0.9, 0.9, 0.9, true); GameTooltip:Show()
+ end)
+ grip:SetScript('OnLeave', function() if GameTooltip then GameTooltip:Hide() end end)
  if FT.FixFonts then pcall(FT.FixFonts, dock) end
  -- kutuların yenileme işlevleri bittiğinde pencere de güncellenir
  local refreshTracker, refreshAvail = FT.RefreshTracker, FT.RefreshAvailableBox

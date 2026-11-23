@@ -376,6 +376,25 @@ try('görev penceresi', function()
  for _, pool in ipairs(FT.tracker.legacyRows or {}) do
   for _, row in ipairs(pool) do assert(not (row.IsShown and row:IsShown()), 'eski takip satırı hâlâ görünür') end
  end
+ -- Alınabilir: eski kutunun satırları yeni listede görünmemeli (eski satırı elle oluşturup göster)
+ do
+  local legacyRow = CreateFrame('Button', nil, FT.availableBox)
+  legacyRow:Show()
+  table.insert(FT.availableBox.legacyRows[1], legacyRow)
+  assert(legacyRow:IsShown(), 'ön koşul: eski alınabilir satırı görünür olmalı')
+  FT.RefreshAvailableBox()
+  assert(not legacyRow:IsShown(), 'eski alınabilir satırı hâlâ görünür')
+  assert((FT.availRenders or 0) > 0, 'alınabilir listesi (AvailList) çizilmeli')
+  -- boyutlandırma: kayıtlı genişlik ve yükseklik pencereye uygulanır, çift tıklama otomatik boyuta döndürür
+  assert(FT.questDock.grip, 'boyutlandırma tutamacı')
+  ForeverTrailSettings.dockW, ForeverTrailSettings.dockH = 440, 520
+  FT.RefreshTracker(); FT.RefreshAvailableBox()
+  assert(FT.QuestDockWidth() == 440 and FT.QuestDockViewHeight(70) == 520 - 36 - 70 - 10, 'kayıtlı boyut')
+  ForeverTrailSettings.dockW = 99999; assert(FT.QuestDockWidth() <= 640, 'genişlik üst sınırı')
+  ForeverTrailSettings.dockW = 10; assert(FT.QuestDockWidth() >= 300, 'genişlik alt sınırı')
+  FT.questDock.grip:GetScript('OnDoubleClick')(FT.questDock.grip)
+  assert(ForeverTrailSettings.dockW == nil and ForeverTrailSettings.dockH == nil and FT.QuestDockViewHeight(70) == nil, 'çift tık otomatik boyuta dönmeli')
+ end
  local blocks0 = FT.QuestListInfo()
  assert(blocks0 >= 1, 'görev listesi en az bir blok çizmeli: ' .. tostring(blocks0))
  for _, sort in ipairs({'durum', 'bolge', 'yakin', 'seviye', 'yuzde'}) do

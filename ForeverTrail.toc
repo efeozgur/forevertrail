@@ -60,6 +60,7 @@ UI/Available.lua
 UI/ViewOptions.lua
 UI/QuestDock.lua
 UI/QuestList.lua
+UI/AvailList.lua
 UI/QuestInfo.lua
 Core/Layout.lua
 Core/Polish.lua

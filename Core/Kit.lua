@@ -454,3 +454,17 @@ function Kit.HideTips()
  if tipObject then tipObject:Hide() end
  if GameTooltip then GameTooltip:Hide() end
 end
+
+-- Etiket (chip): yarı saydam renkli zemin üzerinde küçük yazı ("Teslim", "Yeni", "Grup 3"). chip:Set(yazı, r, g, b)
+function Kit.Chip(parent)
+ local c = CreateFrame('Frame', nil, parent)
+ c:SetHeight(16)
+ c.bg = c:CreateTexture(nil, 'BACKGROUND'); c.bg:SetAllPoints()
+ c.text = c:CreateFontString(nil, 'OVERLAY'); Kit.Font(c.text, 10); c.text:SetPoint('CENTER', 0, 0)
+ function c:Set(text, r, g, b)
+  self.text:SetText(text); self.text:SetTextColor(r, g, b)
+  self.bg:SetColorTexture(r, g, b, 0.16)
+  self:SetWidth(math.floor((self.text:GetStringWidth() or 20) + 12))
+ end
+ return c
+end

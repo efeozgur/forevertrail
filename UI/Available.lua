@@ -103,6 +103,8 @@ function FT.CreateAvailableBox()
  emptyText:SetPoint('TOPLEFT', PAD + 4, -36)
  emptyText:SetTextColor(0.78, 0.72, 0.64)
  box.headerText, box.toggleButton = header, toggle -- QuestDock bunları gizler
+ box.legacyParts = {header, toggle, emptyText, box.line} -- AvailList kullanmaz
+ box.legacyRows = {rows} -- eski çizimin satırları; AvailList her yenilemede gizler
  applyAlpha()
 end
 
@@ -206,6 +208,10 @@ function FT.RefreshAvailableBox()
   return x.d < y.d
  end)
  FT.availCount = #list
+ if FT.questDock and FT.Kit and FT.RenderAvailList then
+  FT.RenderAvailList(box, list, map, {view = view, maxRows = maxRows, showGiver = showGiver, sortBy = sortBy})
+  return
+ end
  header:SetText(('Alınabilir  |cff9aa0a6%d|r'):format(#list))
  header:SetTextColor(a[1], a[2], a[3])
  toggle:SetText(ForeverTrailSettings.availCollapsed and '+' or '-')
