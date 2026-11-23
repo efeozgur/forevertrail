@@ -553,6 +553,16 @@ try('ortak bileşenler', function()
   local first = shown[1]
   first:GetScript('OnClick')(first)
   assert(FT.customTarget and FT.customTarget.text == first.row.name, 'satıra tıklayınca yer hedef olmalı')
+  -- başka bölgedeki yer: yol tarifi sohbete yazılır (ok başka bölgede yön gösteremez)
+  do
+   local printed, realPrint = {}, FT.Print
+   FT.Print = function(m) printed[#printed + 1] = tostring(m) end
+   FT.PlacesGo({name = 'Uzak Han', cat = 'Han', map = 1426, x = 0.3, y = 0.3})
+   FT.Print = realPrint
+   local all = table.concat(printed, ' / ')
+   assert(all:find('başka bölgede', 1, true) and all:find('1%.'), 'başka bölge hedefinde yol tarifi yazılmalı: ' .. all)
+   assert(FT.customTarget and FT.customTarget.text == 'Uzak Han', 'hedef yine de seçilmeli')
+  end
   FT.PlacesCategory('mine')
   assert(#FT.PlacesRows() == 0 and pw.empty:IsShown() and pw.empty:GetText() ~= '', 'boş sekmede açıklama görünmeli')
   FT.PlacesCategory('flight'); FT.OpenHub('rehber')

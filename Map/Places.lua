@@ -155,7 +155,7 @@ local rowPool = {}
 local currentCategory, rows = 'flight', {}
 local ROW_H, MAX_ROWS, PAD = 46, 150, 6
 local HINT = {
- flight = 'Seçtiğin noktaya ok, mini harita ve harita yolu çalışır.',
+ flight = 'Aynı bölgedeysen ok, mini harita ve harita çizgisi çalışır; başka bölgedeysen yol tarifi sohbete yazılır.',
  services = 'Kullandıkça öğrenilen satıcı, banka, posta ve han konumları.',
  prof = 'Meslek eğitmenleri ile topladığın bitki ve maden noktaları.',
  mine = 'Kendi kaydettiğin yerler.',
@@ -169,6 +169,21 @@ local EMPTY = {
  mine = 'Kayıt yok. Aşağıdan bulunduğun yeri adıyla kaydedebilirsin.',
 }
 
+-- Satıra tıklayınca: hedefi seç, haritayı aç ve ne bekleyeceğini söyle. Ok, mini harita işareti ve harita çizgisi yalnızca
+-- oyuncu hedefle aynı bölgedeyken yön gösterebilir; başka bölgede ok gri "Başka bölge" olarak kalır, bu yüzden yol tarifi yazılır.
+function FT.PlacesGo(row)
+ FT.SetCustomTarget(row.map, row.x, row.y, row.name)
+ local map = playerSpot()
+ if map and row.map and map ~= row.map then
+  local lines = FT.RoutePlan and FT.RoutePlan(FT.customTarget) or {}
+  FT.Print(('%s başka bölgede (%s): ok yönü göstermez, aşağıdaki adımları izle.'):format(row.name, (FT.MapName and FT.MapName(row.map)) or '?'))
+  for n, text in ipairs(lines) do FT.Print(('  %d. %s'):format(n, text)) end
+ elseif row.dist and row.dist < 15 then
+  FT.Print('Zaten oradasın (' .. math.floor(row.dist + 0.5) .. ' yd).')
+ end
+ if FT.OpenMap then FT.OpenMap() end
+end
+
 local function newRow(i)
  local K = FT.Kit
  local b = CreateFrame('Button', nil, content)
@@ -180,12 +195,7 @@ local function newRow(i)
  b.right = K.Text(b, 12, 'accent'); b.right:SetPoint('RIGHT', -10, 0); b.right:SetJustifyH('RIGHT')
  b:SetScript('OnEnter', function(self) self.hl:Show() end)
  b:SetScript('OnLeave', function(self) self.hl:Hide() end)
- b:SetScript('OnClick', function(self)
-  local row = self.row
-  if not row then return end
-  FT.SetCustomTarget(row.map, row.x, row.y, row.name)
-  if FT.OpenMap then FT.OpenMap() end
- end)
+ b:SetScript('OnClick', function(self) if self.row then FT.PlacesGo(self.row) end end)
  rowPool[i] = b
  return b
 end
