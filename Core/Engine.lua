@@ -125,5 +125,7 @@ function FT.Initialize()
  for i,g in ipairs(FT.validGuides) do if g.guideId==ForeverTrailCharacter.guideId then choice=i end end
  if not ForeverTrailCharacter.journalMigration then choice=1; ForeverTrailCharacter.journalMigration=true end
  FT.SelectGuide(choice)
+ -- girişten sonra yüklenmeyen parça varsa söyle (yeni dosyalar için /reload yetmez)
+ if FT.CheckModules and C_Timer and C_Timer.After then C_Timer.After(8, function() FT.CheckModules(true) end) end
 end
 

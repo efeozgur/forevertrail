@@ -480,6 +480,20 @@ try('görev penceresi', function()
   assert(FT.view == 1 and FT.active == 2 and box.resume:IsShown(), 'geri düğmesi yalnızca incelemeli, "Buradan sürdür" görünmeli')
   box.skip:GetScript('OnClick')(box.skip)
   assert(FT.active == 3 and FT.view == 3, 'Atla etkin adıma dönüp ilerletmeli: ' .. FT.active .. '/' .. FT.view)
+  -- karta tıklayınca harita açılır; sürükleme dock'a iletilir
+  do
+   local realOpen, opened = FT.OpenMap, 0
+   FT.OpenMap = function() opened = opened + 1 end
+   FT.view, FT.active = 1, 1
+   box.card:GetScript('OnClick')(box.card)
+   assert(opened == 1, 'karta tıklayınca harita açılmalı')
+   FT.active, FT.view = 2, 1
+   box.card:GetScript('OnClick')(box.card)
+   assert(opened == 2 and FT.active == 1, 'inceleme modunda tıklamak o adımı etkin yapmalı: ' .. FT.active)
+   FT.OpenMap = realOpen
+   assert(box.card:GetScript('OnDragStart') and box.card:GetScript('OnDragStop'), 'kart sürüklemeyi pencereye iletmeli')
+   FT.view, FT.active = 1, 1
+  end
   -- pencere büyütülünce sıradaki adımlar listelenir; satıra tıklayınca o adım incelenir
   FT.view, FT.active = 1, 1; ForeverTrailSettings.dockH = 700; FT.RefreshGuideTab()
   assert(FT.GuideTabRows() > 3, 'büyük pencerede sıradaki adımlar görünmeli: ' .. FT.GuideTabRows())

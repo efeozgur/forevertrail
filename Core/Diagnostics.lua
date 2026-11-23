@@ -168,3 +168,19 @@ function FT.TalentDebug()
  call('GetUnspentTalentPoints', GetUnspentTalentPoints)
  if FT.Compat then FT.Print(('Compat: sekme=%s yetenek1=%s yetenek2=%s yetenek3=%s'):format(tostring(FT.Compat.NumTalentTabs()), tostring(FT.Compat.NumTalents(1)), tostring(FT.Compat.NumTalents(2)), tostring(FT.Compat.NumTalents(3)))) end
 end
+
+-- Beklenen modüller. Oyun TOC'u yalnızca tamamen kapanıp açılınca yeniden okur; /reload yeni eklenen dosyaları YÜKLEMEZ.
+-- Yeni bir sürümden sonra yalnızca /reload yapılırsa bazı özellikler eksik kalır: bu kontrol bunu söyler.
+FT.ExpectedModules = {
+ {'Rehber sekmesi', 'RefreshGuideTab'}, {'Otopilot', 'AutoPilotStep'}, {'Rota', 'CurrentRoute'}, {'Yolculuk kartı', 'RefreshRouteCard'},
+ {'Adım bilgisi', 'StepInfo'}, {'Rehber seçici', 'ToggleGuidePicker'}, {'Bölge rehberleri', 'AutoGuide'},
+ {'Görevler listesi', 'BuildSuggestions'}, {'Görev penceresi', 'BuildQuestDock'},
+}
+function FT.CheckModules(announce)
+ local missing = {}
+ for _, m in ipairs(FT.ExpectedModules) do if FT[m[2]] == nil then missing[#missing + 1] = m[1] end end
+ if announce and #missing > 0 then
+  FT.Print(('Yüklenmeyen parçalar: %s. Oyun yeni dosyaları yalnızca tamamen kapanıp açılınca yükler, /reload yetmez: oyundan çık (Quit) ve yeniden gir.'):format(table.concat(missing, ', ')))
+ end
+ return missing
+end

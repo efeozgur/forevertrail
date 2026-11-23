@@ -328,7 +328,23 @@ function FT.BuildGuideBox(parent)
  map:SetScript('OnClick', function() if FT.OpenMap then FT.OpenMap() end end)
  box.prev, box.next, box.map, box.skip = prev, nxt, map, atla
  -- adım kartı
- box.card = CreateFrame('Frame', nil, box); box.card:SetHeight(120)
+ box.card = CreateFrame('Button', nil, box); box.card:SetHeight(120)
+ -- Karta tıklayınca hedefe giden rota haritada açılır (inceleme modundaysa o adım etkin yapılır). Sürükleme pencereye iletilir,
+ -- böylece kart pencerenin taşınmasını engellemez.
+ box.card:RegisterForClicks('LeftButtonUp')
+ box.card:RegisterForDrag('LeftButton')
+ box.card:SetScript('OnClick', function()
+  if FT.view ~= FT.active and FT.ResumeViewed then FT.ResumeViewed() end
+  if FT.OpenMap then FT.OpenMap() end
+ end)
+ box.card:SetScript('OnDragStart', function() local d = FT.questDock; local f = d and d:GetScript('OnDragStart'); if f then f(d) end end)
+ box.card:SetScript('OnDragStop', function() local d = FT.questDock; local f = d and d:GetScript('OnDragStop'); if f then f(d) end end)
+ box.card:SetScript('OnEnter', function(self)
+  local tip = K.Tooltip(); if not tip then return end
+  tip:SetOwner(self, 'ANCHOR_BOTTOM'); tip:SetText('Haritada göster', 1, 0.82, 0)
+  tip:AddLine('Hedefe giden rota dünya haritasında ve mini haritada çizilir.', 0.9, 0.9, 0.9, true); tip:Show()
+ end)
+ box.card:SetScript('OnLeave', function() K.HideTips() end)
  local cbg = box.card:CreateTexture(nil, 'BACKGROUND'); cbg:SetAllPoints(); K.Fill(cbg, 'card', 0.9)
  box.cardBar = box.card:CreateTexture(nil, 'ARTWORK'); box.cardBar:SetWidth(3); box.cardBar:SetPoint('TOPLEFT', 0, 0); box.cardBar:SetPoint('BOTTOMLEFT', 0, 0)
  box.npc = K.Text(box.card, 17, 'accent'); box.npc:SetJustifyH('LEFT'); box.npc:SetJustifyV('TOP')

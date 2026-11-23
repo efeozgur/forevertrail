@@ -119,4 +119,5 @@ function FT.Debug()
  local step = FT.CurrentStep()
  FT.Print(('client=%s build=%s date=%s interface=%s guide=%s step=%s status=%s mapError=%s journalError=%s'):format(tostring(version),tostring(build),tostring(date),tostring(interface),tostring(FT.guide and FT.guide.guideId),tostring(step and step.stepId),tostring(FT.lastStatus),tostring(FT.mapError),tostring(FT.journalError)))
  if FT.MapDebug then FT.Print(FT.MapDebug()) end
+ if FT.CheckModules and #FT.CheckModules(true) == 0 then FT.Print('Parçalar: hepsi yüklü.') end
 end
