@@ -359,7 +359,7 @@ local function trimmed(points, px, py, gx, gy, ww, wh)
  return out, math.sqrt(bestD or 0)
 end
 
-local function polestarRoute(P, map, px, py, gx, gy, ww, wh, gworld)
+local function navRoute(P, map, px, py, gx, gy, ww, wh, gworld)
  local key = ('%d:%.4f:%.4f'):format(map, gx, gy)
  local now = nowTime()
  local points, off
@@ -381,7 +381,7 @@ function FT.CurrentRoute(map, px, py, gx, gy, ww, wh, gworld)
  if not (map and px and gx) then PS.usedSource = nil; return nil end
  local P = psEngine()
  if P then
-  local pts = polestarRoute(P, map, px, py, gx, gy, ww, wh, gworld)
+  local pts = navRoute(P, map, px, py, gx, gy, ww, wh, gworld)
   if pts then PS.usedSource = 'nav'; return pts end
  end
  -- öğrenilmiş yollar harita başınadır: oyuncu ya da hedef bu haritanın dışındaysa kullanılamaz

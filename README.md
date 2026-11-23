@@ -564,4 +564,4 @@ Rehber seçiliyken sırayla ne yapman gerektiğini kendisi seçer:
 5. Testler (oyun gerekmez): `pip install lupa`, sonra `python tools/run_tests.py`.
 
 Depoda olmayanlar: oyun ayarların ve öğrenilen yollar (`WTF\...\SavedVariables\ForeverTrail.lua`, başka bilgisayara elle kopyalanır),
-ve ayrı yüklenen eklentiler (Questie, QuestieDB, WoWTR, Polestar; ForeverTrail bunlar olmadan da çalışır, olanları kullanır).
+ve ayrı yüklenen eklentiler (Questie, QuestieDB, WoWTR; ForeverTrail bunlar olmadan da çalışır, olanları kullanır). Polestar kurulu olması **gerekmez** ve kullanılmaz; yürüme haritaları kendi `ForeverTrail_Nav*` klasörlerimizdedir.

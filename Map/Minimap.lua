@@ -123,7 +123,7 @@ if placer then placer:SetScript('OnUpdate', function()
 end) end
 
 -- Hedefe giden rota: oyuncudan hedef işaretine sarı, parıltılı çizgi; üstünde hedefe doğru akan noktalar.
--- Rota, yol verisi varsa (Polestar_Nav ya da öğrenilmiş yollar, Map/Roads.lua) kıvrımlıdır; yoksa düz çizgi.
+-- Rota, yol verisi varsa (ForeverTrail_Nav ya da öğrenilmiş yollar, Map/Roads.lua) kıvrımlıdır; yoksa düz çizgi.
 -- Çizgiler Minimap'in kendi katmanına değil, üstteki ayrı bir çerçeveye konur: aksi halde mini haritanın kendi çizimi üstlerine biner.
 -- Çemberin dışına taşan kısım kenarda kırpılır. Ayar: minimapRoute (kapatılabilir).
 local routeFrame
