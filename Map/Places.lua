@@ -150,107 +150,131 @@ local function rowsFor(category)
  return rows
 end
 
-local frame, rowButtons, categoryButtons, pageLabel, nameBox
-local currentCategory, page, rows = 'flight', 1, {}
-local PER_PAGE = 9
+local frame, scroll, content, seg, searchBox, nameBox
+local rowPool = {}
+local currentCategory, rows = 'flight', {}
+local ROW_H, MAX_ROWS, PAD = 46, 150, 6
+local HINT = {
+ flight = 'Seçtiğin noktaya ok, mini harita ve harita yolu çalışır.',
+ services = 'Kullandıkça öğrenilen satıcı, banka, posta ve han konumları.',
+ prof = 'Meslek eğitmenleri ile topladığın bitki ve maden noktaları.',
+ mine = 'Kendi kaydettiğin yerler.',
+ search = 'Görev, yer, bitki veya maden adı yaz (en az 2 harf).',
+}
+local EMPTY = {
+ flight = 'Bu haritada uçuş noktası bulunamadı. Uçuş ustasıyla konuşunca konumu kaydedilir.',
+ services = 'Henüz kayıtlı yer yok. Satıcı, banka, posta veya han kullandıkça konumları otomatik öğrenilir.',
+ prof = 'Meslek eğitmeni ve topladığın bitki/maden konumları burada görünür.',
+ search = 'Sonuç yok. Yukarıdaki kutuya bir ad yaz.',
+ mine = 'Kayıt yok. Aşağıdan bulunduğun yeri adıyla kaydedebilirsin.',
+}
+
+local function newRow(i)
+ local K = FT.Kit
+ local b = CreateFrame('Button', nil, content)
+ b:SetHeight(ROW_H)
+ b.hl = b:CreateTexture(nil, 'BACKGROUND'); b.hl:SetAllPoints(); K.Fill(b.hl, 'card', 0.9); b.hl:Hide()
+ b.sep = b:CreateTexture(nil, 'ARTWORK'); b.sep:SetHeight(1); b.sep:SetPoint('TOPLEFT', 0, 0); b.sep:SetPoint('TOPRIGHT', 0, 0); K.Fill(b.sep, 'line', 0.55)
+ b.left = K.Text(b, 13, 'text'); b.left:SetPoint('TOPLEFT', 8, -8); b.left:SetPoint('RIGHT', b, 'RIGHT', -160, 0); b.left:SetJustifyH('LEFT'); b.left:SetWordWrap(false)
+ b.tag = K.Text(b, 11, 'muted'); b.tag:SetPoint('TOPLEFT', 8, -27); b.tag:SetJustifyH('LEFT')
+ b.right = K.Text(b, 12, 'accent'); b.right:SetPoint('RIGHT', -10, 0); b.right:SetJustifyH('RIGHT')
+ b:SetScript('OnEnter', function(self) self.hl:Show() end)
+ b:SetScript('OnLeave', function(self) self.hl:Hide() end)
+ b:SetScript('OnClick', function(self)
+  local row = self.row
+  if not row then return end
+  FT.SetCustomTarget(row.map, row.x, row.y, row.name)
+  if FT.OpenMap then FT.OpenMap() end
+ end)
+ rowPool[i] = b
+ return b
+end
 
 local function refreshList()
  if not frame then return end
  rows = rowsFor(currentCategory)
- page = math.max(1, math.min(page, math.ceil(math.max(1, #rows) / PER_PAGE)))
- for i, b in ipairs(rowButtons) do
-  local row = rows[(page - 1) * PER_PAGE + i]
-  if row then
-   local where = row.dist and ('%d yd'):format(row.dist + 0.5) or (FT.MapName and FT.MapName(row.map)) or ''
-   b.row = row
-   b.left:SetText(row.name .. (row.extra and ('  |cffff9a55(' .. row.extra .. ')|r') or ''))
-   b.tag:SetText(('|cff9aa0a6%s|r'):format(row.cat))
-   b.right:SetText(where)
-   b:Show()
-  else
-   b.row = nil; b:Hide()
-  end
+ seg:SetValue(currentCategory)
+ local searching = currentCategory == 'search'
+ searchBox:SetShown(searching)
+ frame.hint:SetText(HINT[currentCategory] or '')
+ frame.count:SetText(#rows > 0 and ('%d yer'):format(#rows) or '')
+ scroll:ClearAllPoints()
+ scroll:SetPoint('TOPLEFT', frame, 'TOPLEFT', PAD, searching and -92 or -66)
+ scroll:SetPoint('BOTTOMRIGHT', frame, 'BOTTOMRIGHT', -PAD - 8, 66)
+ local shown = math.min(#rows, MAX_ROWS)
+ for i = 1, shown do
+  local row = rows[i]
+  local b = rowPool[i] or newRow(i)
+  b:ClearAllPoints(); b:SetPoint('TOPLEFT', content, 'TOPLEFT', 0, -(i - 1) * ROW_H); b:SetPoint('RIGHT', content, 'RIGHT', 0, 0)
+  b.sep:SetShown(i > 1)
+  local where = row.dist and ('%d yd'):format(row.dist + 0.5) or (FT.MapName and FT.MapName(row.map)) or ''
+  b.row = row
+  b.left:SetText(row.name .. (row.extra and ('  |cffff9a55(' .. row.extra .. ')|r') or ''))
+  b.tag:SetText(row.cat or '')
+  b.right:SetText(where)
+  b:Show()
  end
- pageLabel:SetText(('%d / %d'):format(page, math.max(1, math.ceil(#rows / PER_PAGE))))
- for _, cb in ipairs(categoryButtons) do
-  if cb.key == currentCategory then cb:Disable() else cb:Enable() end
- end
+ for i = shown + 1, #rowPool do rowPool[i].row = nil; rowPool[i]:Hide() end
+ content:SetHeight(math.max(1, shown * ROW_H))
  if #rows == 0 then
-  frame.empty:SetText(currentCategory == 'flight' and 'Bu haritada uçuş noktası bulunamadı. Uçuş ustasıyla konuşunca konumu kaydedilir.'
-   or currentCategory == 'services' and 'Henüz kayıtlı yer yok. Satıcı, banka, posta veya han kullandıkça konumları otomatik öğrenilir.'
-   or currentCategory == 'prof' and 'Meslek eğitmeni ve topladığın bitki/maden konumları burada görünür.'
-   or currentCategory == 'search' and 'Aşağıdaki kutuya görev, yer, bitki veya maden adı yaz (en az 2 harf).'
-   or 'Kayıt yok. Aşağıdan bulunduğun yeri adıyla kaydedebilirsin.')
-  frame.empty:Show()
- else
-  frame.empty:Hide()
- end
+  frame.empty:ClearAllPoints(); frame.empty:SetPoint('TOPLEFT', frame, 'TOPLEFT', PAD + 8, searching and -104 or -80)
+  frame.empty:SetText(EMPTY[currentCategory] or ''); frame.empty:Show()
+ else frame.empty:Hide() end
+ if scroll.SetVerticalScroll then scroll:SetVerticalScroll(0) end
 end
 FT.RefreshPlaces = refreshList
 
 local function createWindow()
- frame = FT.NewWindow and FT.NewWindow('ForeverTrailPlaces', UIParent) or CreateFrame('Frame', 'ForeverTrailPlaces', UIParent, 'BasicFrameTemplateWithInset')
+ local K = FT.Kit
+ local PW = K.CONTENT_W
+ frame = FT.NewWindow('ForeverTrailPlaces', UIParent)
  FT.placesWindow = frame
- frame:SetSize((FT.Kit and FT.Kit.CONTENT_W) or 360, 410); frame:SetPoint('CENTER', UIParent, 'CENTER', -200, 20); frame:SetFrameStrata('DIALOG')
+ frame:SetSize(PW, 620); frame:SetPoint('CENTER', UIParent, 'CENTER', -200, 20); frame:SetFrameStrata('DIALOG')
  frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag('LeftButton')
  frame:SetScript('OnDragStart', function(self) self:StartMoving() end)
  frame:SetScript('OnDragStop', function(self) self:StopMovingOrSizing() end)
- local title = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
- title:SetPoint('TOP', 0, -7); title:SetText('Nereye gitmek istersin?')
- categoryButtons = {}
- local PW = (FT.Kit and FT.Kit.CONTENT_W) or 360
- local catW = math.floor((PW - 28 - (#CATEGORIES - 1) * 4) / #CATEGORIES)
- for i, c in ipairs(CATEGORIES) do
-  local b = FT.NewButton and FT.NewButton(frame, c.label, 80, 22)
-  if not b then b = CreateFrame('Button', nil, frame, 'UIPanelButtonTemplate'); b:SetSize(80, 22); b:SetText(c.label) end
-  b:SetWidth(catW); b:SetPoint('TOPLEFT', 14 + (i - 1) * (catW + 4), -32)
-  b.key = c.key
-  b:SetScript('OnClick', function() currentCategory = c.key; page = 1; refreshList() end)
-  categoryButtons[i] = b
- end
- frame.empty = frame:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- frame.empty:SetPoint('TOPLEFT', 18, -70); frame.empty:SetWidth(PW - 40); frame.empty:SetJustifyH('LEFT'); frame.empty:SetTextColor(0.78, 0.72, 0.64)
- rowButtons = {}
- for i = 1, PER_PAGE do
-  local b = FT.NewButton and FT.NewButton(frame, '', PW - 28, 30)
-  if not b then b = CreateFrame('Button', nil, frame, 'UIPanelButtonTemplate'); b:SetSize(PW - 28, 30) end
-  b:SetPoint('TOPLEFT', 14, -62 - (i - 1) * 32)
-  b.left = b:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
-  b.left:SetPoint('TOPLEFT', 8, -4); b.left:SetWidth(PW - 150); b.left:SetJustifyH('LEFT'); b.left:SetWordWrap(false)
-  b.tag = b:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
-  b.tag:SetPoint('BOTTOMLEFT', 8, 4); b.tag:SetJustifyH('LEFT')
-  b.right = b:CreateFontString(nil, 'OVERLAY', 'GameFontNormalSmall')
-  b.right:SetPoint('RIGHT', -8, 0); b.right:SetJustifyH('RIGHT')
-  b:SetScript('OnClick', function(self)
-   local row = self.row
-   if not row then return end
-   FT.SetCustomTarget(row.map, row.x, row.y, row.name)
-   if FT.OpenMap then FT.OpenMap() end
-  end)
-  rowButtons[i] = b
- end
- local prev = FT.NewButton and FT.NewButton(frame, '<', 28, 22)
- prev:SetPoint('BOTTOMLEFT', 14, 50); prev:SetScript('OnClick', function() page = page - 1; refreshList() end)
- local nextB = FT.NewButton and FT.NewButton(frame, '>', 28, 22)
- nextB:SetPoint('BOTTOMLEFT', 100, 50); nextB:SetScript('OnClick', function() page = page + 1; refreshList() end)
- pageLabel = frame:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- pageLabel:SetPoint('BOTTOMLEFT', 48, 54); pageLabel:SetWidth(50); pageLabel:SetJustifyH('CENTER')
- nameBox = (FT.Kit and FT.Kit.Input(frame) or CreateFrame('EditBox', nil, frame, 'InputBoxTemplate'))
- nameBox:SetSize(320, 22); nameBox:SetPoint('BOTTOMLEFT', 22, 16); nameBox:SetAutoFocus(false); nameBox:SetMaxLetters(40)
- nameBox:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
-nameBox:SetScript('OnTextChanged', function(self) FT.placesSearchText = self:GetText(); if currentCategory == 'search' then page = 1; refreshList() end end)
- local save = FT.NewButton and FT.NewButton(frame, 'Buraya kaydet', 112, 22)
- save:SetPoint('BOTTOMRIGHT', -14, 16)
+ -- sekmeler
+ local items = {}
+ for i, c in ipairs(CATEGORIES) do items[i] = {c.key, c.label} end
+ seg = K.Segmented(frame, items, PW - PAD * 2, 28, function(key) currentCategory = key; refreshList() end)
+ seg:SetPoint('TOPLEFT', PAD, -PAD)
+ frame.hint = K.Text(frame, 12, 'muted'); frame.hint:SetPoint('TOPLEFT', PAD + 2, -44); frame.hint:SetJustifyH('LEFT')
+ frame.count = K.Text(frame, 11, 'muted'); frame.count:SetPoint('TOPRIGHT', -PAD - 2, -45); frame.count:SetJustifyH('RIGHT')
+ -- arama kutusu (yalnızca Ara sekmesinde)
+ searchBox = K.Input(frame)
+ searchBox:SetSize(PW - PAD * 2, 24); searchBox:SetPoint('TOPLEFT', PAD, -62); searchBox:SetMaxLetters(40)
+ searchBox:SetText(FT.placesSearchText or '')
+ searchBox:SetScript('OnTextChanged', function(self) FT.placesSearchText = self:GetText(); if currentCategory == 'search' then refreshList() end end)
+ -- liste
+ scroll = K.Scroll(frame)
+ content = CreateFrame('Frame', nil, scroll)
+ content:SetSize(PW - PAD * 2 - 8, 10)
+ scroll:SetScrollChild(content)
+ frame.empty = K.Text(frame, 12, 'muted'); frame.empty:SetWidth(PW - 40); frame.empty:SetJustifyH('LEFT'); frame.empty:SetJustifyV('TOP')
+ -- alt: bulunduğun yeri kaydet
+ local rule = K.Divider(frame); rule:SetPoint('BOTTOMLEFT', PAD, 58); rule:SetPoint('BOTTOMRIGHT', -PAD, 58)
+ local label = K.Text(frame, 11, 'muted'); label:SetPoint('BOTTOMLEFT', PAD + 2, 38); label:SetText('Bulunduğun yeri kaydet')
+ nameBox = K.Input(frame)
+ nameBox:SetSize(PW - PAD * 2 - 124, 24); nameBox:SetPoint('BOTTOMLEFT', PAD, 8); nameBox:SetMaxLetters(40)
+ local save = K.Button(frame, 'Buraya kaydet', 116, 24); save:SetPoint('BOTTOMRIGHT', -PAD, 8)
  save:SetScript('OnClick', function()
   local text = nameBox:GetText()
   if text == '' then return FT.Print('Önce kayıt için bir ad yaz.') end
   FT.AddPlaceHere(text, 'Kayıtlı')
   nameBox:SetText(''); nameBox:ClearFocus()
-  currentCategory = 'mine'; page = 1; refreshList()
+  currentCategory = 'mine'; refreshList()
  end)
  frame:SetScript('OnShow', refreshList)
  frame:Hide()
  if FT.ApplyFont then pcall(FT.ApplyFont) end
+end
+
+-- Test ve tanı için: sekmeyi seç, görünen satırları al
+function FT.PlacesCategory(key) currentCategory = key; refreshList() end
+function FT.PlacesRows()
+ local out = {}
+ for _, b in ipairs(rowPool) do if b:IsShown() then out[#out + 1] = b end end
+ return out
 end
 
 function FT.EnsurePlacesWindow()

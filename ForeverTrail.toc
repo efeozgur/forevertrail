@@ -33,6 +33,7 @@ Guide/AutoGuide.lua
 Guide/Recommendations.lua
 Guide/Guides.lua
 UI/Panel.lua
+UI/Suggestions.lua
 UI/Target.lua
 UI/Tracker.lua
 Map/Minimap.lua

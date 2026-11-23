@@ -537,6 +537,55 @@ try('ortak bileşenler', function()
   assert(ForeverTrailCharacter.autoGuide, 'seçim karakter kaydına yazılmalı')
   FT.ToggleGuidePicker(); assert(picker:IsShown(), 'ikinci açılış'); FT.ToggleGuidePicker()
  end
+ do -- Yerler: sekmeler, kaydırılabilir iki satırlı liste, satıra tıklayınca hedef
+  FT.AddPlace('Deneme Hancısı', 'Han', 1429, 0.4, 0.5, true); FT.AddPlace('Deneme Bankası', 'Banka', 1429, 0.5, 0.5, true)
+  FT.OpenHub('yerler')
+  local pw = FT.placesWindow
+  assert(pw and pw:IsShown(), 'yerler penceresi açılmalı')
+  FT.PlacesCategory('services')
+  local shown = FT.PlacesRows()
+  assert(#shown >= 2, 'hizmet satırları görünmeli: ' .. #shown)
+  assert(not pw.empty:IsShown(), 'satır varken boş açıklaması gizli olmalı')
+  local names = {}
+  for _, b in ipairs(shown) do names[#names + 1] = tostring(b.left:GetText()) end
+  assert(table.concat(names, '|'):find('Deneme Hancısı'), 'kayıtlı yer listede olmalı: ' .. table.concat(names, '|'))
+  FT.customTarget = nil
+  local first = shown[1]
+  first:GetScript('OnClick')(first)
+  assert(FT.customTarget and FT.customTarget.text == first.row.name, 'satıra tıklayınca yer hedef olmalı')
+  FT.PlacesCategory('mine')
+  assert(#FT.PlacesRows() == 0 and pw.empty:IsShown() and pw.empty:GetText() ~= '', 'boş sekmede açıklama görünmeli')
+  FT.PlacesCategory('flight'); FT.OpenHub('rehber')
+ end
+ do -- Görevler sayfası: sekmeler ve iki satırlı liste
+  FT.OpenHub('gorevler')
+  assert(FT.suggestions and FT.suggestions:IsShown(), 'görevler sayfası açılmalı')
+  local counts = {}
+  for _, tab in ipairs({'journal', 'available', 'nearby', 'chain'}) do FT.SuggestionTab(tab); counts[tab] = #FT.SuggestionRows() end
+  FT.SuggestionTab('journal')
+  local rows = FT.SuggestionRows()
+  assert(#rows >= 1, 'günlükte görev olan karakterde günlük sekmesi dolu olmalı: ' .. table.concat({counts.journal, counts.available, counts.nearby, counts.chain}, '/'))
+  local r = rows[1]
+  assert(r.title:GetText():find('^%[') and r.sub:GetText() ~= '' and r.state:GetText() ~= '', 'satır başlığı, alt satırı ve durumu dolu olmalı')
+  r:GetScript('OnEnter')(r); r:GetScript('OnLeave')(r)
+  FT.guide = nil
+  r:GetScript('OnClick')(r)
+  assert(FT.guide, 'satıra tıklayınca bir rehber seçilmeli')
+  -- sabit öneri verisiyle sekme süzgeçleri ve tıklama davranışı
+  local realRec, realNear = FT.GetRecommendations, FT.GetNearbyRecommendations
+  FT.GetRecommendations = function() return {{id = 2, title = 'Yeni', level = 10, xp = 200}, {id = 1, title = 'Aktif', level = 10, xp = 100, active = true}}, true end
+  FT.GetNearbyRecommendations = function(all) return all, true end
+  local function titles() local t = {}; for _, b in ipairs(FT.SuggestionRows()) do t[#t + 1] = b.row.title end; return table.concat(t, ',') end
+  FT.SuggestionTab('journal'); assert(titles() == 'Aktif', 'günlük sekmesi yalnızca aktifleri göstermeli: ' .. titles())
+  FT.SuggestionTab('available'); assert(titles() == 'Yeni', 'alınabilir sekmesi yalnızca yenileri göstermeli: ' .. titles())
+  local nb = FT.SuggestionRows()[1]
+  FT.guide = nil; nb:GetScript('OnClick')(nb)
+  assert(FT.guide and FT.guide.steps[1].type == 'accept' and FT.guide.steps[1].questId == 2, 'alınabilir görev seçilince "görevi al" adımı oluşmalı')
+  FT.SuggestionTab('nearby'); assert(#FT.SuggestionRows() == 2, 'bölge sekmesi ikisini de göstermeli')
+  FT.GetRecommendations, FT.GetNearbyRecommendations = realRec, realNear
+  FT.SuggestionTab('journal')
+  FT.OpenHub('rehber')
+ end
  FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = false; FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = nil; FT.RefreshJourney()
  FT.OpenHub('rehber'); assert(FT.hub.rail and FT.hub.pageTitle:GetText() == 'Rehber', 'hub başlığı')
  FT.OpenHub('gorevler'); assert(FT.hub.pageDesc:GetText() ~= '', 'hub açıklaması')

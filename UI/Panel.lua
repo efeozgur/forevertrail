@@ -148,103 +148,7 @@ function FT.CreatePanel()
  FT.panelExtras[#FT.panelExtras+1]=f.activate
  FT.panelExtras[#FT.panelExtras+1]=f.resume
 
- local suggestions = newWindow(nil, f)
- suggestions:SetSize(PANEL_W-26, 330); suggestions:SetPoint('TOPLEFT', f, 'TOPRIGHT', 4, 0)
- suggestions:SetFrameLevel(f:GetFrameLevel()+10)
- local heading=suggestions:CreateFontString(nil,'OVERLAY','GameFontNormal')
- heading:SetPoint('TOP',0,-10); heading:SetText('Seviyene uygun görevler'); applyFont(heading)
- if FT.RegisterAccent then FT.RegisterAccent(solid(suggestions,'ARTWORK',PANEL_W-50,2,'TOPLEFT',12,-26,0.95,0.72,0.35,0.7),0.7) else solid(suggestions,'ARTWORK',PANEL_W-50,2,'TOPLEFT',12,-26,0.95,0.72,0.35,0.7) end
- local details=suggestions:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall')
- details:SetPoint('TOPLEFT',12,-62); details:SetWidth(PANEL_W-51); details:SetJustifyH('LEFT'); applyFont(details)
- local rows, page, rowButtons, activeTab = {}, 1, {}, 'journal'
- local refreshSuggestions
- local journalTab, availableTab, nearbyTab, chainTab
- local chainState='ok'
- local function selectTab(tab)
-  activeTab=tab; page=1
-  journalTab:Enable(); availableTab:Enable(); nearbyTab:Enable(); chainTab:Enable()
-  if tab=='journal' then journalTab:Disable() elseif tab=='available' then availableTab:Disable() elseif tab=='chain' then chainTab:Disable() else nearbyTab:Disable() end
-  refreshSuggestions(true)
-  if tab=='chain' then if FT.ShowChainOnMap then FT.ShowChainOnMap() end elseif FT.ClearChainPreview then FT.ClearChainPreview() end
- end
- local TW=math.floor((PANEL_W-26-24-3*4)/4)
- journalTab=button(suggestions,'Günlüktekiler',TW,12,-30,function() selectTab('journal') end)
- availableTab=button(suggestions,'Alınabilecekler',TW,12+(TW+4),-30,function() selectTab('available') end)
- nearbyTab=button(suggestions,'Bulunduğum bölge',TW,12+2*(TW+4),-30,function() selectTab('nearby') end)
- chainTab=button(suggestions,'Zincir',TW,12+3*(TW+4),-30,function() selectTab('chain') end)
- for i=1,7 do
-  local index=i
-  rowButtons[i]=button(suggestions,'',PANEL_W-50,12,-82-(i-1)*27,function()
-   local row=rows[(page-1)*7+index]
-   if not row then return end
-   if row.active then
-    for guideIndex, guide in ipairs(FT.validGuides) do
-     if guide.live then
-      FT.SelectGuide(guideIndex)
-      for j,step in ipairs(guide.steps) do
-       if step.questId==row.id then FT.active=j; FT.view=j; FT.SaveStep(); break end
-      end
-      break
-     end
-    end
-   else
-    FT.guide={guideId='recommendation',title=row.title,zone='Önerilen görev',version=1,steps={{stepId='recommendation-'..row.id,type='accept',questId=row.id,questTitle=row.title,text='Görevi al.'}}}
-    FT.active=1; FT.view=1; FT.complete=false; FT.notice=nil
-   end
-   FT.Refresh(); FT.OpenMap()
-  end)
- end
- local pageLabel=suggestions:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall')
- pageLabel:SetPoint('BOTTOM',0,12); applyFont(pageLabel)
- button(suggestions,'Önceki',80,12,-287,function() if page>1 then page=page-1; refreshSuggestions(false) end end)
- button(suggestions,'Sonraki',80,PANEL_W-26-12-80,-287,function() if page*7<#rows then page=page+1; refreshSuggestions(false) end end)
- refreshSuggestions=function(reload)
-  local available
-  if reload then
-   local all
-   all,available=FT.GetRecommendations()
-   rows={}
-   local locationReady=true
-   if activeTab=='nearby' then rows,locationReady=FT.GetNearbyRecommendations(all)
-   elseif activeTab=='chain' then
-    if FT.GetQuestChain then
-     local list,state=FT.GetQuestChain()
-     chainState=state
-     for _,r in ipairs(list) do rows[#rows+1]={id=r.id,title=r.title,level=r.level,active=r.active,ready=false,status=r.chainStatus,current=r.chainCurrent,zone=r.zone} end
-     if FT.SetChainPreview then FT.SetChainPreview(rows) end
-    else chainState='unavailable' end
-   else
-    for _,row in ipairs(all) do
-     if (row.active and activeTab=='journal') or (not row.active and activeTab=='available') then rows[#rows+1]=row end
-    end
-   end
-   page=math.min(page,math.max(1,math.ceil(#rows/7)))
-   details:SetText(activeTab=='chain' and (chainState=='noquest' and 'Zincir için önce bir görev al.' or (chainState=='unavailable' and 'Görev verisi okunamıyor; zincir gösterilemiyor.' or 'Görev zinciri: önceki ve sonraki görevler (* = şu anki).')) or activeTab=='nearby' and not locationReady and 'Bölge veya görev konumları okunamıyor.' or (activeTab=='available' and not available and 'Görev verisi okunamıyor; alınabilecek görevler gösterilemiyor.' or (activeTab=='nearby' and 'Bu bölgedeki görevler; XP sırasıyla.' or 'XP yüksekten düşüğe sıralanır; seçerek haritada aç.')))
-  end
-  for i,b in ipairs(rowButtons) do
-   local row=rows[(page-1)*7+i]
-   if row then
-    local xp=row.xp and (row.xp..' XP') or 'XP bilinmiyor'
-    local level=type(row.level)=='number' and row.level>0 and tostring(row.level) or '?'
-    if row.status then b:SetText(('[%s] %s | %s%s%s'):format(level,row.title,row.status,row.zone and (' | '..row.zone) or '',row.current and '  *' or ''))
-    else b:SetText(('[%s] %s | %s | %s'):format(level,row.title,xp,row.active and (row.ready and 'Teslim' or 'Günlükte') or 'Alınabilir')) end
-    local fs=b:GetFontString()
-    if fs then
-     if row.ready then fs:SetTextColor(0.6,0.92,0.55) elseif row.active then fs:SetTextColor(0.98,0.8,0.4) else fs:SetTextColor(1,0.94,0.82) end
-    end
-    b:Show()
-   else b:Hide() end
-  end
-  pageLabel:SetText(#rows==0 and (activeTab=='chain' and 'Zincir bilgisi yok.' or activeTab=='journal' and 'Uygun günlük görevi yok.' or (activeTab=='nearby' and 'Bu bölgede bilinen uygun görev yok.' or 'Alınabilecek uygun görev yok.')) or ('%d / %d'):format(page,math.max(1,math.ceil(#rows/7))))
- end
- suggestions:Hide()
- FT.suggestions=suggestions
- local suggestionsElapsed=0
- suggestions:SetScript('OnUpdate',function(_,dt)
-  suggestionsElapsed=suggestionsElapsed+dt
-  if suggestionsElapsed>=3 then suggestionsElapsed=0; refreshSuggestions(true) end
- end)
- FT.ShowSuggestions=function() suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end
+ if FT.BuildSuggestions then FT.BuildSuggestions(f) end -- Görevler sayfasının önerileri (UI/Suggestions.lua)
  local pick=button(f,'Rehber seç',112,PANEL_W-M-112,-14,function()
   if FT.ToggleGuidePicker then FT.ToggleGuidePicker() end
  end,'Hangi rehberin izleneceğini seç: günlüğün, hazır rehberler ya da seviyene göre bölge rehberleri.')
@@ -258,7 +162,7 @@ function FT.CreatePanel()
  button(f.body,'Haritada göster',BW,0,0,FT.OpenMap,'Dünya haritasını aç; hedef ve yol çizgisi görünür.')
  button(f.body,'En yakın',BW,BW+8,0,function() FT.SelectNearest() end,'Bulunduğun yere en yakın görev adımını seç ve haritada göster.')
  button(f.body,'Rota oluştur',BW,2*(BW+8),0,function() FT.BuildRoute() end,'Günlüğündeki görevlerden, en yakından başlayan bir rota çıkar.')
- button(f.body,'Öneriler',BW,3*(BW+8),0,function() if FT.OpenHub then return FT.OpenHub('gorevler') end if suggestions:IsShown() then suggestions:Hide() else suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end end,'Seviyene uygun görevler: günlükte olanlar, alınabilecekler, bulunduğun bölge, zincir.')
+ button(f.body,'Öneriler',BW,3*(BW+8),0,function() if FT.OpenHub then FT.OpenHub('gorevler') end end,'Seviyene uygun görevler: günlükte olanlar, alınabilecekler, bulunduğun bölge, zincir.')
  -- otomatik ilerle: anahtar (switch)
  local autoLabel=K.Text(f.body,13,'text'); autoLabel:SetPoint('TOPLEFT',0,-46); autoLabel:SetText('Otomatik ilerle')
  local autoHint=K.Text(f.body,11,'muted'); autoHint:SetPoint('TOPLEFT',0,-64); autoHint:SetWidth(W-70); autoHint:SetJustifyH('LEFT'); autoHint:SetText('Tamamlanan adımları atlar ve güncel hedefi gösterir.')
