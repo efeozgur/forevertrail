@@ -430,6 +430,34 @@ try('ortak bileşenler', function()
  assert(chk:GetChecked() == true, 'onay kutusu başlangıcı'); chk:GetScript('OnClick')(chk); assert(got == false and chk:GetChecked() == false, 'onay kutusu değişimi')
  assert(FT.panel.activate and FT.panel.resume and FT.panel.prevButton and FT.panel.nextButton, 'rehber paneli düğmeleri')
  assert(FT.panel.journeyRows and #FT.panel.journeyRows == 6 and FT.panel.journeyHead, 'yolculuk bölümü')
+ -- yeni Rehber paneli: bölümler, kart yüksekliği içeriğe göre, küçük panel geçişi
+ do
+  local f = FT.panel
+  assert(f.stepCard and f.body and f.typeChip and f.counter and f.stepText and f.guideSub and f.pct, 'Rehber paneli bölümleri')
+  FT.Refresh()
+  local counter = f.counter:GetText()
+  assert(type(counter) == 'string' and (counter:match('^%d+ / %d+$') or counter == 'Görev günlüğü'), 'adım sayacı: ' .. tostring(counter))
+  assert(type(f.instruction:GetText()) == 'string', 'adım başlığı')
+  f.instruction.GetStringHeight = function() return 40 end; FT.LayoutPanel(); local h1 = f.fullH
+  f.instruction.GetStringHeight = function() return 60 end; FT.LayoutPanel(); local h2 = f.fullH
+  assert(h2 - h1 == 20, 'kart yüksekliği başlık yüksekliğiyle artmalı: ' .. tostring(h2 - h1))
+  assert(f.fullH > f.compactH, 'tam panel küçük panelden yüksek olmalı')
+  f.instruction.GetStringHeight = nil
+  FT.SetCompact(true); FT.SetCompact(false); FT.Refresh()
+ end
+ do -- yolculuk adımı ayrıştırma ve sınıflandırma
+  local clean, seconds = FT.JourneySplitTime('Uçuş: A → B (1:28)')
+  assert(clean == 'Uçuş: A → B' and seconds == 88, 'süre ayrıştırma: ' .. tostring(clean) .. '/' .. tostring(seconds))
+  local c2, s2 = FT.JourneySplitTime('Bulunduğun yerden dışarı çık.')
+  assert(c2 == 'Bulunduğun yerden dışarı çık.' and s2 == nil, 'süresiz adım')
+  local cases = {{'Uçuş: A → B', false, 'UÇUŞ'}, {'Bulunduğun yerden dışarı çık.', false, 'ÇIKIŞ'}, {'Zeplin ustasına git', false, 'ZEPLİN'},
+   {'Alliance için gemi tarifi', false, 'GEMİ'}, {'Elwynn bölgesine yürüyerek ya da binekle git.', false, 'YÜRÜ'}, {'Deadmines girişine git', false, 'GİRİŞ'},
+   {'Elwynn: Test (30.0, 60.0)', true, 'VARIŞ'}, {'başka bir şey', false, 'ADIM'}}
+  for _, c in ipairs(cases) do
+   local label = FT.JourneyClassify(c[1], c[2])
+   assert(label == c[3], 'sınıflandırma: ' .. c[1] .. ' -> ' .. tostring(label) .. ' (beklenen ' .. c[3] .. ')')
+  end
+ end
  FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = false; FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = nil; FT.RefreshJourney()
  FT.OpenHub('rehber'); assert(FT.hub.rail and FT.hub.pageTitle:GetText() == 'Rehber', 'hub başlığı')
  FT.OpenHub('gorevler'); assert(FT.hub.pageDesc:GetText() ~= '', 'hub açıklaması')

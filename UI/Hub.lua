@@ -54,7 +54,7 @@ FT.RefreshHub = function() if hub then refreshNav() end end
 
 local function fill(page)
  if page == 'rehber' and FT.panel then
-  adopt(FT.panel, 'rehber', 0, 22)
+  adopt(FT.panel, 'rehber', 0, 0)
   FT.panel:Show()
   if FT.card then FT.card:ClearAllPoints(); FT.card:SetPoint('TOPLEFT', hub, 'TOPRIGHT', 4, 0) end
  elseif page == 'gorevler' and FT.suggestions then

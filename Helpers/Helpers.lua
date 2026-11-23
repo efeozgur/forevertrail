@@ -263,6 +263,7 @@ function FT.StylePanel()
   if fs then pcall(fs.SetFont, fs, path, size, flags or ''); fs:SetShadowOffset(1, -1); fs:SetShadowColor(0, 0, 0, 0.85) end
  end
  if f.title and FT.StyleTitle then FT.StyleTitle(f.title) end
+ if FT.Kit then return end -- yeni Rehber paneli (Kit) yazı boyutlarını ve renklerini kendisi yönetir
  font(f.guide, 12, 'OUTLINE'); if f.guide then f.guide:SetTextColor(a[1], a[2], a[3]) end
  font(f.info, 11)
  font(f.instruction, 14)
