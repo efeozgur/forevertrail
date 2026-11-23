@@ -1,0 +1,11 @@
+# Üçüncü taraf kod/veri ağaçları: TOC'ta yüklenmez ve lisansları (Questie simgeleri "tüm hakları saklı") yeniden dağıtıma uygun değildir
+/Questie/
+/QuestieDB/
+/Media/Questie/
+
+# Yedekler ve geçici dosyalar
+*.bak
+*.bak2
+*.rar
+*.zip
+*.tmp
