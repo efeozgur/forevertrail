@@ -553,3 +553,15 @@ Rehber seçiliyken sırayla ne yapman gerektiğini kendisi seçer:
 - **Geri dönüş:** atlanarak geçilen ama hâlâ yapılabilir adımlar rehber bitmeden geri gelir. Elle *Atla* dediklerin gelmez.
 - **NPC işlemleri:** konuşma penceresinde yalnızca rehberdeki görevler otomatik alınır ve teslim edilir; rehber dışı görevleri sana bırakır (Shift ile durdurabilirsin). Birden çok ödül seçeneği varsa sınıfına göre en iyisi otomatik seçilir. Ayar: *Rehber dışı görevleri de otomatik al / teslim et* eski davranışa döner.
 - Bölge rehberi seçmek, hiç ayarlanmadıysa *Otomatik ilerle*'yi de açar.
+
+## Yeni bir bilgisayara kurulum
+
+1. `git clone -b v0.2-dev https://github.com/efeozgur/forevertrail.git` (geliştirme `v0.2-dev` dalındadır; `main` eski sürümdür).
+2. Oyunun `Interface\AddOns` klasöründe `ForeverTrail` adıyla bu klasöre bağlantı kur (junction; PowerShell):
+   `New-Item -ItemType Junction -Path "<oyun>\Interface\AddOns\ForeverTrail" -Target "<klon klasörü>"`
+3. Yürüme haritası eklentilerini bağla: `powershell -ExecutionPolicy Bypass -File tools\link_nav_addons.ps1 -AddOns "<oyun>\Interface\AddOns"`
+4. Oyunu **tamamen kapatıp** aç (`/reload` yeni dosyaları yüklemez). Girişte `/ftrail debug` yaz: "Parçalar: hepsi yüklü." görmelisin.
+5. Testler (oyun gerekmez): `pip install lupa`, sonra `python tools/run_tests.py`.
+
+Depoda olmayanlar: oyun ayarların ve öğrenilen yollar (`WTF\...\SavedVariables\ForeverTrail.lua`, başka bilgisayara elle kopyalanır),
+ve ayrı yüklenen eklentiler (Questie, QuestieDB, WoWTR, Polestar; ForeverTrail bunlar olmadan da çalışır, olanları kullanır).
