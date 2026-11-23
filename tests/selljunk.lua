@@ -26,7 +26,7 @@ GetCoinTextureString = function(c) return c .. ' bakır' end
 ForeverTrailSettings = {autosell = true}
 local printed = {}
 local ft = {Print = function(m) printed[#printed + 1] = m end, errors = {}}
-assert(loadfile('Gear.lua'))('ForeverTrail', ft)
+assert(loadfile('Helpers/Gear.lua'))('ForeverTrail', ft)
 ft.SellJunk(true)
 assert(#ft.errors == 0, ft.errors[1])
 assert(#sold == 2 and sold[1] == '0:1' and sold[2] == '5:1', table.concat(sold, ','))

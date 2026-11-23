@@ -422,6 +422,8 @@ Ana komut `/ftrail` (argümansız: ana pencereyi açar/kapatır). `/ftrail yardi
 
 ### Dosya haritası (özet)
 
+> Dosyalar klasörlere ayrılmıştır: `Core/`, `Data/`, `Guide/`, `Map/`, `UI/`, `Helpers/`, `Integration/` (yükleme sırası `ForeverTrail.toc`'tadır). Aşağıdaki tablo dosyaları alana göre gösterir.
+
 | Alan | Dosyalar |
 |---|---|
 | Çekirdek | `Core.lua`, `Compat.lua`, `Engine.lua`, `Quest.lua`, `Diagnostics.lua`, `Style.lua`, `Design.lua`, `Polish.lua`, `Layout.lua` |

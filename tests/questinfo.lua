@@ -3,7 +3,7 @@ UnitLevel=function() return 20 end
 UnitXPMax=function() return 10000 end
 ForeverTrailSettings={}
 local ft={}
-for _,f in ipairs({'DataZones.lua','DataQuests.lua','DataNpcs.lua','DataObjects.lua','DataItems.lua','DataNewQuests.lua','DataXP.lua','OwnDB.lua','QuestInfo.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataQuests.lua','Data/DataNpcs.lua','Data/DataObjects.lua','Data/DataItems.lua','Data/DataNewQuests.lua','Data/DataXP.lua','Data/OwnDB.lua','UI/QuestInfo.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 ft.QuestTitle=function(id) local q=ft.DBQ[id]; return q and q[1] or ('Görev '..id) end
 ft.IsNewQuest=function(id) return ft.DBNewQuests[id]==true end
 ft.DiffColor=function() return 1,1,1 end

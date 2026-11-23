@@ -130,7 +130,7 @@ tinsert = table.insert; wipe = function(t) for k in pairs(t) do t[k] = nil end r
 local FT = {}
 local t0, m0 = os.clock(), collectgarbage('count')
 local toc = io.open('ForeverTrail.toc'):read('*a')
-for file in toc:gmatch('([%w_]+%.lua)') do
+for file in toc:gmatch('([%w_/]+%.lua)') do
  local fn, err = loadfile(file)
  if not fn then errors[#errors + 1] = 'derleme ' .. file .. ': ' .. err
  else

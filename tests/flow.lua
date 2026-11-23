@@ -1,7 +1,7 @@
 CreateFrame=function() return {RegisterEvent=function() end,SetScript=function() end} end
 ForeverTrailSettings={} ForeverTrailCharacter={}
 local ft={Print=function() end}
-for _,f in ipairs({'DataZones.lua','DataNpcs.lua','DataObjects.lua','DataQuests.lua','OwnDB.lua','Flow.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataNpcs.lua','Data/DataObjects.lua','Data/DataQuests.lua','Data/OwnDB.lua','Guide/Flow.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 local rares=ft.RaresOn(1429)
 local mail=ft.MailboxesOn(1429)
 local names={} for _,r in ipairs(rares) do names[r.name]=true end

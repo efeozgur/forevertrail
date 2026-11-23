@@ -5,7 +5,7 @@ local now=0 GetTime=function() return now end
 C_QuestLog={GetLogIndexForQuestID=function() return nil end, IsQuestFlaggedCompleted=function() return false end}
 ForeverTrailSettings={} ForeverTrailCharacter={}
 local ft={Print=function() end}
-for _,f in ipairs({'DataZones.lua','DataQuests.lua','DataNpcs.lua','DataItems.lua','OwnDB.lua','Atlas.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataQuests.lua','Data/DataNpcs.lua','Data/DataItems.lua','Data/OwnDB.lua','Map/Atlas.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 -- ön koşul: Elwynn'de ön koşulu olan bir görev
 local pick
 for id,q in pairs(ft.DBQ) do if type(q[11])=='table' and q[11][1] and (q[4] or 1)<=10 and q[13]==12 then pick=id break end end

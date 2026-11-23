@@ -32,7 +32,7 @@ C_Map = {
 }
 local step = {uiMapID = 1, x = .5, y = .5}
 local ft = {CurrentStep = function() return step end, Print = error}
-assert(loadfile('Map.lua'))('ForeverTrail', ft)
+assert(loadfile('Map/Map.lua'))('ForeverTrail', ft)
 assert(type(ft.MapDebug)=='function', 'map diagnostics must be available')
 ft.OpenMap()
 local parts = ft.mapParts

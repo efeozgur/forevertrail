@@ -12,7 +12,7 @@ local ft={RegisterGuide=function() end, SaveStep=function() end, MapName=functio
 local target
 ft.SetCustomTarget=function(m,x,y,n) target={m,x,y,n} end
 ft.Print=function() end
-for _,f in ipairs({'DataZones.lua','DataQuests.lua','DataNpcs.lua','DataObjects.lua','DataItems.lua','OwnDB.lua','Journal.lua','Discovery.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataQuests.lua','Data/DataNpcs.lua','Data/DataObjects.lua','Data/DataItems.lua','Data/OwnDB.lua','Guide/Journal.lua','Map/Discovery.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 local t0=os.clock()
 local marks=ft.QuestMarks(1429)
 local n=0 for _,m in ipairs(marks) do if m.kind=='!' then n=n+1 end end

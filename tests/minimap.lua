@@ -1,5 +1,5 @@
 local ft = {}
-assert(loadfile('Minimap.lua'))('ForeverTrail', ft)
+assert(loadfile('Map/Minimap.lua'))('ForeverTrail', ft)
 local function near(a, b) return math.abs(a - b) < 1e-6 end
 local x, y = ft.MinimapOffset(100, 0, 0, false, 100)
 assert(near(x, 1) and near(y, 0), 'east target must be on the right')

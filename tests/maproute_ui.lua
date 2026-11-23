@@ -36,7 +36,7 @@ ForeverTrailSettings = {}
 local ft = {Print = function(m) print('PRINT', m) end,
  NewWindow = function() return stub() end, NewButton = function() return stub() end, FixFonts = function() end, StyleTitle = function() end,
  MapName = function() return 'Elwynn' end, Style = {accent = {1, 1, 1}}, errors = {}}
-for _, f in ipairs({'DataZones.lua', 'DataNpcs.lua', 'OwnDB.lua', 'MapRoute.lua'}) do assert(loadfile(f))('ForeverTrail', ft) end
+for _, f in ipairs({'Data/DataZones.lua', 'Data/DataNpcs.lua', 'Data/OwnDB.lua', 'Map/MapRoute.lua'}) do assert(loadfile(f))('ForeverTrail', ft) end
 handlers.event()
 assert(#ft.errors == 0, ft.errors[1])
 assert(ft.mapRoute, 'panel created')

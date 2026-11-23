@@ -12,10 +12,22 @@ ForeverTrail is a WoW addon (Lua, Interface 16001, client 1.60.1 "World of Warcr
 - Tests load modules via `assert(loadfile('Engine.lua'))('ForeverTrail', ns)` with stubbed WoW globals (`C_QuestLog`, etc.), so modules must be loadable with a bare `ns` table. `tests/ingame_sim.lua` simulates a wider client.
 - In-game: `/ftrail debug` (client build info + state), `/ftrail test` (self-test), `/ftrail hata` (captured errors), `/ftrail yardim` (command list). Real-client behavior is largely unverified (see README "Doğrulama").
 
+## Folder layout
+
+Lua files live in folders; `ForeverTrail.toc` lists each by path (load order is unchanged). `Media/` and `Bindings.xml` stay at the root, and `tests/` loads modules by the same paths (e.g. `loadfile('Core/Engine.lua')`).
+
+- `Core/`: Core, Compat, Diagnostics, Engine, Quest, Style, Design, Polish, Layout
+- `Data/`: generated `Data*.lua` tables, `OwnDB`, `OwnData`, `LiveSync`
+- `Guide/`: Guides, Guide2, Journal, Recommendations, Recorder, Flow, Journey
+- `Map/`: Map, MapRoute, Minimap, MinimapTips, Atlas, Discovery, Objectives, Places, Rares
+- `UI/`: Panel, Hub, Tracker, Available, ViewOptions, Target, Arrow, Settings, Features, Toolbox, Extras, Wizard, QuestInfo
+- `Helpers/`: Assist, Advisor, Focus, Helpers, Gear, Upgrade, Class, Professions, QuestHelper, QuestItems, Janti
+- `Integration/`: Questie*/Queston* bridges
+
 ## Architecture
 
 - **No modules/requires.** `ForeverTrail.toc` is the load order and the only wiring: every file starts with `local _, FT = ...` and shares the single addon namespace table `FT`. Adding a file means adding it to the TOC, in a position after anything it uses at load time. Functions are mostly looked up lazily at call time and guarded (`if FT.Foo then ...`), which is how optional modules and the bridges stay decoupled.
-- **Entry/events:** `Core.lua` owns the event frame (`QUEST_LOG_UPDATE`, `QUEST_ACCEPTED`, `QUEST_TURNED_IN`, zone changes), debounces to `FT.Evaluate()`, and holds the `/ftrail` slash dispatcher (add new subcommands there, Turkish keywords).
+- **Entry/events:** `Core/Core.lua` owns the event frame (`QUEST_LOG_UPDATE`, `QUEST_ACCEPTED`, `QUEST_TURNED_IN`, zone changes), debounces to `FT.Evaluate()`, and holds the `/ftrail` slash dispatcher (add new subcommands there, Turkish keywords).
 - **Guide engine:** `Guides.lua`/`Guide2.lua`/`OwnData.lua` register guides via `FT.RegisterGuide`; `Engine.lua` validates them (`FT.ValidateGuide`) and decides step completion (`FT.IsStepDone`) from `FT.QuestState` (`Quest.lua`). Step types: `accept|objective|turnin|location|manual`; `stepId`s must be stable across versions because progress is saved by id. Coordinates are normalized 0–1 with `uiMapID`. Guide format is documented in README.md.
 - **Embedded quest database (`Data*.lua`, `OwnDB.lua`):** `DataQuests/Npcs/Objects/Items/Zones.lua` are large generated Questie-derived tables (MBs; coordinates stored as x10 integers; fields indexed via the `QK/NK/OK/IK` key maps in `OwnDB.lua`). `OwnDB.lua` is the query layer — don't read the Data files whole; query through it. `DataNewQuests`, `DataStations`, `DataDungeons`, `DataTalents`, and `Data.lua` (`FT.SeedData`, in-game-recorded data exported via Veri > Dışa aktar) are ForeverTrail's own additions.
 - **Live data (`LiveSync.lua`):** at `PLAYER_LOGIN`, if the standalone `QuestieDB` addon (global `LibQuestieDB`, contract 4) is installed, its quest/NPC/object/item rows are converted (by field name, coords → x10 flat) and written over `FT.DBQ/DBN/DBO/DBI` in time-sliced `OnUpdate` batches. Embedded rows are the fallback; ids absent from QuestieDB (own additions) are kept. Many modules iterate those raw tables with positional indexes, so keep the embedded row layout (`QK/NK/OK/IK` in `OwnDB.lua`, column lists in `LiveSync.lua`) in sync. `/ftrail canli` shows status; `ForeverTrailSettings.noLive=true` disables. `ZoneDB`/`QuestXP` in `OwnDB.lua` ask Questie's modules (`QuestieLoader:ImportModule`, pcall-guarded) first and fall back to embedded data. Modules that cache results derived from `FT.DB*` register a reset in `FT.liveListeners`, which `LiveSync` runs when sync finishes — add one for any new cache. Tests: `tests/livesync.lua`, `tests/livezone.lua`.

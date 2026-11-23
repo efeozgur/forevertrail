@@ -18,7 +18,7 @@ ForeverTrailSettings={} ForeverTrailCharacter={}
 local ft={RegisterGuide=function() end, MapName=function(m) return 'Harita'..m end}
 local target ft.SetCustomTarget=function(m,x,y,n) target={m,x,y,n} end
 local info ft.InfoWindow=function(t,l) info={t,l} end
-for _,f in ipairs({'DataZones.lua','DataQuests.lua','DataNpcs.lua','DataObjects.lua','DataItems.lua','DataStations.lua','DataDungeons.lua','OwnDB.lua','Discovery.lua','Objectives.lua','Journey.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataQuests.lua','Data/DataNpcs.lua','Data/DataObjects.lua','Data/DataItems.lua','Data/DataStations.lua','Data/DataDungeons.lua','Data/OwnDB.lua','Map/Discovery.lua','Map/Objectives.lua','Guide/Journey.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 -- 1) eşya ipucu: Garrick's Head (182)
 local lines={}
 local tip={GetItem=function() return "Garrick's Head",'item:182:0' end, AddLine=function(_,t) lines[#lines+1]=t end, Show=function() end}

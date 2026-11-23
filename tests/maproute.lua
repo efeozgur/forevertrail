@@ -2,7 +2,7 @@ UnitFactionGroup=function() return 'Alliance' end
 CreateFrame=function() return {RegisterEvent=function() end,SetScript=function() end} end
 ForeverTrailSettings={}
 local ft={}
-for _,f in ipairs({'DataZones.lua','DataNpcs.lua','OwnDB.lua','MapRoute.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataNpcs.lua','Data/OwnDB.lua','Map/MapRoute.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 ft.DBQ=ft.DBQ or {[1]={}}
 local list=ft.MapServices(1429)
 local cats={}

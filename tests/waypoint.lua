@@ -8,7 +8,7 @@ C_Map={GetBestMapForUnit=function() return 11 end,GetPlayerMapPosition=function(
 C_QuestLog={GetNumQuestLogEntries=function() return 0 end}
 ForeverTrailCharacter={}
 local ft={RegisterGuide=function() end, SaveStep=function() end}
-assert(loadfile('Journal.lua'))('ForeverTrail',ft)
+assert(loadfile('Guide/Journal.lua'))('ForeverTrail',ft)
 ft.UpdateJournal()
 local map,x,y=ft.ResolveQuestWaypoint(100,'accept')
 assert(map==11 and x==.7 and y==.8, 'should prefer a spawn in the player zone')

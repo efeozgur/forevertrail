@@ -8,7 +8,7 @@ C_Map={GetBestMapForUnit=function() return 1429 end,GetPlayerMapPosition=functio
 C_QuestLog={GetNumQuestLogEntries=function() return 0 end, GetLogIndexForQuestID=function() return nil end, IsQuestFlaggedCompleted=function() return false end}
 ForeverTrailCharacter={}
 local ft={RegisterGuide=function() end, SaveStep=function() end}
-for _,f in ipairs({'DataZones.lua','DataQuests.lua','DataNpcs.lua','DataObjects.lua','DataItems.lua','OwnDB.lua','Journal.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataQuests.lua','Data/DataNpcs.lua','Data/DataObjects.lua','Data/DataItems.lua','Data/OwnDB.lua','Guide/Journal.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 local db=ft.Module('QuestieDB')
 assert(db.QueryQuestSingle(6,'name')=='Bounty on Garrick Padfoot','quest name')
 assert(ft.Module('ZoneDB'):GetUiMapIdByAreaId(12)==1429,'Elwynn area -> uiMap')

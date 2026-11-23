@@ -1,5 +1,5 @@
 local ft = {}
-assert(loadfile('Target.lua'))('ForeverTrail', ft)
+assert(loadfile('UI/Target.lua'))('ForeverTrail', ft)
 assert(ft.ParseObjective('Plainstrider Meat: 3/7') == 'Plainstrider Meat', 'count suffix must be stripped')
 assert(ft.ParseObjective('Kaşif') == 'Kaşif', 'text without count must stay')
 assert(ft.ParseObjective(nil) == '', 'nil text must be empty')

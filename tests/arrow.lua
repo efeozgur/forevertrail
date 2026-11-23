@@ -1,5 +1,5 @@
 local ft = {}
-assert(loadfile('Arrow.lua'))('ForeverTrail', ft)
+assert(loadfile('UI/Arrow.lua'))('ForeverTrail', ft)
 local function near(a, b) return math.abs(a - b) < 1e-6 end
 assert(near(ft.Bearing(0, -10, 0), 0), 'north target must point up')
 assert(near(ft.Bearing(10, 0, 0), math.pi * 1.5), 'east target is 90 degrees clockwise')

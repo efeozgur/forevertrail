@@ -45,8 +45,8 @@ ft.Module = function(n) if n == 'QuestieDB' then return {QueryQuestSingle = func
 end} end end
 ft.NewWindow = function() return stub() end
 ft.NewButton = function() return stub() end
-assert(loadfile('Gear.lua'))('ForeverTrail', ft)
-assert(loadfile('QuestItems.lua'))('ForeverTrail', ft)
+assert(loadfile('Helpers/Gear.lua'))('ForeverTrail', ft)
+assert(loadfile('Helpers/QuestItems.lua'))('ForeverTrail', ft)
 
 -- Koruma
 assert(ft.IsProtectedItem(2, 7) and ft.IsProtectedItem(3, 15) and ft.IsProtectedItem(4, 12) and not ft.IsProtectedItem(1, 15))

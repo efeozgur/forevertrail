@@ -5,7 +5,7 @@ local ft={Print=function() end}
 ForeverTrailSettings={}
 ft.DBQ={[6]={'Eski ad',{{1}},nil,5},[999999]={'Kendi görevim',{{2}},nil,1}}
 ft.DBN={}; ft.DBO={}; ft.DBI={}
-assert(loadfile('LiveSync.lua'))('ForeverTrail',ft)
+assert(loadfile('Data/LiveSync.lua'))('ForeverTrail',ft)
 -- QuestieDB yok
 ft.StartLiveSync(); assert(ft.live.state=='absent')
 -- Sahte QuestieDB

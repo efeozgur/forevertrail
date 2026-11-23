@@ -47,7 +47,7 @@ local ft = {Print = function(m) print('PRINT', m) end, errors = {},
    {kind = '!', questId = 12, level = 7, giver = 'Zeynep', x = .52, y = .5, map = 1429},
   }
  end}
-for _, f in ipairs({'Available.lua', 'Tracker.lua'}) do assert(loadfile(f))('ForeverTrail', ft) end
+for _, f in ipairs({'UI/Available.lua', 'UI/Tracker.lua'}) do assert(loadfile(f))('ForeverTrail', ft) end
 
 -- Alınabilir
 ft.CreateAvailableBox()

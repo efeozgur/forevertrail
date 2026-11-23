@@ -6,7 +6,7 @@ ForeverTrailSettings={} ForeverTrailCharacter={}
 local ft={Print=function() end, MapName=function(m) return 'Elwynn' end}
 local target ft.SetCustomTarget=function(m,x,y,n) target={m,x,y,n} end
 local choice ft.ShowChoice=function(t,i,text,a,fn) choice=text; fn(); return true end
-for _,f in ipairs({'DataZones.lua','DataNpcs.lua','DataNewQuests.lua','OwnDB.lua','Toolbox.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataNpcs.lua','Data/DataNewQuests.lua','Data/OwnDB.lua','UI/Toolbox.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 ft.DBQ={[1]={}}
 assert(ft.IsNewQuest(99050) and not ft.IsNewQuest(6),'new quest detection')
 local t=ft.ClassTrainer()

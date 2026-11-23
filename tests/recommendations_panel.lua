@@ -27,7 +27,7 @@ ft={validGuides={journal},guide=journal,active=1,view=1,eventFrame=widget(),
  SaveStep=function() end, QuestState=function() return {status='active'} end,
  RefreshMap=function() end, OpenMap=function() selected=ft.guide.steps[ft.active].questId end,
  ResumeViewed=function() end, Evaluate=function() end}
-assert(loadfile('Panel.lua'))('ForeverTrail',ft)
+assert(loadfile('UI/Panel.lua'))('ForeverTrail',ft)
 ft.CreatePanel()
 buttons['Öneriler'].OnClick()
 assert(not buttons['[10] New | 200 XP | Alınabilir'])

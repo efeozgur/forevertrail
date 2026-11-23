@@ -1,5 +1,5 @@
 local ft = {}
-assert(loadfile('Recorder.lua'))('ForeverTrail', ft)
+assert(loadfile('Guide/Recorder.lua'))('ForeverTrail', ft)
 local text = ft.ExportGuide({title = 'Test Rehber', zone = 'Mulgore', steps = {
  {stepId = 'step-1', type = 'accept', questId = 747, uiMapID = 1412, x = 0.445, y = 0.775, text = 'Görevi al'},
  {stepId = 'step-2', type = 'manual', text = 'Elle onayla'},

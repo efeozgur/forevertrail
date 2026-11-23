@@ -17,7 +17,7 @@ local guid='Creature-0-0-0-0-103-0000'
 UnitGUID=function() return guid end
 ForeverTrailSettings={} ForeverTrailCharacter={}
 local ft={RegisterGuide=function() end, SaveStep=function() end}
-for _,f in ipairs({'DataZones.lua','DataQuests.lua','DataNpcs.lua','DataObjects.lua','DataItems.lua','OwnDB.lua','Objectives.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataQuests.lua','Data/DataNpcs.lua','Data/DataObjects.lua','Data/DataItems.lua','Data/OwnDB.lua','Map/Objectives.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 local objs=ft.ActiveObjectives()
 assert(#objs==2,'two objectives: '..#objs)
 assert(objs[1].kind=='loot' and objs[2].kind=='kill','kinds: '..objs[1].kind..' '..objs[2].kind)

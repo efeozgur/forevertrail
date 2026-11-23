@@ -10,7 +10,7 @@ Questie={db={char={journey={{Event='Quest',SubType='Accept',Quest=2}}}}}
 ForeverTrailCharacter={}
 C_QuestLog={GetLogIndexForQuestID=function(id) return id==2 and 1 or 0 end,IsQuestFlaggedCompleted=function(id) return id==1 end}
 local ft={}
-assert(loadfile('Recommendations.lua'))('ForeverTrail',ft)
+assert(loadfile('Guide/Recommendations.lua'))('ForeverTrail',ft)
 local rows,state=ft.GetQuestChain()
 assert(state=='ok' and #rows==4 and rows[1].id==1 and rows[2].id==2 and rows[3].id==3 and rows[4].id==4, 'chain relations missing or incorrectly ordered')
 assert(rows[1].chainStatus=='Tamamlandı' and rows[2].active and rows[3].chainStatus=='Alınabilir' and rows[4].chainStatus=='Kilitli', 'quest status incorrect')

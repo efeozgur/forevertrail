@@ -1,6 +1,6 @@
 local ns = {}
-assert(loadfile('Engine.lua'))('ForeverTrail', ns)
-assert(loadfile('Quest.lua'))('ForeverTrail', ns)
+assert(loadfile('Core/Engine.lua'))('ForeverTrail', ns)
+assert(loadfile('Core/Quest.lua'))('ForeverTrail', ns)
 local g = {guideId='test', version=1, title='Test', zone='Zone', steps={
  {stepId='a', type='accept', text='Accept', questId=1},
  {stepId='b', type='objective', text='Objective', questId=1, objectiveIndex=1},

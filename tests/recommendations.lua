@@ -10,7 +10,7 @@ QuestieLoader={ImportModule=function(_,name) return modules[name] end}
 UnitLevel=function() return 10 end
 C_QuestLog={GetNumQuestLogEntries=function() return 1 end, GetInfo=function() return {questID=1,title='Active',level=10} end, IsComplete=function() return false end}
 local ft={}
-assert(loadfile('Recommendations.lua'))('ForeverTrail',ft)
+assert(loadfile('Guide/Recommendations.lua'))('ForeverTrail',ft)
 local rows=ft.GetRecommendations()
 assert(#rows==3 and rows[1].id==2 and rows[2].id==1 and rows[3].id==4, 'filtering or XP order incorrect')
 assert(rows[1].xp==200 and rows[2].active and rows[3].xp==nil, 'incorrect details')

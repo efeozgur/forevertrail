@@ -6,7 +6,7 @@ GetTime=function() return 100 end
 C_QuestLog={GetNumQuestLogEntries=function() return 0 end}
 ForeverTrailCharacter={}
 local ft={RegisterGuide=function() end}
-for _,f in ipairs({'DataZones.lua','DataQuests.lua','DataNpcs.lua','DataObjects.lua','DataItems.lua','OwnDB.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
+for _,f in ipairs({'Data/DataZones.lua','Data/DataQuests.lua','Data/DataNpcs.lua','Data/DataObjects.lua','Data/DataItems.lua','Data/OwnDB.lua'}) do assert(loadfile(f))('ForeverTrail',ft) end
 local z=ft.Module('ZoneDB')
 local embedded=z:GetUiMapIdByAreaId(12); assert(embedded==1429)
 -- Questie yok: gömülü

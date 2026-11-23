@@ -14,7 +14,7 @@ ForeverTrailSettings = {c_trackerView = 'tablo', trkColDist = false}
 local built = {}
 local ft = {Print = print, tracker = stub(), availableBox = stub(), NewButton = function() return stub() end, NewWindow = function() return stub() end,
  BuildOptions = function(page, y, width, defs) built[#built + 1] = #defs; return y - 20 * #defs end, RefreshOptions = function() end}
-assert(loadfile('ViewOptions.lua'))('ForeverTrail', ft)
+assert(loadfile('UI/ViewOptions.lua'))('ForeverTrail', ft)
 ft.AttachViewGears()
 assert(ft.tracker.viewGear and ft.availableBox.viewGear, 'gears attached')
 ft.ToggleViewOptions('tracker'); ft.ToggleViewOptions('avail')
