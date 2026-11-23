@@ -186,7 +186,7 @@ local items = {
 }
 
 -- Ana pencerenin icerik alanina sigar (genislik sabit); sol liste yok, kategoriler ustte sekme olarak durur
-local WIDTH, HEIGHT = 450, 582
+local WIDTH, HEIGHT = (FT.Kit and FT.Kit.CONTENT_W) or 450, 622
 local SIDEW = 0
 local CW = WIDTH - 24
 
@@ -986,8 +986,8 @@ function FT.BuildSettingsNav(f)
   if #g.pages > 1 then
    local bar = {}
    for i, pk in ipairs(g.pages) do
-    local b = FT.NewButton(f, PAGE_BY_KEY[pk].short or PAGE_BY_KEY[pk].label, 96, 20)
-    b:SetPoint('TOPLEFT', f, 'TOPLEFT', 4 + (i - 1) * 100, -38)
+    local b = FT.NewButton(f, PAGE_BY_KEY[pk].short or PAGE_BY_KEY[pk].label, 132, 20)
+    b:SetPoint('TOPLEFT', f, 'TOPLEFT', 4 + (i - 1) * 136, -38)
     applyFont(b:GetFontString())
     b.pageKey = pk
     b:SetScript('OnClick', function() FT.SettingsTab(pk) end)
@@ -999,7 +999,7 @@ function FT.BuildSettingsNav(f)
  end
  -- arama kutusu
  local box = (FT.Kit and FT.Kit.Input(f) or CreateFrame('EditBox', nil, f, 'InputBoxTemplate'))
- box:SetSize(112, 20); box:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -4, -38); box:SetAutoFocus(false)
+ box:SetSize(168, 20); box:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -4, -38); box:SetAutoFocus(false)
  if box.SetMaxLetters then box:SetMaxLetters(40) end
  local hint = box:CreateFontString(nil, 'OVERLAY', 'GameFontDisableSmall')
  hint:SetPoint('LEFT', box, 'LEFT', 4, 0); hint:SetText('Ayarlarda ara...'); applyFont(hint)

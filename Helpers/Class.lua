@@ -473,26 +473,26 @@ local page
 function FT.BuildClassPage(holder)
  if page or not holder then return end
  page = holder
- local W = 440
+ local W = (FT.Kit and FT.Kit.CONTENT_W) or 440
  local h = section(holder, -2, 'Yetenek planı'); h:SetPoint('TOPLEFT', 2, -2)
  page.cards = {}
  for i = 1, 3 do
   local c = CreateFrame('Button', nil, holder)
-  c:SetSize(142, 92); c:SetPoint('TOPLEFT', (i - 1) * 148, -20)
+  local cw = math.floor((W - 12) / 3); c:SetSize(cw, 92); c:SetPoint('TOPLEFT', (i - 1) * (cw + 6), -20)
   c.border = c:CreateTexture(nil, 'BACKGROUND'); c.border:SetAllPoints()
   c.bg = c:CreateTexture(nil, 'BORDER'); c.bg:SetPoint('TOPLEFT', 1, -1); c.bg:SetPoint('BOTTOMRIGHT', -1, 1)
   if FT.Kit then FT.Kit.Fill(c.bg, 'card') else c.bg:SetColorTexture(0.06, 0.06, 0.08, 0.95) end
-  c.name = text(c, 12, 'OUTLINE'); c.name:SetPoint('TOPLEFT', 6, -6); c.name:SetWidth(130)
+  c.name = text(c, 12, 'OUTLINE'); c.name:SetPoint('TOPLEFT', 6, -6); c.name:SetWidth(W / 3 - 18)
   c.badge = text(c, 10, ''); c.badge:SetPoint('TOPLEFT', 6, -22); c.badge:SetTextColor(0.4, 1, 0.4)
-  c.desc = text(c, 10, ''); c.desc:SetPoint('TOPLEFT', 6, -36); c.desc:SetWidth(130); c.desc:SetJustifyV('TOP'); c.desc:SetTextColor(0.8, 0.77, 0.7)
+  c.desc = text(c, 10, ''); c.desc:SetPoint('TOPLEFT', 6, -36); c.desc:SetWidth(W / 3 - 18); c.desc:SetJustifyV('TOP'); c.desc:SetTextColor(0.8, 0.77, 0.7)
   c:SetScript('OnClick', function(self) if self.key then FT.SetTalentBuild(self.key) end end)
   page.cards[i] = c
  end
  page.nextIcon = holder:CreateTexture(nil, 'ARTWORK'); page.nextIcon:SetSize(30, 30); page.nextIcon:SetPoint('TOPLEFT', 0, -120)
- page.nextText = text(holder, 12, ''); page.nextText:SetPoint('TOPLEFT', 38, -121); page.nextText:SetWidth(232)
- page.learn = FT.NewButton(holder, 'Öğren', 90, 22); page.learn:SetPoint('TOPLEFT', 246, -122)
+ page.nextText = text(holder, 12, ''); page.nextText:SetPoint('TOPLEFT', 38, -121); page.nextText:SetWidth(W - 250)
+ page.learn = FT.NewButton(holder, 'Öğren', 90, 22); page.learn:SetPoint('TOPLEFT', W - 200, -122)
  page.learn:SetScript('OnClick', FT.LearnNextTalent)
- page.import = FT.NewButton(holder, 'Kendi planım', 98, 22); page.import:SetPoint('TOPLEFT', 342, -122)
+ page.import = FT.NewButton(holder, 'Kendi planım', 98, 22); page.import:SetPoint('TOPLEFT', W - 104, -122)
  page.import:SetScript('OnClick', function()
   if not page.box then
    page.box = (FT.Kit and FT.Kit.Input(holder) or CreateFrame('EditBox', nil, holder, 'InputBoxTemplate')); page.box:SetSize(420, 20); page.box:SetPoint('TOPLEFT', 6, -152)
@@ -507,7 +507,7 @@ function FT.BuildClassPage(holder)
  page.cells = {}
  for n = 1, 51 do
   local c = CreateFrame('Frame', nil, holder); c:SetSize(24, 34)
-  c:SetPoint('TOPLEFT', ((n - 1) % 17) * 26, -158 - math.floor((n - 1) / 17) * 38)
+  c:SetPoint('TOPLEFT', ((n - 1) % 17) * 34, -158 - math.floor((n - 1) / 17) * 38)
   c.icon = c:CreateTexture(nil, 'ARTWORK'); c.icon:SetSize(22, 22); c.icon:SetPoint('TOP'); c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   c.ring = c:CreateTexture(nil, 'OVERLAY'); c.ring:SetTexture('Interface\\Buttons\\CheckButtonHilight'); c.ring:SetBlendMode('ADD')
   c.ring:SetPoint('TOPLEFT', c.icon, -4, 4); c.ring:SetPoint('BOTTOMRIGHT', c.icon, 4, -4)
@@ -531,8 +531,8 @@ function FT.BuildClassPage(holder)
  for i = 1, 7 do
   local r = CreateFrame('Button', nil, holder); r:SetSize(W, 22); r:SetPoint('TOPLEFT', 0, -330 - (i - 1) * 23)
   r:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
-  r.title = text(r, 12, ''); r.title:SetPoint('LEFT', 4, 0); r.title:SetWidth(250); r.title:SetWordWrap(false)
-  r.hint = text(r, 10, ''); r.hint:SetPoint('LEFT', 258, 0); r.hint:SetWidth(120); r.hint:SetWordWrap(false); r.hint:SetTextColor(0.7, 0.68, 0.62)
+  r.title = text(r, 12, ''); r.title:SetPoint('LEFT', 4, 0); r.title:SetWidth(330); r.title:SetWordWrap(false)
+  r.hint = text(r, 10, ''); r.hint:SetPoint('LEFT', 340, 0); r.hint:SetWidth(220); r.hint:SetWordWrap(false); r.hint:SetTextColor(0.7, 0.68, 0.62)
   r.go = text(r, 11, '', 'RIGHT'); r.go:SetPoint('RIGHT', -4, 0)
   r:SetScript('OnClick', function(self) if self.q and FT.GoToQuest then FT.GoToQuest(self.q.id) end end)
   page.qrows[i] = r
@@ -543,8 +543,8 @@ function FT.BuildClassPage(holder)
  for i = 1, 4 do
   local r = CreateFrame('Button', nil, holder); r:SetSize(W, 22); r:SetPoint('TOPLEFT', 0, -514 - (i - 1) * 23)
   r:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
-  r.title = text(r, 12, ''); r.title:SetPoint('LEFT', 4, 0); r.title:SetWidth(190); r.title:SetWordWrap(false)
-  r.note = text(r, 10, ''); r.note:SetPoint('LEFT', 196, 0); r.note:SetWidth(230); r.note:SetWordWrap(false); r.note:SetTextColor(0.7, 0.68, 0.62)
+  r.title = text(r, 12, ''); r.title:SetPoint('LEFT', 4, 0); r.title:SetWidth(280); r.title:SetWordWrap(false)
+  r.note = text(r, 10, ''); r.note:SetPoint('LEFT', 290, 0); r.note:SetWidth(300); r.note:SetWordWrap(false); r.note:SetTextColor(0.7, 0.68, 0.62)
   r:SetScript('OnClick', function(self) local p = self.pet; if p then FT.SetCustomTarget(p.map, p.x, p.y, p.name) end end)
   page.prows[i] = r
  end

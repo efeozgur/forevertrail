@@ -191,30 +191,32 @@ FT.RefreshPlaces = refreshList
 local function createWindow()
  frame = FT.NewWindow and FT.NewWindow('ForeverTrailPlaces', UIParent) or CreateFrame('Frame', 'ForeverTrailPlaces', UIParent, 'BasicFrameTemplateWithInset')
  FT.placesWindow = frame
- frame:SetSize(360, 410); frame:SetPoint('CENTER', UIParent, 'CENTER', -200, 20); frame:SetFrameStrata('DIALOG')
+ frame:SetSize((FT.Kit and FT.Kit.CONTENT_W) or 360, 410); frame:SetPoint('CENTER', UIParent, 'CENTER', -200, 20); frame:SetFrameStrata('DIALOG')
  frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag('LeftButton')
  frame:SetScript('OnDragStart', function(self) self:StartMoving() end)
  frame:SetScript('OnDragStop', function(self) self:StopMovingOrSizing() end)
  local title = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
  title:SetPoint('TOP', 0, -7); title:SetText('Nereye gitmek istersin?')
  categoryButtons = {}
+ local PW = (FT.Kit and FT.Kit.CONTENT_W) or 360
+ local catW = math.floor((PW - 28 - (#CATEGORIES - 1) * 4) / #CATEGORIES)
  for i, c in ipairs(CATEGORIES) do
   local b = FT.NewButton and FT.NewButton(frame, c.label, 80, 22)
   if not b then b = CreateFrame('Button', nil, frame, 'UIPanelButtonTemplate'); b:SetSize(80, 22); b:SetText(c.label) end
-  b:SetWidth(62); b:SetPoint('TOPLEFT', 14 + (i - 1) * 66, -32)
+  b:SetWidth(catW); b:SetPoint('TOPLEFT', 14 + (i - 1) * (catW + 4), -32)
   b.key = c.key
   b:SetScript('OnClick', function() currentCategory = c.key; page = 1; refreshList() end)
   categoryButtons[i] = b
  end
  frame.empty = frame:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- frame.empty:SetPoint('TOPLEFT', 18, -70); frame.empty:SetWidth(320); frame.empty:SetJustifyH('LEFT'); frame.empty:SetTextColor(0.78, 0.72, 0.64)
+ frame.empty:SetPoint('TOPLEFT', 18, -70); frame.empty:SetWidth(PW - 40); frame.empty:SetJustifyH('LEFT'); frame.empty:SetTextColor(0.78, 0.72, 0.64)
  rowButtons = {}
  for i = 1, PER_PAGE do
-  local b = FT.NewButton and FT.NewButton(frame, '', 332, 30)
-  if not b then b = CreateFrame('Button', nil, frame, 'UIPanelButtonTemplate'); b:SetSize(332, 30) end
+  local b = FT.NewButton and FT.NewButton(frame, '', PW - 28, 30)
+  if not b then b = CreateFrame('Button', nil, frame, 'UIPanelButtonTemplate'); b:SetSize(PW - 28, 30) end
   b:SetPoint('TOPLEFT', 14, -62 - (i - 1) * 32)
   b.left = b:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
-  b.left:SetPoint('TOPLEFT', 8, -4); b.left:SetWidth(215); b.left:SetJustifyH('LEFT'); b.left:SetWordWrap(false)
+  b.left:SetPoint('TOPLEFT', 8, -4); b.left:SetWidth(PW - 150); b.left:SetJustifyH('LEFT'); b.left:SetWordWrap(false)
   b.tag = b:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
   b.tag:SetPoint('BOTTOMLEFT', 8, 4); b.tag:SetJustifyH('LEFT')
   b.right = b:CreateFontString(nil, 'OVERLAY', 'GameFontNormalSmall')
@@ -234,7 +236,7 @@ local function createWindow()
  pageLabel = frame:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
  pageLabel:SetPoint('BOTTOMLEFT', 48, 54); pageLabel:SetWidth(50); pageLabel:SetJustifyH('CENTER')
  nameBox = (FT.Kit and FT.Kit.Input(frame) or CreateFrame('EditBox', nil, frame, 'InputBoxTemplate'))
- nameBox:SetSize(190, 22); nameBox:SetPoint('BOTTOMLEFT', 22, 16); nameBox:SetAutoFocus(false); nameBox:SetMaxLetters(40)
+ nameBox:SetSize(320, 22); nameBox:SetPoint('BOTTOMLEFT', 22, 16); nameBox:SetAutoFocus(false); nameBox:SetMaxLetters(40)
  nameBox:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
 nameBox:SetScript('OnTextChanged', function(self) FT.placesSearchText = self:GetText(); if currentCategory == 'search' then page = 1; refreshList() end end)
  local save = FT.NewButton and FT.NewButton(frame, 'Buraya kaydet', 112, 22)

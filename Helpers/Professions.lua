@@ -330,27 +330,27 @@ function FT.BuildProfessionPage(holder)
  head(-2, 'Sınıfına göre öneri')
  page.recs = {}
  for i = 1, 3 do
-  local r = text(holder, 12, ''); r:SetPoint('TOPLEFT', 4, -20 - (i - 1) * 34); r:SetWidth(436); r:SetJustifyV('TOP')
+  local r = text(holder, 12, ''); r:SetPoint('TOPLEFT', 4, -20 - (i - 1) * 34); r:SetWidth((FT.Kit and FT.Kit.CONTENT_W or 440) - 4); r:SetJustifyV('TOP')
   page.recs[i] = r
  end
  head(-128, 'Mesleklerin')
  page.rows = {}
  for i = 1, 5 do
-  local row = CreateFrame('Frame', nil, holder); row:SetSize(440, 44); row:SetPoint('TOPLEFT', 0, -146 - (i - 1) * 46)
+  local row = CreateFrame('Frame', nil, holder); row:SetSize((FT.Kit and FT.Kit.CONTENT_W or 440), 44); row:SetPoint('TOPLEFT', 0, -146 - (i - 1) * 46)
   row.icon = row:CreateTexture(nil, 'ARTWORK'); row.icon:SetSize(28, 28); row.icon:SetPoint('TOPLEFT', 2, -2); row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   row.name = text(row, 12, 'OUTLINE'); row.name:SetPoint('TOPLEFT', 36, -2)
-  row.barBg = row:CreateTexture(nil, 'BORDER'); row.barBg:SetPoint('TOPLEFT', 36, -18); row.barBg:SetSize(250, 6); row.barBg:SetColorTexture(1, 1, 1, 0.1)
+  row.barBg = row:CreateTexture(nil, 'BORDER'); row.barBg:SetPoint('TOPLEFT', 36, -18); row.barBg:SetSize(420, 6); row.barBg:SetColorTexture(1, 1, 1, 0.1)
   row.bar = row:CreateTexture(nil, 'ARTWORK'); row.bar:SetPoint('TOPLEFT', 36, -18); row.bar:SetHeight(6)
-  row.note = text(row, 10, ''); row.note:SetPoint('TOPLEFT', 36, -28); row.note:SetWidth(300); row.note:SetWordWrap(false)
+  row.note = text(row, 10, ''); row.note:SetPoint('TOPLEFT', 36, -28); row.note:SetWidth(480); row.note:SetWordWrap(false)
   row.go = FT.NewButton(row, 'Eğitmen', 70, 22); row.go:SetPoint('TOPRIGHT', -4, -6)
   row.go:SetScript('OnClick', function() if row.key then goTrainer(row.key) end end)
   page.rows[i] = row
  end
  head(-384, 'Yan meslekler (herkese faydalı)')
- page.side = text(holder, 11, ''); page.side:SetPoint('TOPLEFT', 4, -402); page.side:SetWidth(436); page.side:SetJustifyV('TOP')
+ page.side = text(holder, 11, ''); page.side:SetPoint('TOPLEFT', 4, -402); page.side:SetWidth((FT.Kit and FT.Kit.CONTENT_W or 440) - 4); page.side:SetJustifyV('TOP')
  local gather = FT.NewButton(holder, 'Toplama rehberi', 120, 22); gather:SetPoint('TOPLEFT', 0, -470)
  gather:SetScript('OnClick', function() if FT.ShowProfessionGuide then FT.ShowProfessionGuide() end end)
- local tip = text(holder, 11, ''); tip:SetPoint('TOPLEFT', 0, -500); tip:SetWidth(440); tip:SetTextColor(0.7, 0.68, 0.62)
+ local tip = text(holder, 11, ''); tip:SetPoint('TOPLEFT', 0, -500); tip:SetWidth((FT.Kit and FT.Kit.CONTENT_W or 440)); tip:SetTextColor(0.7, 0.68, 0.62)
  tip:SetText('Meslek penceresini (K) açınca yanında "Puan için ne yapmalı?" listesi çıkar: turuncu tarifler kesin puan verir, eksik malzemeler yazılır, tek tıkla yaparsın.')
  holder:HookScript('OnShow', function() pcall(FT.RefreshProfessionPage) end)
 end
@@ -379,7 +379,7 @@ function FT.RefreshProfessionPage()
    row.icon:SetTexture(e.def.icon)
    row.name:SetText(('%s  |cff9aa0a6%d / %d|r'):format(e.def.tr, e.rank, e.max))
    local frac = e.max > 0 and math.min(1, e.rank / e.max) or 0
-   row.bar:SetWidth(math.max(1, 250 * frac))
+   row.bar:SetWidth(math.max(1, 420 * frac))
    local hot = e.max > 0 and e.rank >= e.max - 10
    row.bar:SetColorTexture(hot and 1 or 0.4, hot and 0.6 or 0.85, hot and 0.2 or 0.4, 1)
    local advice = FT.ProfessionAdvice(e)

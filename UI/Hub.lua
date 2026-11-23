@@ -5,7 +5,9 @@ local _, FT = ...
 
 local hub, holders, nav, current = nil, {}, {}, nil
 -- Pencere her sayfada aynı boyutta kalır; sayfa içeriği buna sığar (Ayarlar dahil).
-local WIDTH, HEIGHT, SIDE, HEADER = 554, 700, 84, 58
+local CONTENT_W = (FT.Kit and FT.Kit.CONTENT_W) or 450
+local SIDE, HEADER = 84, 58
+local WIDTH, HEIGHT = SIDE + CONTENT_W + 20, 700
 
 -- bottom = sol şeridin altında durur (Polestar'daki İçe aktar / Seçenekler gibi)
 local PAGES = {
@@ -163,7 +165,8 @@ local function toolsPage(holder)
   y = y - 20
  end
  local function grid(list)
-  local cols, w = 4, 106
+  local cols = 5
+  local w = math.floor((CONTENT_W - (cols - 1) * 4) / cols)
   for i, def in ipairs(list) do
    local b = FT.NewButton(holder, def[1], w, 24)
    b:SetPoint('TOPLEFT', ((i - 1) % cols) * (w + 4), y - math.floor((i - 1) / cols) * 28)

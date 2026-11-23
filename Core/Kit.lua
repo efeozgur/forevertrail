@@ -6,6 +6,9 @@ local _, FT = ...
 local Kit = {}
 FT.Kit = Kit
 
+-- Ana pencerenin icerik alani genisligi: tum sayfalar bu genislige gore yerlesir
+Kit.CONTENT_W = 620
+
 local function scale(c, k) return {math.min(c[1] * k, 1), math.min(c[2] * k, 1), math.min(c[3] * k, 1), 1} end
 
 -- Rol -> renk. rail: en koyu yan şerit; mid: ana zemin; panel: başlık ve yüksek yüzeyler; card: kart ve seçili öğe;

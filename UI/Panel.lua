@@ -23,7 +23,7 @@ end
 local typeIcons={accept='Interface\\GossipFrame\\AvailableQuestIcon',objective='Interface\\GossipFrame\\IncompleteQuestIcon',turnin='Interface\\GossipFrame\\ActiveQuestIcon',location='Interface\\Icons\\INV_Misc_Map_01',manual='Interface\\Buttons\\UI-CheckBox-Check'}
 local labels={accept='GÖREVİ AL',objective='HEDEF',turnin='TESLİM ET',location='KONUMA GİT',manual='ELLE ONAYLA'}
 local status={unknown='Bilinmiyor',not_taken='Alınmamış',active='Aktif',ready='Teslim edilebilir',turned_in='Teslim edilmiş'}
-local PANEL_W, FULL_H, COMPACT_H = 446, 376, 226
+local PANEL_W, FULL_H, COMPACT_H = ((FT.Kit and FT.Kit.CONTENT_W) or 450) - 4, 376, 226
 local EXTRA_Y = -228 -- bunun altındaki düğmeler "küçük panel"de gizlenir
 local function button(parent,text,width,x,y,handler,help,kind)
  local b=FT.Kit and FT.Kit.Button(parent,text,width,24,kind) or FT.NewButton and FT.NewButton(parent,text,width,24)
@@ -90,13 +90,13 @@ function FT.CreatePanel()
  -- 4) eylemler: ana düğme "Aktif yap", altında yol ve görev düğmeleri
  f.activate=button(f,'Aktif yap',130,12,-244,function() if FT.view~=FT.active then FT.active=FT.view; FT.complete=false; FT.SaveStep() end; FT.Evaluate(); FT.OpenMap() end,'İncelediğin adımı etkin yap ve haritada göster; ok bu adıma yönelir.','primary')
  local suggestions = newWindow(nil, f)
- suggestions:SetSize(420, 330); suggestions:SetPoint('TOPLEFT', f, 'TOPRIGHT', 4, 0)
+ suggestions:SetSize(PANEL_W-26, 330); suggestions:SetPoint('TOPLEFT', f, 'TOPRIGHT', 4, 0)
  suggestions:SetFrameLevel(f:GetFrameLevel()+10)
  local heading=suggestions:CreateFontString(nil,'OVERLAY','GameFontNormal')
  heading:SetPoint('TOP',0,-10); heading:SetText('Seviyene uygun görevler'); applyFont(heading)
- if FT.RegisterAccent then FT.RegisterAccent(solid(suggestions,'ARTWORK',396,2,'TOPLEFT',12,-26,0.95,0.72,0.35,0.7),0.7) else solid(suggestions,'ARTWORK',396,2,'TOPLEFT',12,-26,0.95,0.72,0.35,0.7) end
+ if FT.RegisterAccent then FT.RegisterAccent(solid(suggestions,'ARTWORK',PANEL_W-50,2,'TOPLEFT',12,-26,0.95,0.72,0.35,0.7),0.7) else solid(suggestions,'ARTWORK',PANEL_W-50,2,'TOPLEFT',12,-26,0.95,0.72,0.35,0.7) end
  local details=suggestions:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall')
- details:SetPoint('TOPLEFT',12,-62); details:SetWidth(395); details:SetJustifyH('LEFT'); applyFont(details)
+ details:SetPoint('TOPLEFT',12,-62); details:SetWidth(PANEL_W-51); details:SetJustifyH('LEFT'); applyFont(details)
  local rows, page, rowButtons, activeTab = {}, 1, {}, 'journal'
  local refreshSuggestions
  local journalTab, availableTab, nearbyTab, chainTab
@@ -108,13 +108,14 @@ function FT.CreatePanel()
   refreshSuggestions(true)
   if tab=='chain' then if FT.ShowChainOnMap then FT.ShowChainOnMap() end elseif FT.ClearChainPreview then FT.ClearChainPreview() end
  end
- journalTab=button(suggestions,'Günlüktekiler',98,12,-30,function() selectTab('journal') end)
- availableTab=button(suggestions,'Alınabilecekler',108,113,-30,function() selectTab('available') end)
- nearbyTab=button(suggestions,'Bulunduğum bölge',118,224,-30,function() selectTab('nearby') end)
- chainTab=button(suggestions,'Zincir',66,345,-30,function() selectTab('chain') end)
+ local TW=math.floor((PANEL_W-26-24-3*4)/4)
+ journalTab=button(suggestions,'Günlüktekiler',TW,12,-30,function() selectTab('journal') end)
+ availableTab=button(suggestions,'Alınabilecekler',TW,12+(TW+4),-30,function() selectTab('available') end)
+ nearbyTab=button(suggestions,'Bulunduğum bölge',TW,12+2*(TW+4),-30,function() selectTab('nearby') end)
+ chainTab=button(suggestions,'Zincir',TW,12+3*(TW+4),-30,function() selectTab('chain') end)
  for i=1,7 do
   local index=i
-  rowButtons[i]=button(suggestions,'',395,12,-82-(i-1)*27,function()
+  rowButtons[i]=button(suggestions,'',PANEL_W-50,12,-82-(i-1)*27,function()
    local row=rows[(page-1)*7+index]
    if not row then return end
    if row.active then
@@ -137,7 +138,7 @@ function FT.CreatePanel()
  local pageLabel=suggestions:CreateFontString(nil,'OVERLAY','GameFontHighlightSmall')
  pageLabel:SetPoint('BOTTOM',0,12); applyFont(pageLabel)
  button(suggestions,'Önceki',80,12,-287,function() if page>1 then page=page-1; refreshSuggestions(false) end end)
- button(suggestions,'Sonraki',80,327,-287,function() if page*7<#rows then page=page+1; refreshSuggestions(false) end end)
+ button(suggestions,'Sonraki',80,PANEL_W-26-12-80,-287,function() if page*7<#rows then page=page+1; refreshSuggestions(false) end end)
  refreshSuggestions=function(reload)
   local available
   if reload then
@@ -185,10 +186,11 @@ function FT.CreatePanel()
   if suggestionsElapsed>=3 then suggestionsElapsed=0; refreshSuggestions(true) end
  end)
  FT.ShowSuggestions=function() suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end
- button(f,'Haritada göster',100,12,-282,FT.OpenMap,'Dünya haritasını aç; hedef ve yol çizgisi görünür.')
- button(f,'En yakın',100,116,-282,function() FT.SelectNearest() end,'Bulunduğun yere en yakın görev adımını seç ve haritada göster.')
- button(f,'Rota oluştur',100,220,-282,function() FT.BuildRoute() end,'Günlüğündeki görevlerden, en yakından başlayan bir rota çıkar.')
- button(f,'Öneriler',110,324,-282,function() if FT.OpenHub then return FT.OpenHub('gorevler') end if suggestions:IsShown() then suggestions:Hide() else suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end end,'Seviyene uygun görevler: günlükte olanlar, alınabilecekler, bulunduğun bölge, zincir.')
+ local BW=math.floor((PANEL_W-24-3*8)/4)
+ button(f,'Haritada göster',BW,12,-282,FT.OpenMap,'Dünya haritasını aç; hedef ve yol çizgisi görünür.')
+ button(f,'En yakın',BW,12+(BW+8),-282,function() FT.SelectNearest() end,'Bulunduğun yere en yakın görev adımını seç ve haritada göster.')
+ button(f,'Rota oluştur',BW,12+2*(BW+8),-282,function() FT.BuildRoute() end,'Günlüğündeki görevlerden, en yakından başlayan bir rota çıkar.')
+ button(f,'Öneriler',BW,12+3*(BW+8),-282,function() if FT.OpenHub then return FT.OpenHub('gorevler') end if suggestions:IsShown() then suggestions:Hide() else suggestionsElapsed=0; selectTab(activeTab); suggestions:Show() end end,'Seviyene uygun görevler: günlükte olanlar, alınabilecekler, bulunduğun bölge, zincir.')
  local picker = newWindow(nil, f)
  picker:SetPoint('TOPLEFT', f, 'TOPLEFT', 12, -56)
  picker:SetSize(PANEL_W-24, 45 + 28 * #FT.validGuides)

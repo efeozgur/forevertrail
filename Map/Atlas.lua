@@ -204,22 +204,23 @@ function FT.BuildEncyclopedia(holder)
  if enc or not holder then return end
  enc = {filter='all', hereOnly=true, page=1, filterButtons={}}
  enc.search = (FT.Kit and FT.Kit.Input(holder) or CreateFrame('EditBox', nil, holder, 'InputBoxTemplate'))
- enc.search:SetSize(250, 20); enc.search:SetPoint('TOPLEFT', 8, -2); enc.search:SetAutoFocus(false)
+ enc.search:SetSize(380, 20); enc.search:SetPoint('TOPLEFT', 8, -2); enc.search:SetAutoFocus(false)
  enc.search:SetScript('OnTextChanged', function() enc.page = 1; refreshList() end)
  enc.search:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
  enc.here = FT.NewButton(holder, 'Bu bölge', 90, 20); enc.here:SetPoint('LEFT', enc.search, 'RIGHT', 8, 0)
  enc.here:SetScript('OnClick', function() enc.hereOnly = not enc.hereOnly; enc.page = 1; refreshList() end)
  for i, f in ipairs(FILTERS) do
-  local b = FT.NewButton(holder, f.label, 84, 20); b:SetPoint('TOPLEFT', (i - 1) * 88, -28)
+  local fw = math.floor(((FT.Kit and FT.Kit.CONTENT_W or 440) - (#FILTERS - 1) * 4) / #FILTERS)
+  local b = FT.NewButton(holder, f.label, fw, 20); b:SetPoint('TOPLEFT', (i - 1) * (fw + 4), -28)
   b.key = f.key; b:SetScript('OnClick', function() enc.filter = f.key; enc.page = 1; refreshList() end)
   enc.filterButtons[i] = b
  end
  enc.rows = {}
  for i = 1, 12 do
-  local r = CreateFrame('Button', nil, holder); r:SetSize(440, 20); r:SetPoint('TOPLEFT', 0, -54 - (i - 1) * 21)
+  local r = CreateFrame('Button', nil, holder); r:SetSize((FT.Kit and FT.Kit.CONTENT_W or 440), 20); r:SetPoint('TOPLEFT', 0, -54 - (i - 1) * 21)
   r.bg = r:CreateTexture(nil, 'BACKGROUND'); r.bg:SetAllPoints(); r.bg:SetColorTexture(1, 1, 1, i % 2 == 0 and 0.04 or 0)
   r:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
-  r.text = r:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall'); r.text:SetPoint('LEFT', 6, 0); r.text:SetWidth(430); r.text:SetJustifyH('LEFT'); r.text:SetWordWrap(false)
+  r.text = r:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall'); r.text:SetPoint('LEFT', 6, 0); r.text:SetWidth((FT.Kit and FT.Kit.CONTENT_W or 440) - 10); r.text:SetJustifyH('LEFT'); r.text:SetWordWrap(false)
   r:SetScript('OnClick', function(self) if self.entry then showDetail(self.entry.id) end end)
   enc.rows[i] = r
  end
@@ -229,10 +230,10 @@ function FT.BuildEncyclopedia(holder)
  local nextB = FT.NewButton(holder, '>', 28, 20); nextB:SetPoint('TOPLEFT', 32, y)
  nextB:SetScript('OnClick', function() enc.page = enc.page + 1; refreshList() end)
  enc.count = holder:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall'); enc.count:SetPoint('TOPLEFT', 68, y - 4)
- local line = holder:CreateTexture(nil, 'ARTWORK'); line:SetPoint('TOPLEFT', 0, y - 26); line:SetSize(440, 1)
+ local line = holder:CreateTexture(nil, 'ARTWORK'); line:SetPoint('TOPLEFT', 0, y - 26); line:SetSize((FT.Kit and FT.Kit.CONTENT_W or 440), 1)
  if FT.RegisterAccent then FT.RegisterAccent(line, 0.6) end
  enc.detail = holder:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
- enc.detail:SetPoint('TOPLEFT', 4, y - 34); enc.detail:SetWidth(432); enc.detail:SetJustifyH('LEFT'); enc.detail:SetJustifyV('TOP')
+ enc.detail:SetPoint('TOPLEFT', 4, y - 34); enc.detail:SetWidth((FT.Kit and FT.Kit.CONTENT_W or 440) - 8); enc.detail:SetJustifyH('LEFT'); enc.detail:SetJustifyV('TOP')
  enc.detail:SetText('Bir göreve tıkla: durumu, veren, ödülü ve neden alınamadığı burada görünür.')
  enc.go = FT.NewButton(holder, 'Yol göster (ön koşul dahil)', 200, 22); enc.go:SetPoint('BOTTOMLEFT', 0, 4)
  enc.go:SetScript('OnClick', function() if enc.selected then FT.GoToQuest(enc.selected) end end)
