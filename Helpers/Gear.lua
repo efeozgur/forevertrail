@@ -371,13 +371,7 @@ function FT.ScanUpgrades()
      local target, currentScore, currentLink = upgradeSlot(facts)
      if target then
       local link = info.link
-      local function equip()
-       if InCombatLockdown and InCombatLockdown() then return FT.Print('Savaşta ekipman değiştirilemez.') end
-       if EquipItemByName then EquipItemByName(link, target) end
-       if StaticPopup_Hide then after(0.2, function() pcall(StaticPopup_Hide, 'EQUIP_BIND') end) end
-       FT.Print('Takıldı: ' .. link)
-       after(1, function() pcall(FT.ScanUpgrades) end)
-      end
+      local equip = function() FT.EquipFromBag(bag, slot, link, target) end
       local boe = facts.bindType == 2
       if optedIn('autoequip') and not boe then equip(); return end
       local note = boe and 'Kuşanınca ruhuna bağlanır (satılamaz/takas edilemez olur).' or nil
@@ -393,6 +387,64 @@ function FT.ScanUpgrades()
    end
   end
  end
+end
+
+-- Kuşanma sonucunu doğrula: hedef yuvadaki eşya, istenen eşyayla aynı mı? (API yoksa doğrulanamaz: başarılı sayılır)
+local function isEquipped(link, target)
+ if not GetInventoryItemLink then return true end
+ local now = GetInventoryItemLink('player', target)
+ return now ~= nil and itemId(now) == itemId(link)
+end
+
+-- "Ruhuna bağlanır" onayı açıksa kabul et. Kullanıcı zaten "Tak" dedi; pencereyi gizlemek kuşanmayı iptal ederdi.
+local function confirmBind()
+ for i = 1, 4 do
+  local f = _G['StaticPopup' .. i]
+  if f and f.IsShown and f:IsShown() and (f.which == 'EQUIP_BIND' or f.which == 'AUTOEQUIP_BIND' or f.which == 'EQUIP_BIND_TRADEABLE') then
+   if StaticPopup_OnClick then pcall(StaticPopup_OnClick, f, 1) elseif EquipPendingItem then pcall(EquipPendingItem, 0) end
+   return true
+  end
+ end
+ if EquipPendingItem then pcall(EquipPendingItem, 0) end
+end
+
+-- Çantadaki eşyayı hedef yuvaya tak. Yöntemler sırayla denenir ve her denemeden sonra sonuç doğrulanır:
+-- takılmadıysa sıradaki yönteme geçilir; hiçbiri olmazsa eşya "ertelendi" sayılır ve kullanıcıya elle takması söylenir
+-- (aksi halde aynı öneri sürekli yeniden açılırdı).
+function FT.EquipFromBag(bag, slot, link, target)
+ if InCombatLockdown and InCombatLockdown() then return FT.Print('Savaşta ekipman değiştirilemez.') end
+ if CursorHasItem and CursorHasItem() then return FT.Print('İmlecinde bir eşya var; önce onu bırak, sonra tekrar dene.') end
+ local methods = {
+  function()
+   local fn = (C_Item and C_Item.EquipItemByName) or EquipItemByName
+   if not fn then return false end
+   fn(link, target)
+   return true
+  end,
+  function()
+   local info = slotInfo(bag, slot)
+   if not (info and info.link and itemId(info.link) == itemId(link)) then return false end
+   useSlot(bag, slot)
+   return true
+  end,
+ }
+ local function attempt(i)
+  if i > #methods then
+   declined[link] = true
+   FT.Print('Takılamadı: ' .. link .. ' - elle takabilirsin (çantadan sağ tık).')
+   return
+  end
+  local ok, started = pcall(methods[i])
+  if not ok or not started then return attempt(i + 1) end
+  after(0.2, confirmBind)
+  after(0.9, function()
+   if isEquipped(link, target) then
+    FT.Print('Takıldı: ' .. link)
+    after(0.5, function() pcall(FT.ScanUpgrades) end)
+   else attempt(i + 1) end
+  end)
+ end
+ attempt(1)
 end
 
 local function scheduleScan()

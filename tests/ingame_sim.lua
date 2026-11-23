@@ -115,7 +115,7 @@ IsInGroup = function() return false end; IsInRaid = function() return false end;
 IsMounted = function() return false end; IsIndoors = function() return false end
 GetCVar = function() return '0' end; SetCVar = noop; GetPlayerFacing = function() return 0 end
 GetUnitSpeed = function() return 0, 7 end; GetCursorPosition = function() return 0, 0 end
-GetItemInfo = function() return nil end; GetItemIcon = function() return nil end; GetItemCooldown = function() return 0, 0 end
+GetItemInfo = function(...) if ITEMINFO then return ITEMINFO(...) end return nil end; GetItemIcon = function() return nil end; GetItemCooldown = function() return 0, 0 end
 GetItemSpell = function() return nil end; GetMoney = function() return 12345 end; GetCoinTextureString = function(c) return tostring(c) end
 GetBindLocation = function() return 'Goldshire' end; GetXPExhaustion = function() return 500 end
 GetInventoryItemLink = function() return nil end; GetInventoryItemDurability = function() return 50, 50 end
@@ -227,17 +227,37 @@ assert(FT.TurnInName(7), 'teslim NPC adı yok')
 -- Daha iyi eşya ve çanta dolu pencereleri
 local ITEMS = {['item:100'] = {'Eski Kılıç', 2, 10, 5, 'INVTYPE_2HWEAPON', 500, 2, 1, 1}, ['item:200'] = {'Yeni Kılıç', 3, 14, 8, 'INVTYPE_2HWEAPON', 900, 2, 1, 1},
  ['item:300'] = {'Kırık Diş', 0, 1, 1, '', 3, 15, 0, 0}, ['item:400'] = {'Değerli Taş', 3, 20, 1, '', 5000, 7, 0, 0}}
-GetItemInfo = function(l) local i = l and ITEMS[tostring(l):match('item:%d+')]; if not i then return nil end return i[1], l, i[2], i[3], i[4], '', '', 1, i[5], 'icon', i[6], i[7], i[8], i[9] end
+ITEMINFO = function(l) local i = l and ITEMS[tostring(l):match('item:%d+')]; if not i then return nil end return i[1], l, i[2], i[3], i[4], '', '', 1, i[5], 'icon', i[6], i[7], i[8], i[9] end
 GetItemStats = function(l) if l:find('200') then return {ITEM_MOD_STRENGTH_SHORT = 5, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 9.5} end return {ITEM_MOD_STRENGTH_SHORT = 2, ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 7} end
-GetInventoryItemLink = function(_, slot) if slot == 16 then return 'item:100' end end
+INV = {[16] = 'item:100'}
+GetInventoryItemLink = function(_, slot) return INV[slot] end
 C_Container.GetContainerNumSlots = function(bag) return bag == 0 and 2 or 0 end
 C_Container.GetContainerItemInfo = function(bag, slot) if bag ~= 0 then return nil end return slot == 1 and {hyperlink = 'item:200', stackCount = 1} or {hyperlink = 'item:300', stackCount = 1} end
-EquipItemByName = function(l) EQUIPPED = l end
+-- kuşanma yöntemleri sırayla denenir; testte hangisinin işe yaradığı ayarlanır
+EQUIP_VIA = 'name'
+EquipItemByName = function(l, slot) EQUIPPED = l; if EQUIP_VIA == 'name' then INV[slot] = l end end
+C_Container.UseContainerItem = function(bag, slot) USED = (USED or 0) + 1; if EQUIP_VIA == 'use' then INV[16] = C_Container.GetContainerItemInfo(bag, slot).hyperlink end end
 ForeverTrailSettings.upgrades = true
 if FT.upgradePopup then FT.upgradePopup:Hide() end
 try('eşya tarama', FT.ScanUpgrades)
 UPSHOWN = FT.upgradeCompare and FT.upgradeCompare:IsShown()
+assert(UPSHOWN, 'daha iyi eşya penceresi açılmalı')
 try('tak', function() FT.upgradeCompare.equip:GetScript('OnClick')(FT.upgradeCompare.equip) end)
+runTimers()
+assert(INV[16] == 'item:200', 'Tak eşyayı gerçekten kuşanmalı: ' .. tostring(INV[16]))
+assert(not FT.upgradeCompare:IsShown(), 'kuşanınca aynı pencere yeniden gelmemeli')
+-- ilk yöntem sessizce başarısız olursa ikincisi denenir
+INV[16] = 'item:100'; EQUIP_VIA = 'use'; USED = 0
+try('eşya tarama 2', FT.ScanUpgrades); assert(FT.upgradeCompare:IsShown(), 'ikinci pencere')
+FT.upgradeCompare.equip:GetScript('OnClick')(FT.upgradeCompare.equip); runTimers()
+assert(INV[16] == 'item:200' and USED >= 1, 'ilk yöntem işe yaramazsa çanta sağ tık yöntemi denenmeli')
+-- hiçbiri işe yaramazsa: aynı öneri sonsuza dek tekrar gelmemeli, kullanıcıya haber verilmeli
+INV[16] = 'item:100'; EQUIP_VIA = 'none'
+try('eşya tarama 3', FT.ScanUpgrades); assert(FT.upgradeCompare:IsShown(), 'üçüncü pencere')
+FT.upgradeCompare.equip:GetScript('OnClick')(FT.upgradeCompare.equip); runTimers()
+try('eşya tarama 4', FT.ScanUpgrades)
+assert(not FT.upgradeCompare:IsShown(), 'kuşanılamayan eşya için pencere tekrar tekrar açılmamalı')
+INV[16] = 'item:100'
 SCORE = ('puan yeni %.1f / eski %.1f'):format(FT.ItemScore('item:200'), FT.ItemScore('item:100'))
 try('çanta dolu', FT.ShowSwapCompare, 'item:400', 5000, {{bag = 0, slot = 2, link = 'item:300', value = 3, count = 1}}, function(v) SWAPPED = v.link end)
 try('çanta seç', function() local r = FT.swapCompare.rows[1]; r:GetScript('OnClick')(r) end)
