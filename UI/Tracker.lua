@@ -250,6 +250,7 @@ function FT.CreateTracker()
  moreText:SetTextColor(0.78, 0.72, 0.64)
  tracker.headerText, tracker.toggleButton = header, toggle -- QuestDock bunları gizler
  tracker.legacyParts = {header, summary, tracker.sumRested, tracker.sumGain, tracker.sumRoute, divider, toggle, emptyText, moreText} -- QuestList kullanmaz
+ tracker.legacyRows = {questRows, objectiveRows, zoneRows} -- eski çizimin satırları; QuestList her yenilemede gizler
  applyAlpha()
  if ForeverTrailSettings.tracker == false then tracker:Hide() end
 end

@@ -358,6 +358,11 @@ for _, page in ipairs({'rehber', 'gorevler', 'yerler', 'ansiklopedi', 'araclar',
 for _, tab in ipairs({'gorev', 'yol', 'canta', 'uyari', 'gorunum', 'ozel'}) do try('ayar sekmesi ' .. tab, FT.SettingsTab, tab) end
 for _, key in ipairs(FT.themeOrder or {}) do try('tema ' .. key, FT.ApplyTheme, key) end
 try('görev penceresi', function()
+ -- eski takip kutusu pencere kurulmadan önce satır çizmiş olabilir: böyle bir satırı elle oluşturup göster
+ local legacy = CreateFrame('Button', nil, FT.tracker)
+ legacy:Show()
+ table.insert(FT.tracker.legacyRows[1], legacy)
+ assert(legacy:IsShown(), 'ön koşul: eski satır görünür olmalı')
  assert(FT.BuildQuestDock(), 'görev penceresi kurulamadı: ' .. tostring(FT.questDockError))
  assert(FT.questDock and FT.QuestFrame() == FT.questDock, 'QuestFrame pencereyi döndürmeli')
  ForeverTrailSettings.dockTab = 'avail'; FT.RefreshQuestDock()
@@ -367,6 +372,10 @@ try('görev penceresi', function()
  FT.tracker:Hide(); assert(not FT.tracker:IsShown(), 'Hide istenen görünürlüğü kapatmalı'); FT.tracker:Show(); assert(FT.tracker:IsShown(), 'Show açmalı')
  ForeverTrailSettings.dockCollapsed = true; FT.RefreshQuestDock(); ForeverTrailSettings.dockCollapsed = nil; FT.RefreshQuestDock()
  FT.RefreshTracker(); FT.RefreshAvailableBox()
+ -- eski takip kutusunun satırları (görev penceresi kurulmadan önce çizilmiş olabilir) yeni listede görünmemeli
+ for _, pool in ipairs(FT.tracker.legacyRows or {}) do
+  for _, row in ipairs(pool) do assert(not (row.IsShown and row:IsShown()), 'eski takip satırı hâlâ görünür') end
+ end
  local blocks0 = FT.QuestListInfo()
  assert(blocks0 >= 1, 'görev listesi en az bir blok çizmeli: ' .. tostring(blocks0))
  for _, sort in ipairs({'durum', 'bolge', 'yakin', 'seviye', 'yuzde'}) do

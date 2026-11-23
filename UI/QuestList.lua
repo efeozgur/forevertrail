@@ -139,6 +139,22 @@ local function newZone(i)
 end
 
 ----------------------------------------------------------------------
+-- Eski takip kutusunun çizimi (görev penceresi kurulmadan önce bir kez çizilmiş olabilir): her şeyi gizle
+----------------------------------------------------------------------
+local function hideLegacy()
+ local t = FT.tracker
+ if not t then return end
+ for _, part in ipairs(t.legacyParts or {}) do part:Hide() end
+ for _, pool in ipairs(t.legacyRows or {}) do
+  for _, row in ipairs(pool) do row:Hide() end
+ end
+ for _, name in ipairs({'xpFill', 'xpRest', 'colHdr'}) do
+  if t[name] then t[name]:Hide() end
+ end
+ if FT.HideTrackerItems and not (InCombatLockdown and InCombatLockdown()) then FT.HideTrackerItems(1) end
+end
+
+----------------------------------------------------------------------
 -- Kurulum: özet bölümü ve kaydırmalı liste
 ----------------------------------------------------------------------
 local function setup()
@@ -147,8 +163,6 @@ local function setup()
  if not (t and FT.Kit) then return false end
  local K = FT.Kit
  state.root = t
- -- eski takip kutusunun artık kullanılmayan parçaları
- for _, part in ipairs(t.legacyParts or {}) do part:Hide() end
  -- özet
  state.level = K.Text(t, 15, 'text'); state.level:SetPoint('TOPLEFT', PAD, -14); state.level:SetJustifyH('LEFT')
  state.pct = K.Text(t, 13, 'accent'); state.pct:SetPoint('TOPRIGHT', -PAD, -16); state.pct:SetJustifyH('RIGHT')
@@ -329,7 +343,7 @@ local function fillBlock(b, e, ctx)
  local dist = (e.dist and e.dist < 1e9 and e.dist) or distanceOf(id)
  local routeNo = ForeverTrailSettings.routenums ~= false and FT.RouteNumber and FT.RouteNumber[id]
  local distText = dist and ('%d m'):format(dist) or ''
- if routeNo then distText = ('%d  ·  %s'):format(routeNo, distText ~= '' and distText or '') end
+ if routeNo then distText = distText ~= '' and ('%d  ·  %s'):format(routeNo, distText) or tostring(routeNo) end
  b.dist:ClearAllPoints(); b.dist:SetPoint('TOPRIGHT', -2, -(pad + 2)); b.dist:SetText(distText)
  local chips = {}
  if ready then chips[#chips + 1] = {'Teslim', 0.45, 0.9, 0.5} end
@@ -413,6 +427,7 @@ function FT.RefreshQuestList()
  local t = FT.tracker
  if not (t and ForeverTrailSettings and C_QuestLog) then return end
  if not setup() then return end
+ hideLegacy()
  local sumH = drawSummary()
  local entries = gather()
  local sort = ForeverTrailSettings.c_trackerSort or 'durum'
