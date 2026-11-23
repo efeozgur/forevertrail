@@ -351,11 +351,12 @@ function AG.BuildUncached(map, lo, hi, p)
 end
 
 -- Karakter için bölgeler ve seviye pencereleri: {map, name, lo, hi, count, xp, key, recommended}
-function AG.Zones()
+function AG.Zones(onlyMap)
  local p = playerInfo()
  if not byMap then buildIndex() end
  local out = {}
  for map, list in pairs(byMap) do
+ if not onlyMap or map == onlyMap then
   -- uygun görevlerin seviyeye göre sayısı (konumu bulunabilenler)
   local perBin, total = {}, 0
   for _, id in ipairs(list) do
@@ -400,6 +401,7 @@ function AG.Zones()
    end
   end
  end
+ end
  table.sort(out, function(a, b)
   if a.lo ~= b.lo then return a.lo < b.lo end
   if a.count ~= b.count then return a.count > b.count end
@@ -417,6 +419,8 @@ function AG.Select(map, lo, hi)
  for i = #FT.validGuides, 1, -1 do if FT.validGuides[i].auto then table.remove(FT.validGuides, i) end end
  FT.validGuides[#FT.validGuides + 1] = guide
  if ForeverTrailCharacter then ForeverTrailCharacter.autoGuide = {map = map, lo = lo, hi = hi} end
+ -- bölge rehberi seçmek otomatik ilerlemeyi de ister (kullanıcı açıkça kapatmadıysa açılır)
+ if ForeverTrailSettings and ForeverTrailSettings.auto == nil then ForeverTrailSettings.auto = true end
  FT.SelectGuide(#FT.validGuides)
  return true, guide
 end

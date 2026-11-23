@@ -12,7 +12,7 @@ local function applyFont(label)
  if size and label:SetFont(turkishFont, size, flags or '') == false and path then label:SetFont(path, size, flags or '') end
 end
 
-local OFF_BY_DEFAULT = {hideContinent=true, qRaid=true, qareas=true, raidmarks=true, beep=true, autotalent=true, autoequip=true, trkAutoMin=true, trkCombat=true, trkInstance=true, autosummon=true, autorez=true, blockduels=true, maxcamera=true, noglow=true, autonext=true, auto=true, compact=true, banksort=true, autoreward=true, simple=true, announce=true, breadcrumbs=true, availHideLow=true}
+local OFF_BY_DEFAULT = {autoquestAll=true, hideContinent=true, qRaid=true, qareas=true, raidmarks=true, beep=true, autotalent=true, autoequip=true, trkAutoMin=true, trkCombat=true, trkInstance=true, autosummon=true, autorez=true, blockduels=true, maxcamera=true, noglow=true, autonext=true, auto=true, compact=true, banksort=true, autoreward=true, simple=true, announce=true, breadcrumbs=true, availHideLow=true}
 local function get(key)
  if OFF_BY_DEFAULT[key] then return ForeverTrailSettings[key] == true end
  return ForeverTrailSettings[key] ~= false
@@ -77,6 +77,9 @@ local items = {
  {tab='gorev', key='autonext', label='Sürekli rota: hedef bitince sıradakine geç'},
  {tab='gorev', key='auto', label='Otomatik ilerle', apply=function() FT.Evaluate() end},
  {tab='gorev', key='autoquest', label='Görevleri otomatik al / teslim et (Shift basılıyken kapalı)'},
+ {tab='gorev', key='autoquestAll', label='Rehber dışı görevleri de otomatik al / teslim et'},
+ {tab='gorev', key='guideSuggest', label='Bölgeye girince rehber öner'},
+ {tab='gorev', key='autopilot', label='Uzaklaşınca rehberde yakındaki adıma geç'},
  {tab='sinifm', key='rewardadvisor', label='Görev ödülü danışmanı'},
  {tab='sinifm', key='autoreward', label='Önerilen ödülü otomatik seç'},
  {tab='gorev', key='raidmarks', label='Görev NPC / yaratıklarına işaret koy (bazı istemcilerde "engellendi" uyarısı verir)'},
@@ -805,6 +808,9 @@ FT.QuestiePageDefs = {
  q_oto = {
   H('Görevler'),
   C('autoquest', 'Görevleri otomatik al / teslim et (Shift: dur)'),
+  C('autoquestAll', 'Rehber dışı görevleri de otomatik al / teslim et'),
+  C('guideSuggest', 'Bölgeye girince rehber öner'),
+  C('autopilot', 'Uzaklaşınca rehberde yakındaki adıma geç'),
   C('autoreward', 'Önerilen ödülü otomatik seç'),
   C('breadcrumbs', 'Yol açan görevleri otomatik bırak'),
   H('Çanta ve satıcı'),

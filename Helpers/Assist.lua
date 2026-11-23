@@ -8,6 +8,11 @@ local function on(key) return ForeverTrailSettings and ForeverTrailSettings[key]
 local function optIn(key) return ForeverTrailSettings and ForeverTrailSettings[key] == true end
 local function after(t, fn) if C_Timer and C_Timer.After then C_Timer.After(t, fn) else fn() end end
 local function skip() return IsShiftKeyDown and IsShiftKeyDown() end
+-- Açık konuşma penceresindeki görev otomatik işlenebilir mi? Rehber seçiliyken yalnızca rehberdeki görevler (FT.GuideAllows)
+local function guideOk(kind)
+ local r = FT.GuideAllows and FT.GuideAllows(GetQuestID and GetQuestID() or nil, kind)
+ return r == nil or r == true
+end
 
 ----------------------------------------------------------------------
 -- Görev ödülü danışmanı
@@ -54,22 +59,27 @@ local function gossipShow()
  if not on('autoquest') or skip() then return end
  local G = C_GossipInfo
  if G and G.GetActiveQuests then
+  -- Rehber seçiliyken yalnızca rehberdeki görevler (FT.GuideAllows: nil = kısıt yok, eski davranış)
+  local function allowed(q, kind) local r = FT.GuideAllows and FT.GuideAllows(q.questID, kind); return r == nil or r == true end
   for _, q in ipairs(G.GetActiveQuests() or {}) do
-   if q.isComplete then return G.SelectActiveQuest(q.questID) end
+   if q.isComplete and allowed(q, 'turnin') then return G.SelectActiveQuest(q.questID) end
   end
   for _, q in ipairs(G.GetAvailableQuests() or {}) do
-   if not q.repeatable then return G.SelectAvailableQuest(q.questID) end
+   if not q.repeatable and allowed(q, 'accept') then return G.SelectAvailableQuest(q.questID) end
   end
  end
 end
 
 local function questGreeting()
  if not on('autoquest') or skip() then return end
+ local function allowed(title, kind) local r = FT.GuideAllowsTitle and FT.GuideAllowsTitle(title, kind); return r == nil or r == true end
  for i = 1, (GetNumActiveQuests and GetNumActiveQuests() or 0) do
-  local _, complete = GetActiveTitle(i)
-  if complete then return SelectActiveQuest(i) end
+  local title, complete = GetActiveTitle(i)
+  if complete and allowed(title, 'turnin') then return SelectActiveQuest(i) end
  end
- if (GetNumAvailableQuests and GetNumAvailableQuests() or 0) > 0 then SelectAvailableQuest(1) end
+ for i = 1, (GetNumAvailableQuests and GetNumAvailableQuests() or 0) do
+  if allowed(GetAvailableTitle and GetAvailableTitle(i), 'accept') then return SelectAvailableQuest(i) end
+ end
 end
 
 ----------------------------------------------------------------------
@@ -298,17 +308,21 @@ events:SetScript('OnEvent', function(_, event, a)
  local ok, err = pcall(function()
   if event == 'GOSSIP_SHOW' then gossipShow()
   elseif event == 'QUEST_GREETING' then questGreeting()
-  elseif event == 'QUEST_DETAIL' then if on('autoquest') and not skip() then if FT.OwnLearnDetail then FT.OwnLearnDetail() end AcceptQuest() end
-  elseif event == 'QUEST_ACCEPT_CONFIRM' then if on('autoquest') and not skip() then ConfirmAcceptQuest() end
-  elseif event == 'QUEST_PROGRESS' then if on('autoquest') and not skip() and IsQuestCompletable() then CompleteQuest() end
+  elseif event == 'QUEST_DETAIL' then
+   if FT.OwnLearnDetail and on('autoquest') and not skip() then FT.OwnLearnDetail() end
+   if on('autoquest') and not skip() and guideOk('accept') then AcceptQuest() end
+  elseif event == 'QUEST_ACCEPT_CONFIRM' then if on('autoquest') and not skip() and guideOk('accept') then ConfirmAcceptQuest() end
+  elseif event == 'QUEST_PROGRESS' then if on('autoquest') and not skip() and guideOk('turnin') and IsQuestCompletable() then CompleteQuest() end
   elseif event == 'QUEST_COMPLETE' then
    local best, upgrade = nil, false
    if on('rewardadvisor') then best, upgrade = adviseReward() end
    local count = GetNumQuestChoices and GetNumQuestChoices() or 0
-   if on('autoquest') and not skip() then
+   local restricted = FT.GuideAllows and FT.GuideAllows(GetQuestID and GetQuestID(), 'turnin') ~= nil
+   if on('autoquest') and not skip() and guideOk('turnin') then
     if FT.OwnLearnComplete then FT.OwnLearnComplete() end
+    -- rehber görevinde en iyi ödül otomatik seçilir (autoreward=false ile kapatılır); rehber dışında eski açık-onay ayarı geçerli
     if count <= 1 then GetQuestReward(count)
-    elseif best and optIn('autoreward') then
+    elseif best and (optIn('autoreward') or (restricted and ForeverTrailSettings.autoreward ~= false)) then
      FT.Print(('Ödül otomatik seçildi: %s'):format(GetQuestItemLink('choice', best) or best))
      GetQuestReward(best)
     end

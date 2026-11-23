@@ -264,6 +264,48 @@ INV[16] = 'item:100'
 SCORE = ('puan yeni %.1f / eski %.1f'):format(FT.ItemScore('item:200'), FT.ItemScore('item:100'))
 try('çanta dolu', FT.ShowSwapCompare, 'item:400', 5000, {{bag = 0, slot = 2, link = 'item:300', value = 3, count = 1}}, function(v) SWAPPED = v.link end)
 try('çanta seç', function() local r = FT.swapCompare.rows[1]; r:GetScript('OnClick')(r) end)
+-- NPC işlemleri: hazır rehber seçiliyken yalnızca rehberdeki görevler otomatik alınır/teslim edilir
+do
+ local QID, accepted, completed, rewards, selectedA, selectedT = nil, {}, {}, {}, {}, {}
+ GetQuestID = function() return QID end
+ AcceptQuest = function() accepted[#accepted + 1] = QID end
+ ConfirmAcceptQuest = function() accepted[#accepted + 1] = 'c' .. tostring(QID) end
+ IsQuestCompletable = function() return true end
+ CompleteQuest = function() completed[#completed + 1] = QID end
+ GetNumQuestChoices = function() return 1 end
+ GetQuestReward = function() rewards[#rewards + 1] = QID end
+ C_GossipInfo = {GetActiveQuests = function() return {{questID = 11, isComplete = true}, {questID = 99, isComplete = true}} end,
+  GetAvailableQuests = function() return {{questID = 99}, {questID = 11}} end,
+  SelectActiveQuest = function(id) selectedT[#selectedT + 1] = id end, SelectAvailableQuest = function(id) selectedA[#selectedA + 1] = id end}
+ local savedGuide = FT.guide
+ FT.guide = {guideId = 'npc-testi', version = 1, title = 'T', zone = 'Z', steps = {{stepId = 'a', type = 'accept', questId = 11, text = 'a'}, {stepId = 't', type = 'turnin', questId = 11, text = 't'}}}
+ ForeverTrailSettings.autoquest, ForeverTrailSettings.autoquestAll = nil, nil
+ QID = 11; fire('QUEST_DETAIL'); QID = 99; fire('QUEST_DETAIL')
+ assert(#accepted == 1 and accepted[1] == 11, 'rehber görevi alınmalı, diğeri alınmamalı: ' .. table.concat(accepted, ','))
+ QID = 11; fire('QUEST_ACCEPT_CONFIRM'); QID = 99; fire('QUEST_ACCEPT_CONFIRM')
+ assert(accepted[2] == 'c11' and #accepted == 2, 'onay penceresi yalnızca rehber görevi için kabul edilmeli')
+ QID = 11; fire('QUEST_PROGRESS'); QID = 99; fire('QUEST_PROGRESS')
+ assert(#completed == 1 and completed[1] == 11, 'yalnızca rehber görevi tamamlanmalı')
+ QID = 11; fire('QUEST_COMPLETE'); QID = 99; fire('QUEST_COMPLETE')
+ assert(#rewards == 1 and rewards[1] == 11, 'yalnızca rehber görevi teslim edilmeli: ' .. table.concat(rewards, ','))
+ fire('GOSSIP_SHOW')
+ assert(selectedT[1] == 11 and #selectedT == 1, 'konuşmada yalnızca rehber görevinin teslimi seçilmeli')
+ -- teslim edilecek bir şey kalmayınca (pencere yeniden açılır) alınabilir görevlerden yalnızca rehberdekini seç
+ C_GossipInfo.GetActiveQuests = function() return {} end
+ fire('GOSSIP_SHOW')
+ assert(selectedA[1] == 11 and #selectedA == 1, 'konuşmada yalnızca rehber görevi alınmak üzere seçilmeli: ' .. table.concat(selectedA, ','))
+ -- rehber dışı görevler de otomatik: eski davranış
+ ForeverTrailSettings.autoquestAll = true
+ QID = 99; fire('QUEST_DETAIL'); assert(accepted[#accepted] == 99, 'autoquestAll açıkken her görev alınmalı')
+ ForeverTrailSettings.autoquestAll = nil
+ -- canlı görev günlüğü rehberinde kısıt yok
+ FT.guide = {guideId = 'character-log', live = true, version = 1, title = 'T', zone = 'Z', steps = {{stepId = 'w', type = 'manual', text = 'w'}}}
+ local n = #accepted; QID = 77; fire('QUEST_DETAIL'); assert(#accepted == n + 1, 'canlı rehberde eski davranış: her görev alınmalı')
+ -- ayar kapalıysa hiçbiri
+ ForeverTrailSettings.autoquest = false; n = #accepted; QID = 77; fire('QUEST_DETAIL'); assert(#accepted == n, 'autoquest=false hiçbir şeyi otomatik almamalı')
+ ForeverTrailSettings.autoquest = nil
+ FT.guide = savedGuide
+end
 -- Sınıf rehberi: yetenek planı, seviye kartı, sınıf görevleri, meslekler
 TALENT = {}
 for tab = 1, 3 do TALENT[tab] = {}; for i = 1, 20 do TALENT[tab][i] = {name = 'Yetenek ' .. tab .. '-' .. i, tier = math.floor((i - 1) / 4) + 1, col = (i - 1) % 4 + 1, rank = 0} end end

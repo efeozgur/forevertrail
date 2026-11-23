@@ -37,12 +37,19 @@ function FT.SelectGuide(index)
  end
  FT.SaveStep(); FT.Evaluate()
 end
-function FT.Advance()
+function FT.Advance(auto)
  if FT.complete then return end
  ForeverTrailCharacter.reviewHold = nil
  FT.notice = nil
+ -- Elle ilerletilen (auto değil) ve yapılmamış adım atlandı sayılır: rehber bitince geri çağrılmaz (Guide/AutoPilot.lua)
+ local g, cur = FT.guide, FT.CurrentStep()
+ if not auto and g and not g.live and cur and FT.MarkSkipped and not FT.IsStepDone(cur, FT.QuestState(cur.questId, cur.objectiveIndex)) then FT.MarkSkipped(g, cur) end
  local follows=FT.view==FT.active
- if FT.active>=#FT.guide.steps then FT.complete=true else FT.active=FT.active+1 end
+ if FT.active>=#FT.guide.steps then
+  -- rehber bitiyor: atlanarak geçilmiş ama hâlâ yapılabilir bir adım varsa oraya dön
+  local back = FT.NextPendingStep and FT.NextPendingStep()
+  if back then FT.active=back; FT.notice='Geride kalan bir adıma dönüldü.' else FT.complete=true end
+ else FT.active=FT.active+1 end
  if follows then FT.view=FT.active end
  FT.SaveStep()
 end
@@ -72,7 +79,7 @@ function FT.Evaluate()
    local done=FT.IsStepDone(s,state)
    if s.type=='location' then done=FT.AtLocation(s) end
    if not done then break end
-   FT.Advance()
+   FT.Advance(true)
   end
  end
  local s=FT.CurrentStep(); if not s then return end

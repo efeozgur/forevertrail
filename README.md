@@ -543,3 +543,13 @@ kodundan, haritalar Leffe'nin navigasyon haritalarından gelir; ayrıntı için 
 **Kurulum:** oyun iç içe klasörleri yüklemez; bu üç klasör `Interface\AddOns` içinde üst düzey durmalıdır. Depodan çalışıyorsan
 `powershell -ExecutionPolicy Bypass -File tools\link_nav_addons.ps1` bunları bağlar (junction); elle kuruyorsan üç klasörü AddOns'a kopyala.
 Eklenti ilk rotada yüklenir (birkaç MB bellek); kapatmak için `ForeverTrailSettings.roadsNav = false`.
+
+## Otopilot
+
+Rehber seçiliyken sırayla ne yapman gerektiğini kendisi seçer:
+
+- **Bölge önerisi:** bir bölgeye girince ya da giriş yapınca seviyene uygun bölge rehberini sorar ("Rehbere geç"). Reddedersen o oturumda tekrar sormaz, iki kez reddedersen o bölge için bir daha sormaz. Elle seçtiğin rehber sürerken rahatsız etmez. Ayar: *Bölgeye girince rehber öner*.
+- **Sıra:** rehberin sırası izlenir. Şimdiki adımdan 400 yarddan fazla uzaklaşıp rehberde yapılabilir başka bir adımın 160 yardı içine girersen oraya atlar. Ayar: *Uzaklaşınca rehberde yakındaki adıma geç*.
+- **Geri dönüş:** atlanarak geçilen ama hâlâ yapılabilir adımlar rehber bitmeden geri gelir. Elle *Atla* dediklerin gelmez.
+- **NPC işlemleri:** konuşma penceresinde yalnızca rehberdeki görevler otomatik alınır ve teslim edilir; rehber dışı görevleri sana bırakır (Shift ile durdurabilirsin). Birden çok ödül seçeneği varsa sınıfına göre en iyisi otomatik seçilir. Ayar: *Rehber dışı görevleri de otomatik al / teslim et* eski davranışa döner.
+- Bölge rehberi seçmek, hiç ayarlanmadıysa *Otomatik ilerle*'yi de açar.
