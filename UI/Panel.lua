@@ -280,7 +280,15 @@ function FT.Refresh()
    instruction = objective
   end
  end
- if type(title) == 'string' and title ~= '' then
+ local info = FT.StepInfo and FT.StepInfo(s)
+ if info and info.npc then
+  -- NPC'li adım: büyük başlıkta NPC, altında bölge, fiil + görev adı ve açıklama
+  local lines = {}
+  if info.zone then lines[#lines + 1] = info.zone end
+  lines[#lines + 1] = ('%s “%s”'):format(info.verb, info.title)
+  if info.detail then lines[#lines + 1] = info.detail end
+  f.instruction:SetText(info.npc); f.stepText:SetText(table.concat(lines, '\n'))
+ elseif type(title) == 'string' and title ~= '' then
   f.instruction:SetText(title); f.stepText:SetText(instruction or '')
  else
   f.instruction:SetText(instruction or ''); f.stepText:SetText('')

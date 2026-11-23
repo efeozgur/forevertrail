@@ -243,6 +243,7 @@ local function simulate(map, lo, hi, set, ids)
   local npc = spot and spot[5] and entityName(spot[4], spot[5])
   local s = {stepId = (kind == 'accept' and 'a' or (kind == 'objective' and 'o' or 't')) .. c.id, type = kind, questId = c.id, questTitle = title}
   if spot then s.uiMapID, s.x, s.y = map, spot[1], spot[2] end
+  if npc and kind ~= 'objective' then s.npc = npc end
   if kind == 'accept' then s.text = npc and ('Görevi al: ' .. npc) or 'Görevi al.'
   elseif kind == 'objective' then s.text = (type(q[8]) == 'string' and q[8] ~= '') and q[8] or 'Görevin hedeflerini tamamla.'
   else s.text = npc and ('Teslim et: ' .. npc) or 'Görevi teslim et.' end

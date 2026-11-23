@@ -122,11 +122,51 @@ if placer then placer:SetScript('OnUpdate', function()
  end
 end) end
 
+-- Hedefe giden rota: oyuncudan hedef işaretine sarı, parıltılı bir çizgi; üstünde hedefe doğru akan noktalar.
+-- Hedef çemberin dışındaysa çizgi kenarda kırpılır ve yönü gösterir. Ayar: minimapRoute (kapatılabilir).
+local routeGlow, routeCore, routeDots = nil, nil, {}
+local ROUTE_R, ROUTE_G, ROUTE_B = 1, 0.85, 0.15
+local function hideRoute()
+ if routeCore then routeCore:Hide(); routeGlow:Hide() end
+ for _, d in ipairs(routeDots) do d:Hide() end
+end
+local function drawRoute(ex, ey, half)
+ if ForeverTrailSettings and ForeverTrailSettings.minimapRoute == false or not Minimap.CreateLine then return hideRoute() end
+ local ax, ay, bx, by = clip(0, 0, ex, ey, half * 0.95)
+ if not ax then return hideRoute() end
+ local length = math.sqrt((bx - ax) ^ 2 + (by - ay) ^ 2)
+ if length < 10 then return hideRoute() end
+ if not routeCore then
+  routeGlow = Minimap:CreateLine(nil, 'OVERLAY'); routeGlow:SetThickness(7)
+  routeCore = Minimap:CreateLine(nil, 'OVERLAY'); routeCore:SetThickness(2.5)
+ end
+ routeGlow:SetColorTexture(ROUTE_R, ROUTE_G, ROUTE_B, 0.16)
+ routeGlow:SetStartPoint('CENTER', Minimap, ax, ay); routeGlow:SetEndPoint('CENTER', Minimap, bx, by); routeGlow:Show()
+ routeCore:SetColorTexture(ROUTE_R, ROUTE_G, ROUTE_B, 0.85)
+ routeCore:SetStartPoint('CENTER', Minimap, ax, ay); routeCore:SetEndPoint('CENTER', Minimap, bx, by); routeCore:Show()
+ -- akan noktalar: oyuncudan hedefe doğru
+ local spacing = 16
+ local shift = ((GetTime and GetTime() or 0) * 28) % spacing
+ local ux, uy = (bx - ax) / length, (by - ay) / length
+ local n, at = 0, shift
+ while at < length - 4 and n < 24 do
+  n = n + 1
+  local d = routeDots[n]
+  if not d then d = Minimap:CreateTexture(nil, 'OVERLAY'); d:SetSize(4, 4); routeDots[n] = d end
+  d:SetColorTexture(1, 0.97, 0.7, 0.35 + 0.6 * (at / length))
+  d:ClearAllPoints(); d:SetPoint('CENTER', Minimap, 'CENTER', ax + ux * at, ay + uy * at); d:Show()
+  at = at + spacing
+ end
+ for i = n + 1, #routeDots do routeDots[i]:Hide() end
+end
+FT.MinimapRouteInfo = function() return {core = routeCore, glow = routeGlow, dots = routeDots} end -- test ve tanı için
+
 function FT.UpdateMinimapPin()
  if not pin then return end
  local nav = FT.nav
  if not nav or ForeverTrailSettings.minimap == false or not Minimap or not Minimap:IsVisible() then
   if pin:IsShown() then pin:Hide() end
+  hideRoute()
   return
  end
  local rotate = GetCVar and GetCVar('rotateMinimap') == '1'
@@ -139,6 +179,7 @@ function FT.UpdateMinimapPin()
  pin:SetScale(FT.Scale and FT.Scale('mmIcons') or 1)
  pin:ClearAllPoints()
  pin:SetPoint('CENTER', Minimap, 'CENTER', nx * half, ny * half)
+ drawRoute(nx * half, ny * half, half)
  local color = (FT.TypeColor and FT.TypeColor[nav.step.type]) or {1, 0.82, 0.2}
  pin.glow:SetVertexColor(color[1], color[2], color[3], 1)
  if not edge and FT.DrawRing then

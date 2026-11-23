@@ -42,6 +42,7 @@ local function adopt(frame, page, x, y)
  if FT.Kit then FT.Kit.Unchrome(frame) end
  if frame.title then frame.title:Hide() end
  frame:SetMovable(false)
+ frame:EnableMouse(false) -- sayfa fareyi yutarsa Hub sayfa alanından sürüklenemez; düğmeler kendi fare olaylarını alır
  frame:SetScript('OnDragStart', nil)
  frame:SetScript('OnDragStop', nil)
 end

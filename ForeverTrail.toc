@@ -29,6 +29,7 @@ Core/Engine.lua
 Map/Map.lua
 UI/Arrow.lua
 Guide/Journal.lua
+Guide/StepInfo.lua
 Guide/AutoGuide.lua
 Guide/Recommendations.lua
 Guide/Guides.lua

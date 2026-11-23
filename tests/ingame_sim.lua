@@ -38,6 +38,7 @@ local methods = {
  GetChildren = function(self) local out = {} for _, f in ipairs(frames) do if f.__parent == self and f.__kind ~= 'FontString' and f.__kind ~= 'Texture' and f.__kind ~= 'Line' then out[#out + 1] = f end end return unpack(out) end,
  GetFrameLevel = function() return 1 end, GetFrameStrata = function() return 'MEDIUM' end,
  SetScale = function(self, s) self.__scale = s end, GetScale = function(self) return self.__scale or 1 end,
+ EnableMouse = function(self, v) self.__mouse = v end, IsMouseEnabled = function(self) return self.__mouse == true end,
  SetTexture = function(self, t) self.__tex = t end, GetTexture = function(self) return self.__tex end,
  SetAlpha = function(self, a) self.__alpha = a end, GetAlpha = function(self) return self.__alpha or 1 end,
  GetEffectiveScale = function() return 1 end, GetLeft = function() return 0 end, GetTop = function() return 0 end,
@@ -396,42 +397,58 @@ try('görev penceresi', function()
  assert(FT.questDock.activeTab == 'avail' or not FT.availableBox:IsShown(), 'alınabilir sekmesi')
  ForeverTrailSettings.dockTab = 'tracker'; FT.RefreshQuestDock()
  assert(FT.questDock.activeTab == 'tracker', 'görevlerim sekmesi')
- do -- Rehber sekmesi: ilk sekme, adımlar, gezinme, boyuta göre satır sayısı
+ do -- Rehber sekmesi: NPC, fiil + görev adı, yolculuk, sonra, gezinme, boyuta göre sıradaki adımlar
   assert(FT.guideBox, 'rehber kutusu kurulmalı')
   local savedGuide, savedView, savedActive, savedComplete = FT.guide, FT.view, FT.active, FT.complete
   local steps = {}
-  for i = 1, 20 do steps[i] = {stepId = 's' .. i, type = i % 3 == 0 and 'turnin' or 'manual', text = 'Adım ' .. i, questTitle = i % 3 == 0 and ('Görev ' .. i) or nil} end
+  for i = 1, 20 do steps[i] = {stepId = 's' .. i, type = 'manual', text = 'Adım ' .. i} end
+  steps[2] = {stepId = 's2', type = 'accept', npc = 'Eleanor', questTitle = 'Camping 101', text = 'Görevi al.', uiMapID = 1429, x = 0.4, y = 0.5}
+  steps[4] = {stepId = 's4', type = 'turnin', npc = 'Johaan', questTitle = 'Teslim 4', text = 'Teslim et.', uiMapID = 1429, x = 0.45, y = 0.5}
   FT.guide = {guideId = 'sekme-testi', version = 1, title = 'Sekme Testi', zone = 'Bölge', levels = '1-10', steps = steps}
   FT.view, FT.active, FT.complete = 1, 1, false
+  FT.customTarget = nil
   ForeverTrailSettings.dockTab = 'guide'; ForeverTrailSettings.dockW, ForeverTrailSettings.dockH = nil, nil
   FT.RefreshQuestDock()
+  local box = FT.guideBox
   assert(FT.questDock.activeTab == 'guide', 'rehber sekmesi seçilebilmeli')
-  assert(FT.guideBox.__shown ~= false and FT.guideBox:GetParent() == FT.questDock, 'rehber kutusu pencerenin içinde olmalı')
-  assert(FT.guideBox.title:GetText() == 'Sekme Testi', 'rehber adı: ' .. tostring(FT.guideBox.title:GetText()))
-  assert(FT.GuideTabRows() == 6, 'varsayılan 6 sıradaki adım: ' .. FT.GuideTabRows())
-  assert(FT.GuideTabRow(1).text:GetText() == 'Adım 2', 'ilk sıradaki adım, şimdikinden sonraki: ' .. tostring(FT.GuideTabRow(1).text:GetText()))
-  assert(FT.GuideTabRow(2).text:GetText() == 'Görev 3', 'görev adı varsa o gösterilmeli')
-  -- gezinme: ">" etkin adımı ilerletir, "<" yalnızca inceler
-  FT.guideBox.next:GetScript('OnClick')(FT.guideBox.next)
+  assert(box:GetParent() == FT.questDock, 'rehber kutusu pencerenin içinde olmalı')
+  assert(box.title:GetText() == 'Sekme Testi', 'rehber adı: ' .. tostring(box.title:GetText()))
+  assert(box.counter:GetText() == '1 / 20', 'sayaç: ' .. tostring(box.counter:GetText()))
+  assert(box.stepLine:GetText() == 'Adım 1' and not box.npc:IsShown(), 'NPC\'siz adımda yalnızca adım metni görünmeli: ' .. tostring(box.stepLine:GetText()))
+  assert(FT.GuideTabRows() == 0, 'pencere elle büyütülmedikçe sıradaki adım listesi gizli olmalı')
+  -- NPC'li adım: büyük NPC adı, "Görevi al “ad”", sıradaki durak
+  FT.view = 2; FT.RefreshGuideTab()
+  assert(box.npc:IsShown() and box.npc:GetText() == 'Eleanor', 'NPC adı büyük başlıkta olmalı: ' .. tostring(box.npc:GetText()))
+  assert(box.stepLine:GetText() == 'Görevi al “Camping 101”', 'fiil + görev adı: ' .. tostring(box.stepLine:GetText()))
+  assert(box.then_:IsShown() and box.then_.name:GetText() == 'Johaan', 'sonraki durak: ' .. tostring(box.then_.name:GetText()))
+  FT.Refresh()
+  assert(FT.panel.instruction:GetText() == 'Eleanor' and tostring(FT.panel.stepText:GetText()):find('Görevi al', 1, true), 'Hub rehber kartı da NPC adını göstermeli: ' .. tostring(FT.panel.instruction:GetText()))
+  assert(FT.GuideTabJourneyRows() == 1, 'aynı bölgede tek yolculuk satırı: ' .. FT.GuideTabJourneyRows())
+  -- başka bölgedeki hedef: simgeli yolculuk adımları
+  FT.customTarget = {stepId = 'custom', type = 'location', questTitle = 'Uzak', text = 'Uzak', uiMapID = 1426, x = 0.3, y = 0.3}
+  FT.RefreshGuideTab()
+  assert(FT.GuideTabJourneyRows() >= 2, 'başka bölgede yolculuk adımları listelenmeli: ' .. FT.GuideTabJourneyRows())
+  FT.customTarget = nil
+  -- gezinme: ">" etkin adımı ilerletir, "<" yalnızca inceler, "Atla" etkin adıma dönüp ilerletir
+  FT.view = 1; FT.RefreshGuideTab()
+  box.next:GetScript('OnClick')(box.next)
   assert(FT.active == 2 and FT.view == 2, 'ileri düğmesi adımı ilerletmeli: ' .. FT.active .. '/' .. FT.view)
-  assert(FT.guideBox.progress:GetText():find('2 / 20'), 'sayaç: ' .. tostring(FT.guideBox.progress:GetText()))
-  FT.guideBox.prev:GetScript('OnClick')(FT.guideBox.prev)
-  assert(FT.view == 1 and FT.active == 2, 'geri düğmesi yalnızca incelemeli')
-  assert(FT.guideBox.resume:IsShown(), 'inceleme sırasında "Buradan sürdür" görünmeli')
-  -- sıradaki satırına tıklama o adımı inceler
+  assert(box.counter:GetText() == '2 / 20', 'sayaç ilerlemeli: ' .. tostring(box.counter:GetText()))
+  box.prev:GetScript('OnClick')(box.prev)
+  assert(FT.view == 1 and FT.active == 2 and box.resume:IsShown(), 'geri düğmesi yalnızca incelemeli, "Buradan sürdür" görünmeli')
+  box.skip:GetScript('OnClick')(box.skip)
+  assert(FT.active == 3 and FT.view == 3, 'Atla etkin adıma dönüp ilerletmeli: ' .. FT.active .. '/' .. FT.view)
+  -- pencere büyütülünce sıradaki adımlar listelenir; satıra tıklayınca o adım incelenir
+  FT.view, FT.active = 1, 1; ForeverTrailSettings.dockH = 700; FT.RefreshGuideTab()
+  assert(FT.GuideTabRows() > 3, 'büyük pencerede sıradaki adımlar görünmeli: ' .. FT.GuideTabRows())
+  assert(FT.GuideTabRow(1).text:GetText() == 'Camping 101', 'ilk sıradaki adım: ' .. tostring(FT.GuideTabRow(1).text:GetText()))
   local row = FT.GuideTabRow(3)
   row:GetScript('OnClick')(row)
   assert(FT.view == 4, 'satıra tıklayınca o adım incelenmeli: ' .. FT.view)
-  -- sona yaklaşınca satır sayısı azalır
-  FT.view = 18; FT.RefreshGuideTab()
-  assert(FT.GuideTabRows() == 2, 'sona yakın satır sayısı: ' .. FT.GuideTabRows())
-  -- pencere büyütülünce daha çok sıradaki adım gösterilir
-  FT.view = 1; ForeverTrailSettings.dockH = 700; FT.RefreshGuideTab()
-  assert(FT.GuideTabRows() > 6, 'büyük pencerede daha çok satır: ' .. FT.GuideTabRows())
   ForeverTrailSettings.dockH = nil
   -- rehber yokken sekme yine de açılır ve yönlendirir
-  FT.guide = nil; FT.RefreshGuideTab(); assert(FT.GuideTabRows() == 0, 'rehbersiz satır olmamalı')
-  assert(FT.guideBox.empty:IsShown(), 'rehbersiz açıklama görünmeli')
+  FT.guide = nil; FT.RefreshGuideTab()
+  assert(FT.GuideTabRows() == 0 and box.empty:IsShown(), 'rehbersiz açıklama görünmeli')
   FT.guide, FT.view, FT.active, FT.complete = savedGuide, savedView, savedActive, savedComplete
   if FT.guide then FT.RefreshGuideTab() end
   ForeverTrailSettings.dockTab = 'tracker'; FT.RefreshQuestDock()
@@ -555,6 +572,15 @@ try('ortak bileşenler', function()
   local first = shown[1]
   first:GetScript('OnClick')(first)
   assert(FT.customTarget and FT.customTarget.text == first.row.name, 'satıra tıklayınca yer hedef olmalı')
+  -- aynı bölgedeki hedefe: mini haritada sarı rota çizgisi ve akan noktalar
+  FT.SetCustomTarget(1429, 0.52, 0.5, 'Rota Testi', true)
+  FT.UpdateArrow(); FT.UpdateMinimapPin()
+  local route = FT.MinimapRouteInfo()
+  assert(route.core and route.core:IsShown() and route.glow:IsShown(), 'mini haritada rota çizgisi görünmeli')
+  assert(#route.dots >= 1 and route.dots[1]:IsShown(), 'rota üzerinde akan noktalar görünmeli')
+  ForeverTrailSettings.minimapRoute = false; FT.UpdateMinimapPin()
+  assert(not route.core:IsShown() and not route.dots[1]:IsShown(), 'minimapRoute=false rotayı gizlemeli')
+  ForeverTrailSettings.minimapRoute = nil
   -- başka bölgedeki yer: sohbete yazılmaz, yolculuk kartı simgeli adımlarla açılır
   do
    local printed, realPrint = {}, FT.Print
@@ -624,6 +650,12 @@ try('ortak bileşenler', function()
  end
  FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = false; FT.RefreshJourney(); ForeverTrailSettings.journeyOpen = nil; FT.RefreshJourney()
  FT.OpenHub('rehber'); assert(FT.hub.rail and FT.hub.pageTitle:GetText() == 'Rehber', 'hub başlığı')
+ for _, page in ipairs({'rehber', 'gorevler', 'yerler'}) do
+  FT.OpenHub(page)
+  local w = ({rehber = FT.panel, gorevler = FT.suggestions, yerler = FT.placesWindow})[page]
+  assert(w and not w:IsMouseEnabled(), 'Hub sayfası fareyi yutmamalı (pencere sürüklenebilsin): ' .. page)
+ end
+ FT.OpenHub('rehber')
  FT.OpenHub('gorevler'); assert(FT.hub.pageDesc:GetText() ~= '', 'hub açıklaması')
  local w0, h0
  for _, page in ipairs({'rehber', 'gorevler', 'ansiklopedi', 'sinif', 'meslek', 'yerler', 'araclar', 'ayarlar'}) do
