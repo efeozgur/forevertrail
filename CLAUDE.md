@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ForeverTrail is a WoW addon (Lua, Interface 16001, client 1.60.1 "World of Warcraft: Forever") — a quest guide with tracker, map/arrow routing, journal, gear/profession helpers, etc. It lives directly in the game's `AddOns` folder, so edits take effect on game restart/`/reload`. All user-facing text and the README are in Turkish; keep new UI strings Turkish. There is no build step and no git repo.
+ForeverTrail is a WoW addon (Lua, Interface 16001, client 1.60.1 "World of Warcraft: Forever") — a quest guide with tracker, map/arrow routing, journal, gear/profession helpers, etc. This repo is linked into the game via a junction (`AddOnsForeverTrail` -> this folder; the old install is kept as `ForeverTrail.bak`), so edits take effect on `/reload` (new files need a full game restart). All user-facing text and the README are in Turkish; keep new UI strings Turkish. There is no build step. Development happens on the `v0.2-dev` branch.
 
 ## Commands
 
