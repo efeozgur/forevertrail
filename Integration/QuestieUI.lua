@@ -23,12 +23,15 @@ local TAB_ICONS = {
  gorev = 'Interface\\Icons\\INV_Misc_Book_09', sinifm = 'Interface\\Icons\\INV_Misc_Book_11', simge = 'Interface\\Icons\\INV_Misc_Map_01',
  kutu = 'Interface\\Icons\\INV_Misc_Note_01', harita = 'Interface\\Icons\\INV_Misc_Spyglass_03', yol = 'Interface\\Icons\\Ability_Hunter_Pathfinding', canta = 'Interface\\Icons\\INV_Misc_Bag_08',
  uyari = 'Interface\\Icons\\Ability_Warrior_BattleShout', gorunum = 'Interface\\Icons\\INV_Misc_Gem_Pearl_04', ozel = 'Interface\\Icons\\Trade_Engineering',
+ g_genel = 'Interface\\Icons\\INV_Misc_Book_09', g_harita = 'Interface\\Icons\\INV_Misc_Map_01', g_oto = 'Interface\\Icons\\Ability_Hunter_Pathfinding',
+ g_sinif = 'Interface\\Icons\\INV_Misc_Book_11', g_gorunum = 'Interface\\Icons\\INV_Misc_Gem_Pearl_04', g_gelismis = 'Interface\\Icons\\INV_Misc_Gear_01',
 }
 
 local win, sideTabs = nil, {}
 local function selectTab(key)
  if FT.SettingsTab then FT.SettingsTab(key) end
- for _, t in ipairs(sideTabs) do t.Selected:SetShown(t.key == key) end
+ local group = FT.SettingsGroupOf and FT.SettingsGroupOf(key) or key
+ for _, t in ipairs(sideTabs) do t.Selected:SetShown(t.key == group) end
 end
 
 local function buildWindow()
@@ -101,6 +104,7 @@ local function adopt(w)
  if s.sideBg then s.sideBg:Hide() end
  for _, b in ipairs(s.tabButtons or {}) do b:Hide() end
  if s.pageTitle then s.pageTitle:ClearAllPoints(); s.pageTitle:SetPoint('TOPLEFT', s, 'TOPLEFT', 60, -6) end
+ if s.searchBox then s.searchBox:ClearAllPoints(); s.searchBox:SetPoint('TOPRIGHT', s, 'TOPRIGHT', -16, -10) end
  if s.headLine then s.headLine:ClearAllPoints(); s.headLine:SetPoint('TOPLEFT', s, 'TOPLEFT', 60, -44); s.headLine:SetPoint('TOPRIGHT', s, 'TOPRIGHT', -16, -44) end
  for _, page in pairs(s.pages or {}) do
   local box = page.holder or page

@@ -35,6 +35,7 @@ UI/Target.lua
 UI/Tracker.lua
 Map/Minimap.lua
 UI/Settings.lua
+UI/QuickSettings.lua
 UI/Extras.lua
 UI/Features.lua
 Helpers/Gear.lua

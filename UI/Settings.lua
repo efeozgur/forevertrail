@@ -20,22 +20,55 @@ end
 
 local function show(widget, v) if widget then if v then widget:Show() else widget:Hide() end end end
 
-local TABS = {
+-- Sayfalar: içeriği ayrı ayrı kurulan eski sayfalar. Kullanıcı bunları 6 kategorinin alt sekmesi olarak görür.
+local PAGES = {
  {key='q_genel', label='Genel', icon='tracker_quests', desc='Genel ayarlar, sesler, grup ve rehber'},
  {key='q_simge', label='Simgeler', icon='fav', desc='Haritada ve mini haritada hangi simgelerin nasıl görüneceği'},
- {key='q_takip', label='Takip', icon='tracker_giver', desc='Görev takip kutusu ve alınabilir görevler'},
- {key='q_harita', label='Harita', icon='node', desc='Rota, yol noktaları ve yolculuk'},
+ {key='q_takip', label='Görev kutuları', icon='tracker_giver', desc='Görev takip kutusu ve alınabilir görevler'},
+ {key='q_harita', label='Rota ve yolculuk', icon='node', desc='Rota, yol noktaları ve yolculuk'},
  {key='q_plaka', label='İsim plakası', icon='startend', desc='Görev yaratıklarının isim plakası simgeleri'},
  {key='q_oto', label='Otomatik', icon='tracker_clean', desc='Otomatik görev, çanta, satıcı ve kolaylıklar'},
  {key='sinifm', label='Sınıf / Meslek', icon='startend', desc='Yetenek planı, seviye kartı, sınıf görevleri, eşya ve meslek yardımcıları'},
  {key='uyari', label='Uyarılar', icon='tracker_close', desc='Uyarılar ve olay sesleri'},
- {key='gorunum', label='Görünüm', icon='tracker_database', desc='Pencereler, tema, saydamlık ve ölçek'},
+ {key='gorunum', label='Pencereler ve tema', icon='tracker_database', desc='Pencereler, tema, saydamlık ve ölçek'},
  {key='ozel', label='Özelleştir', icon='tracker_settings', desc='Görev renkleri, rozet konumu ve canlı önizleme'},
  {key='q_profil', label='Profiller', icon='tracker_search', desc='Profiller, ayar aktarma ve yedekler'},
  {key='q_gelismis', label='Gelişmiş', icon='tracker_settings', desc='Yazı tipleri, ayar penceresi, testler ve araçlar'},
 }
+local PAGE_BY_KEY = {}
+for _, p in ipairs(PAGES) do PAGE_BY_KEY[p.key] = p end
 
-FT.SettingsTabs = TABS
+-- Kategoriler: kullanıcının ne yapmak istediğine göre. Kenar sekmeleri bunlardır (FT.SettingsTabs).
+local GROUPS = {
+ {key='g_genel', label='Genel', icon='tracker_quests', desc='Rehber, yön oku ve görev kutuları', pages={'q_genel', 'q_takip'}},
+ {key='g_harita', label='Harita', icon='node', desc='Simgeler, rota, yolculuk ve isim plakaları', pages={'q_simge', 'q_harita', 'q_plaka'}},
+ {key='g_oto', label='Otomatik ve uyarılar', icon='tracker_clean', desc='Otomatik görev, çanta ve satıcı işleri; uyarılar ve sesler', pages={'q_oto', 'uyari'}},
+ {key='g_sinif', label='Sınıf ve meslek', icon='startend', desc='Yetenek planı, seviye kartı, eşya ve meslek yardımcıları', pages={'sinifm'}},
+ {key='g_gorunum', label='Görünüm', icon='tracker_database', desc='Pencereler, tema, ölçek ve görev renkleri', pages={'gorunum', 'ozel'}},
+ {key='g_gelismis', label='Profil ve gelişmiş', icon='tracker_settings', desc='Profiller, yedekler, testler ve araçlar', pages={'q_profil', 'q_gelismis'}},
+}
+local GROUP_BY_KEY, GROUP_OF_PAGE = {}, {}
+for _, g in ipairs(GROUPS) do
+ GROUP_BY_KEY[g.key] = g
+ for _, pk in ipairs(g.pages) do GROUP_OF_PAGE[pk] = g end
+end
+
+FT.SettingsTabs = GROUPS
+FT.SettingsPages = PAGES
+
+-- Eski sayfa adları (gorev, yol, canta...) artık sayfa değil; ilgili yeni yere yönlendirilir.
+local LEGACY_PAGE = {gorev='q_genel', yol='q_harita', canta='q_oto', simge='q_simge', kutu='q_takip', harita='q_harita'}
+local function resolve(key)
+ key = LEGACY_PAGE[key] or key
+ local g = GROUP_BY_KEY[key]
+ if g then
+  local last = ForeverTrailSettings and ForeverTrailSettings.c_lastPage
+  for _, pk in ipairs(g.pages) do if pk == last then return g, pk end end
+  return g, g.pages[1]
+ end
+ if PAGE_BY_KEY[key] then return GROUP_OF_PAGE[key], key end
+end
+FT.SettingsGroupOf = function(key) local g = resolve(key); return g and g.key end
 
 local items = {
  {tab='gorev', key='learn', label='Oynarken görev verisi topla (kendi veritabanımız)'},
@@ -182,7 +215,7 @@ function FT.CreateSettings()
  headLine:SetPoint('TOPLEFT', SIDEW + 12, -70); headLine:SetPoint('TOPRIGHT', -12, -70); headLine:SetColorTexture(1, 1, 1, 1)
  if FT.RegisterAccent then FT.RegisterAccent(headLine, 0.4) end
  frame.headLine = headLine
- for i, t in ipairs(TABS) do
+ for _, t in ipairs(PAGES) do
   local page
   if t.key:sub(1, 2) == 'q_' then
    page = CreateFrame('Frame', nil, frame)
@@ -214,6 +247,8 @@ function FT.CreateSettings()
   end
   page:Hide()
   frame.pages[t.key] = page
+ end
+ for i, t in ipairs(GROUPS) do
   local b = CreateFrame('Button', nil, frame)
   b:SetSize(SIDEW - 8, 30); b:SetPoint('TOPLEFT', 8, -30 - (i - 1) * 32)
   b.bg = b:CreateTexture(nil, 'BACKGROUND', nil, 3); b.bg:SetAllPoints()
@@ -227,6 +262,7 @@ function FT.CreateSettings()
   b.key, b.def = t.key, t
   frame.tabButtons[i] = b
  end
+ if FT.BuildSettingsNav then FT.BuildSettingsNav(frame) end
  local rowsUsed = {}
  for i, item in ipairs(items) do
   local page = frame.pages[item.tab]
@@ -311,26 +347,48 @@ function FT.CreateSettings()
   self.slider:SetValue(ForeverTrailSettings.arrowScale or 1)
   self.alphaSlider:SetValue(ForeverTrailSettings.trackerAlpha or 1)
   self.uiScale:SetValue(ForeverTrailSettings.uiScale or 1)
-  FT.SettingsTab(self.current or 'q_genel')
+  local last = ForeverTrailSettings.c_lastPage
+  FT.SettingsTab(self.current or (PAGE_BY_KEY[last] and last) or 'q_genel')
  end)
  frame:Hide()
 end
 
-function FT.SettingsTab(key)
- if not frame then return end
- frame.current = key
- for k, page in pairs(frame.pages) do
-  if k == key then page:Show() else page:Hide() end
-  if page.holder then page.holder:SetShown(k == key) end
- end
+-- Kenar düğmelerini boyar; on = açık kategorinin anahtarı (arama sonuçlarında nil: hiçbiri açık değil)
+local function paintNav(on)
  local a = FT.Style.accent
  for _, b in ipairs(frame.tabButtons) do
-  local on = b.key == key
-  b.bar:SetShown(on); b.bar:SetColorTexture(a[1], a[2], a[3], 1)
-  b.bg:SetColorTexture(1, 1, 1, on and 0.09 or 0)
-  if on then b.text:SetTextColor(a[1], a[2], a[3]); b.icon:SetVertexColor(a[1], a[2], a[3])
+  local sel = on ~= nil and b.key == on
+  b.bar:SetShown(sel); b.bar:SetColorTexture(a[1], a[2], a[3], 1)
+  b.bg:SetColorTexture(1, 1, 1, sel and 0.09 or 0)
+  if sel then b.text:SetTextColor(a[1], a[2], a[3]); b.icon:SetVertexColor(a[1], a[2], a[3])
   else b.text:SetTextColor(0.85, 0.82, 0.76); b.icon:SetVertexColor(0.75, 0.73, 0.68) end
-  if on then frame.pageTitle:SetText(b.def.label); frame.pageTitle:SetTextColor(a[1], a[2], a[3]); frame.pageDesc:SetText(b.def.desc) end
+ end
+end
+
+-- key: kategori (g_...), sayfa (q_..., sinifm...) ya da eski sayfa adı. Kategori verilirse en son bakılan alt sekme açılır.
+function FT.SettingsTab(key)
+ if not frame then return end
+ local g, pk = resolve(key)
+ if not g then return end
+ frame.current = pk
+ if ForeverTrailSettings then ForeverTrailSettings.c_lastPage = pk end
+ if frame.searchBox and frame.searchBox:GetText() ~= '' then
+  frame.searchQuiet = true; frame.searchBox:SetText(''); frame.searchQuiet = false
+  if frame.searchHint then frame.searchHint:Show() end
+ end
+ for k, page in pairs(frame.pages) do
+  if k == pk then page:Show() else page:Hide() end
+  if page.holder then page.holder:SetShown(k == pk) end
+ end
+ paintNav(g.key)
+ local a = FT.Style.accent
+ frame.pageTitle:SetText(g.label); frame.pageTitle:SetTextColor(a[1], a[2], a[3])
+ local multi = #g.pages > 1
+ frame.pageDesc:SetText(multi and '' or PAGE_BY_KEY[pk].desc)
+ for gk, bar in pairs(frame.subBars or {}) do
+  for _, b in ipairs(bar) do
+   if gk == g.key then b:Show(); if b.pageKey == pk then b:Disable() else b:Enable() end else b:Hide() end
+  end
  end
 end
 
@@ -826,3 +884,144 @@ end
 FT.GetSetting = get
 FT.SettingsItems = items
 FT.SettingsAfterChange = function() pcall(afterChange) end
+
+
+----------------------------------------------------------------------
+-- Gezinme: alt sekmeler ve arama
+----------------------------------------------------------------------
+local FOLD = {['\195\167']='c', ['\195\135']='c', ['\196\159']='g', ['\196\158']='g', ['\196\177']='i', ['\196\176']='i',
+ ['\195\182']='o', ['\195\150']='o', ['\197\159']='s', ['\197\158']='s', ['\195\188']='u', ['\195\156']='u'}
+-- Türkçe harfleri sadeleştirip küçültür: "Görev" araması "gorev" yazınca da bulunur
+local function fold(text)
+ text = tostring(text or '')
+ for from, to in pairs(FOLD) do text = text:gsub(from, to) end
+ return text:lower()
+end
+FT.FoldText = fold
+
+local searchIndex
+local function buildSearchIndex()
+ searchIndex = {}
+ local seen = {}
+ local function add(label, pk, section)
+  if not label or label == '' or not PAGE_BY_KEY[pk] then return end
+  local id = pk .. '|' .. label
+  if seen[id] then return end
+  seen[id] = true
+  local g, page = GROUP_OF_PAGE[pk], PAGE_BY_KEY[pk]
+  searchIndex[#searchIndex + 1] = {label = label, page = pk, section = section or '', path = g.label .. ' > ' .. page.label,
+   name = fold(label), hay = fold(label .. ' ' .. (section or '') .. ' ' .. g.label .. ' ' .. page.label)}
+ end
+ for _, page in ipairs(PAGES) do
+  local defs = FT.QuestiePageDefs and FT.QuestiePageDefs[page.key]
+  if defs then
+   local section = ''
+   for _, d in ipairs(defs) do
+    if d.type == 'header' then section = d.text
+    elseif d.type == 'buttons' then for _, it in ipairs(d.list) do add(it[1], page.key, section) end
+    else add(d.label, page.key, section) end
+   end
+  end
+ end
+ for _, it in ipairs(items) do if PAGE_BY_KEY[it.tab] then add(it.label, it.tab) end end
+ for _, sl in ipairs(SLIDERS) do add(sl.label, 'ozel') end
+ for _, label in ipairs({'Yön oku boyutu', 'Görev kutusu saydamlığı', 'Arayüz ölçeği', 'Renk teması', 'Yazı tipi', 'Konumları sıfırla', 'Kilit aç/kapat', 'Ayarları aktar'}) do
+  add(label, 'gorunum')
+ end
+end
+
+-- Arama: sözcüklerin hepsi ad, bölüm ya da sayfa adında geçmeli; ada uyanlar önce gelir.
+local MAX_RESULTS = 14
+function FT.SettingsSearch(query)
+ if not searchIndex then buildSearchIndex() end
+ local words = {}
+ for w in fold(query):gmatch('%S+') do words[#words + 1] = w end
+ local out = {}
+ if #words == 0 then return out end
+ for order, e in ipairs(searchIndex) do
+  local score = 0
+  for _, w in ipairs(words) do
+   if e.name:find(w, 1, true) then score = score + 2
+   elseif e.hay:find(w, 1, true) then score = score + 1
+   else score = nil; break end
+  end
+  if score then out[#out + 1] = {entry = e, score = score, order = order} end
+ end
+ table.sort(out, function(a, b) if a.score ~= b.score then return a.score > b.score end return a.order < b.order end)
+ local list = {}
+ for i = 1, math.min(#out, MAX_RESULTS) do list[i] = out[i].entry end
+ return list, #out
+end
+
+local function showSearch(query)
+ local list, total = FT.SettingsSearch(query)
+ for k, page in pairs(frame.pages) do
+  page:SetShown(k == 'zz_search')
+  if page.holder then page.holder:Hide() end
+ end
+ for _, bar in pairs(frame.subBars or {}) do for _, b in ipairs(bar) do b:Hide() end end
+ paintNav(nil)
+ local a = FT.Style.accent
+ frame.pageTitle:SetText('Arama'); frame.pageTitle:SetTextColor(a[1], a[2], a[3])
+ frame.pageDesc:SetText(#list == 0 and 'Sonuç yok. Başka bir sözcük dene.' or ('%d sonuç. Birine tıklayınca ayarın sayfası açılır.'):format(total or #list))
+ local res = frame.pages.zz_search
+ for i, row in ipairs(res.rows) do
+  local e = list[i]
+  if e then
+   row.entry = e; row.name:SetText(e.label); row.path:SetText(e.path); row:Show()
+  else row.entry = nil; row:Hide() end
+ end
+end
+
+function FT.BuildSettingsNav(f)
+ f.subBars = {}
+ for _, g in ipairs(GROUPS) do
+  if #g.pages > 1 then
+   local bar = {}
+   for i, pk in ipairs(g.pages) do
+    local b = FT.NewButton(f, PAGE_BY_KEY[pk].label, 112, 18)
+    b:SetPoint('TOPLEFT', f.pageTitle, 'BOTTOMLEFT', (i - 1) * 116, -4)
+    applyFont(b:GetFontString())
+    b.pageKey = pk
+    b:SetScript('OnClick', function() FT.SettingsTab(pk) end)
+    b:Hide()
+    bar[i] = b
+   end
+   f.subBars[g.key] = bar
+  end
+ end
+ -- arama kutusu
+ local box = CreateFrame('EditBox', nil, f, 'InputBoxTemplate')
+ box:SetSize(150, 20); box:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -36, -32); box:SetAutoFocus(false)
+ if box.SetMaxLetters then box:SetMaxLetters(40) end
+ local hint = box:CreateFontString(nil, 'OVERLAY', 'GameFontDisableSmall')
+ hint:SetPoint('LEFT', box, 'LEFT', 4, 0); hint:SetText('Ayarlarda ara...'); applyFont(hint)
+ box:SetScript('OnTextChanged', function(self)
+  if f.searchQuiet then return end
+  local q = self:GetText() or ''
+  hint:SetShown(q == '')
+  if q:match('%S') then showSearch(q) else FT.SettingsTab(f.current or 'q_genel') end
+ end)
+ box:SetScript('OnEscapePressed', function(self) self:SetText(''); self:ClearFocus() end)
+ box:SetScript('OnEnterPressed', function(self) self:ClearFocus() end)
+ f.searchBox, f.searchHint = box, hint
+ -- sonuç sayfası
+ local res = CreateFrame('Frame', nil, f)
+ res:SetPoint('TOPLEFT', SIDEW + 12, -80); res:SetPoint('BOTTOMRIGHT', -12, 10)
+ res:Hide()
+ res.rows = {}
+ for i = 1, MAX_RESULTS do
+  local row = CreateFrame('Button', nil, res)
+  row:SetSize(CW, 26); row:SetPoint('TOPLEFT', 0, -(i - 1) * 28)
+  row:SetHighlightTexture('Interface\Buttons\WHITE8X8'); row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
+  row.name = row:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
+  row.name:SetPoint('LEFT', 6, 6); row.name:SetWidth(CW - 12); row.name:SetJustifyH('LEFT'); applyFont(row.name)
+  row.path = row:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
+  row.path:SetPoint('LEFT', 6, -7); row.path:SetWidth(CW - 12); row.path:SetJustifyH('LEFT'); applyFont(row.path)
+  row.path:SetTextColor(0.62, 0.6, 0.55)
+  row:SetScript('OnClick', function(self) if self.entry then FT.SettingsTab(self.entry.page) end end)
+  row:Hide()
+  res.rows[i] = row
+ end
+ f.pages.zz_search = res
+end

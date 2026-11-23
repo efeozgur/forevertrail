@@ -287,6 +287,7 @@ local primary = {
 }
 -- "Daha fazla" menüsü
 local more = {
+ {'Hızlı ayarlar', function() FT.ToggleQuickSettings() end},
  {'Hedef kartı', function() FT.ToggleCard() end, function() return FT.card and FT.card:IsShown() end},
  {'Görev kutusu', function() FT.ToggleTracker() end, function() return FT.tracker and FT.tracker:IsShown() end},
  {'Yön oku', function() FT.ToggleArrow() end, function() return ForeverTrailSettings.arrow ~= false end},

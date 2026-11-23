@@ -312,6 +312,7 @@ Ana komut `/ftrail` (argümansız: ana pencereyi açar/kapatır). `/ftrail yardi
 |---|---|
 | `/ftrail` | Ana pencereyi aç/kapat |
 | `/ftrail ayar` | Ayarlar |
+| `/ftrail hizli` | Hızlı ayarlar penceresi |
 | `/ftrail yardim` | Komut listesi |
 | `/ftrail resetui` | Panel konumunu varsayılana döndür |
 | `/ftrail debug` | İstemci sürümü ve aktif durumu yaz |
@@ -361,8 +362,18 @@ Ana komut `/ftrail` (argümansız: ana pencereyi açar/kapatır). `/ftrail yardi
 
 ## Ayarlar sekmeleri
 
-| Sekme | İçerik |
-|---|---|
+Ayarlar 6 kategoriye ayrılmıştır; birden fazla sayfası olan kategorilerde başlığın altında alt sekmeler görünür. Penceredeki **arama kutusu** tüm ayarlarda arar (Türkçe harf yazmadan da bulur: "gorev" → "Görev") ve sonuca tıklayınca ayarın sayfasını açar. Oyun sırasında en sık değişenler için `/ftrail hizli` (ya da düğme çubuğunda **Daha fazla > Hızlı ayarlar**) küçük bir pencere açar.
+
+| Kategori | Alt sekmeler | İçerik |
+|---|---|---|
+| **Genel** | Genel, Görev kutuları | Sesler, grup, rehber ve ok; görev takip ve alınabilir görev kutuları |
+| **Harita** | Simgeler, Rota ve yolculuk, İsim plakası | Haritada/minimapte hangi simgeler, stil, boyut; rota, yol noktaları, uçuş; görev yaratığı simgesi |
+| **Otomatik ve uyarılar** | Otomatik, Uyarılar | Otomatik görev, ödül, toplama, çöp satma, tamir, kolaylıklar; uyarılar ve olay sesleri |
+| **Sınıf ve meslek** | | Yetenek, seviye kartı, sınıf görevi, eşya ve meslek yardımcıları |
+| **Görünüm** | Pencereler ve tema, Özelleştir | Pencereler, tema, saydamlık, ölçek; görev renkleri, rozet konumu, canlı önizleme |
+| **Profil ve gelişmiş** | Profiller, Gelişmiş | Profiller, ayar aktarma, yedekler; yazı tipleri, testler ve araçlar |
+
+---|---|
 | **Genel** | Genel ayarlar, sesler, grup, rehber |
 | **Simgeler** | Haritada/minimapte hangi simgeler, stil (Questie/Sade/Renkli), tür başına boyut, minimap soldurma |
 | **Takip** | Görev takip kutusu ve alınabilir görevler: gösterim biçimi, sıralama, görev sayısı, görünüm, hedef rengi, boyut |

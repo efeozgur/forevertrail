@@ -180,6 +180,20 @@ try('harita ipucu', FT.MapTooltip, {{step = {x = 0.5, y = 0.5, questId = 6, text
 try('satır ipucu', FT.QuestRowTip, UIParent, 7)
 FT.CreateAvailableBox(); try('alınabilir kutu', FT.RefreshAvailableBox)
 for _, tab in ipairs({'simge', 'kutu', 'gorunum', 'ozel', 'yol'}) do try('ayar sekmesi ' .. tab, FT.SettingsTab, tab) end
+for _, g in ipairs(FT.SettingsTabs) do try('ayar kategorisi ' .. g.key, FT.SettingsTab, g.key) end
+for _, p in ipairs(FT.SettingsPages) do try('ayar sayfası ' .. p.key, FT.SettingsTab, p.key) end
+try('ayar arama', function()
+ local function find(q, label) for _, e in ipairs(FT.SettingsSearch(q)) do if e.label == label then return true end end return false end
+ assert(find('yon oku', 'Yön oku'), 'yon oku bulunamadı (Türkçe harf sadeleştirme)')
+ assert(find('GÖREV KUTUSU', 'Görev kutusu boyutu'), 'büyük harf araması')
+ assert(#FT.SettingsSearch('xyzxyz') == 0, 'olmayan sözcük sonuç vermemeli')
+ assert(#FT.SettingsSearch('') == 0, 'boş arama sonuç vermemeli')
+ assert(FT.SettingsGroupOf('q_simge') == 'g_harita' and FT.SettingsGroupOf('yol') == 'g_harita', 'sayfa kategorisi')
+ FT.settings.searchBox:SetText('harita'); FT.settings.searchBox:GetScript('OnTextChanged')(FT.settings.searchBox)
+ assert(FT.settings.pages.zz_search.rows[1].entry, 'arama sonuç satırı dolmalı')
+ FT.SettingsTab('q_genel')
+end)
+try('hızlı ayarlar', function() FT.ToggleQuickSettings(); FT.ToggleQuickSettings() end)
 try('seçenek yenile', FT.RefreshOptions)
 try('kurulum', FT.ShowSetupWizard)
 for i = 1, 4 do try('kurulum adım ' .. i, function() ForeverTrailWizard.next:GetScript('OnClick')(ForeverTrailWizard.next) end) end

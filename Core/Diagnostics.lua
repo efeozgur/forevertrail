@@ -43,7 +43,7 @@ end
 
 function FT.Help()
  local lines = {
-  '/ftrail  panel   |  /ftrail ayar  ayarlar   |  /ftrail kucuk  küçük mod',
+  '/ftrail  panel   |  /ftrail ayar  ayarlar   |  /ftrail hizli  hızlı ayarlar   |  /ftrail kucuk  küçük mod',
   '/ftrail yakin  en yakın adım   |  /ftrail rota  otomatik rota',
   '/ftrail git 45.2 60.1  özel hedef   |  /ftrail iptal  özel hedefi kaldır (haritada Ctrl + sol tık da olur)',
   '/ftrail arrow  yön oku   |  /ftrail card  hedef kartı   |  /ftrail track  takip penceresi',

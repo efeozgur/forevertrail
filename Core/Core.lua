@@ -72,6 +72,7 @@ SlashCmdList.FOREVERTRAIL = function(raw)
   else FT.Print('Kullanım: /ftrail git 45.2 60.1 (bulunduğun haritada) veya haritada Ctrl + sol tık.') end
  elseif msg == 'kilit' then
   if FT.ToggleLock then FT.ToggleLock() end
+ elseif msg == 'hizli' then FT.ToggleQuickSettings()
  elseif msg == 'cubuk' then FT.ToggleDock()
  elseif msg == 'paylas' then FT.ShareStep()
  elseif msg == 'yetenek' then if FT.TalentTreeReadable and not FT.TalentTreeReadable() and FT.TalentPlannerAvailable() then FT.OpenTalentPlanner() else FT.ShowTalentAdvice() end
