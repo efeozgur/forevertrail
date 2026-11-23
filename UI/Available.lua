@@ -3,7 +3,7 @@ local _, FT = ...
 -- Ekranın sol kenarında "Alınabilir görevler" kutusu: bulunduğun bölgede alabileceğin görevler,
 -- en yakından uzağa; görev kutusu (sağ) ile aynı tasarım. Tıkla: yol göster.
 
-local WIDTH, PAD, MAX = 262, 12, 7
+local WIDTH, PAD, MAX = 276, 12, 7
 local box, header, toggle, emptyText
 local rows = {}
 
@@ -99,6 +99,7 @@ function FT.CreateAvailableBox()
  emptyText = newText(box, 12, '', 'LEFT')
  emptyText:SetPoint('TOPLEFT', PAD + 4, -36)
  emptyText:SetTextColor(0.78, 0.72, 0.64)
+ box.headerText, box.toggleButton = header, toggle -- QuestDock bunları gizler
  applyAlpha()
 end
 
@@ -200,10 +201,11 @@ function FT.RefreshAvailableBox()
   end
   return x.d < y.d
  end)
+ FT.availCount = #list
  header:SetText(('Alınabilir  |cff9aa0a6%d|r'):format(#list))
  header:SetTextColor(a[1], a[2], a[3])
  toggle:SetText(ForeverTrailSettings.availCollapsed and '+' or '-')
- if ForeverTrailSettings.availCollapsed then box.line:Hide(); box:SetHeight(32); return end
+ if ForeverTrailSettings.availCollapsed and not FT.questDock then box.line:Hide(); box:SetHeight(32); return end
  box.line:Show()
  local y = 34
  if view == 'tablo' then y = y + drawColumnHeader(y) end

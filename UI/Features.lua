@@ -1057,9 +1057,9 @@ end)
 function FT.ResetLayout()
  local s = ForeverTrailSettings
  s.arrowPoint, s.trackerPoint, s.dockPoint, s.availPoint = nil, nil, nil, nil
- if FT.availableBox then FT.availableBox:ClearAllPoints(); FT.availableBox:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', 2, -180) end
+ if FT.availableBox and not FT.questDock then FT.availableBox:ClearAllPoints(); FT.availableBox:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', 2, -180) end
  if FT.arrow then FT.arrow:ClearAllPoints(); FT.arrow:SetPoint('TOP', UIParent, 'TOP', 0, -140) end
- if FT.tracker then FT.tracker:ClearAllPoints(); FT.tracker:SetPoint('TOPRIGHT', UIParent, 'TOPRIGHT', -2, -230) end
+ do local qf = FT.QuestFrame and FT.QuestFrame() or FT.tracker; if qf then qf:ClearAllPoints(); qf:SetPoint('TOPRIGHT', UIParent, 'TOPRIGHT', -2, -230) end end
  if FT.dock then FT.dock:ClearAllPoints(); FT.dock:SetPoint('BOTTOMLEFT', UIParent, 'BOTTOMLEFT', 6, 230) end
  FT.Print('Ok, takip kutusu ve düğme çubuğu varsayılan yerlerine döndü.')
 end

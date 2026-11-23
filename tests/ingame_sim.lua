@@ -357,6 +357,18 @@ DESIGN = ('teslim(7)=%s, zorluk(5)=%.2f/%.2f/%.2f, uzaklık(6)=%s'):format(FT.Tu
 for _, page in ipairs({'rehber', 'gorevler', 'yerler', 'ansiklopedi', 'araclar', 'ayarlar'}) do try('hub ' .. page, FT.OpenHub, page) end
 for _, tab in ipairs({'gorev', 'yol', 'canta', 'uyari', 'gorunum', 'ozel'}) do try('ayar sekmesi ' .. tab, FT.SettingsTab, tab) end
 for _, key in ipairs(FT.themeOrder or {}) do try('tema ' .. key, FT.ApplyTheme, key) end
+try('görev penceresi', function()
+ assert(FT.BuildQuestDock(), 'görev penceresi kurulamadı: ' .. tostring(FT.questDockError))
+ assert(FT.questDock and FT.QuestFrame() == FT.questDock, 'QuestFrame pencereyi döndürmeli')
+ ForeverTrailSettings.dockTab = 'avail'; FT.RefreshQuestDock()
+ assert(FT.questDock.activeTab == 'avail' or not FT.availableBox:IsShown(), 'alınabilir sekmesi')
+ ForeverTrailSettings.dockTab = 'tracker'; FT.RefreshQuestDock()
+ assert(FT.questDock.activeTab == 'tracker', 'görevlerim sekmesi')
+ FT.tracker:Hide(); assert(not FT.tracker:IsShown(), 'Hide istenen görünürlüğü kapatmalı'); FT.tracker:Show(); assert(FT.tracker:IsShown(), 'Show açmalı')
+ ForeverTrailSettings.dockCollapsed = true; FT.RefreshQuestDock(); ForeverTrailSettings.dockCollapsed = nil; FT.RefreshQuestDock()
+ FT.RefreshTracker(); FT.RefreshAvailableBox()
+ for _, kind in ipairs({'tracker', 'avail'}) do FT.ToggleViewOptions(kind); FT.ToggleViewOptions(kind) end
+end)
 try('ortak bileşenler', function()
  local Kit = FT.Kit
  assert(Kit and Kit.RAIL_W == 84, 'Kit yok')

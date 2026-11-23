@@ -39,8 +39,8 @@ end
 ----------------------------------------------------------------------
 local MANAGED = {
  {key = 'arrow', label = 'Yön oku', get = function() return FT.arrow end},
- {key = 'tracker', label = 'Görev kutusu', get = function() return FT.tracker end},
- {key = 'avail', label = 'Alınabilir', get = function() return FT.availableBox end},
+ {key = 'tracker', label = 'Görev penceresi', get = function() return FT.QuestFrame and FT.QuestFrame() or FT.tracker end},
+ {key = 'avail', label = 'Alınabilir', get = function() if not FT.questDock then return FT.availableBox end end},
  {key = 'dock', label = 'Düğme çubuğu', get = function() return FT.dock end},
  {key = 'card', label = 'Hedef kartı', get = function() return FT.card end},
  {key = 'info', label = 'Bilgi çubuğu', get = function() return _G.ForeverTrailInfoBar end},
@@ -166,8 +166,8 @@ function FT.ApplyLayoutPreset(name)
   s.simple, s.availbox, s.tracker, s.trackerCollapsed = true, false, true, false
  elseif name == 'genis' then
   s.simple, s.availbox, s.tracker, s.trackerCollapsed = false, true, true, false
-  place(FT.tracker, 'TOPRIGHT', 'TOPRIGHT', -40, -160, 'trackerPoint')
-  place(FT.availableBox, 'TOPLEFT', 'TOPLEFT', 40, -160, 'availPoint')
+  place(FT.QuestFrame and FT.QuestFrame() or FT.tracker, 'TOPRIGHT', 'TOPRIGHT', -40, -160, 'trackerPoint')
+  if not FT.questDock then place(FT.availableBox, 'TOPLEFT', 'TOPLEFT', 40, -160, 'availPoint') end
   place(FT.arrow, 'TOP', 'TOP', 0, -96, 'arrowPoint')
   place(FT.dock, 'BOTTOMLEFT', 'BOTTOMLEFT', 40, 240, 'dockPoint')
  elseif name == 'hud' then

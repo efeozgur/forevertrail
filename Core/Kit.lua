@@ -280,3 +280,59 @@ function Kit.Scroll(parent)
  sf:SetScript('OnScrollRangeChanged', update)
  return sf
 end
+
+-- Bölmeli seçici (segmented control): bir grup seçenekten biri seçili. items = {{anahtar, yazı}, ...}
+function Kit.Segmented(parent, items, width, height, onPick)
+ height = height or 24
+ local seg = CreateFrame('Frame', nil, parent)
+ seg:SetSize(width, height)
+ Kit.Skin(seg, 'deep', 'line')
+ seg.buttons = {}
+ local count = #items
+ local bw = (width - 2) / count
+ for i, it in ipairs(items) do
+  local b = CreateFrame('Button', nil, seg)
+  b:SetSize(bw, height - 2); b:SetPoint('TOPLEFT', 1 + (i - 1) * bw, -1)
+  b.fill = b:CreateTexture(nil, 'BACKGROUND', nil, 2); b.fill:SetAllPoints()
+  b.text = b:CreateFontString(nil, 'OVERLAY'); Kit.Font(b.text, 11); b.text:SetPoint('CENTER', 0, 0); b.text:SetText(it[2])
+  b.key = it[1]
+  b:SetScript('OnEnter', function(self) self.hover = true; seg:Refresh() end)
+  b:SetScript('OnLeave', function(self) self.hover = false; seg:Refresh() end)
+  b:SetScript('OnClick', function() if onPick then onPick(it[1]) end end)
+  seg.buttons[i] = b
+ end
+ function seg:SetValue(key) self.value = key; self:Refresh() end
+ function seg:Refresh()
+  for _, b in ipairs(self.buttons) do
+   local on = b.key == self.value
+   local fill = on and Kit.Color('accent') or (b.hover and Kit.Color('card') or Kit.Color('deep'))
+   local text = on and Kit.Color('deep') or Kit.Color(b.hover and 'accent' or 'text')
+   b.fill:SetColorTexture(fill[1], fill[2], fill[3], 1); b.text:SetTextColor(text[1], text[2], text[3])
+  end
+ end
+ track(function() seg:Refresh() end)
+ return seg
+end
+
+-- Anahtar (switch): kaydıran açık/kapalı düğmesi. SetChecked / GetChecked / OnClick onay kutusuyla aynı.
+function Kit.Switch(parent)
+ local s = CreateFrame('Button', nil, parent)
+ s:SetSize(34, 18)
+ Kit.Skin(s, 'deep', 'line')
+ s.knob = s:CreateTexture(nil, 'ARTWORK'); s.knob:SetSize(12, 12)
+ function s:Refresh()
+  local on = self.on
+  self.knob:ClearAllPoints(); self.knob:SetPoint(on and 'RIGHT' or 'LEFT', on and -3 or 3, 0)
+  local k = Kit.Color(on and 'accent' or 'muted'); self.knob:SetColorTexture(k[1], k[2], k[3], 1)
+  local e = Kit.Color(on and 'accent' or 'line'); self.edge:SetColorTexture(e[1], e[2], e[3], 1)
+ end
+ function s:SetChecked(v) self.on = v and true or false; self:Refresh() end
+ function s:GetChecked() return self.on end
+ local rawSetScript, userClick = s.SetScript, nil
+ function s:SetScript(name, fn)
+  if name == 'OnClick' then userClick = fn else rawSetScript(self, name, fn) end
+ end
+ rawSetScript(s, 'OnClick', function(self) self:SetChecked(not self.on); if userClick then userClick(self) end end)
+ track(function() s:Refresh() end)
+ return s
+end

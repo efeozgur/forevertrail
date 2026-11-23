@@ -4,7 +4,7 @@ local _, FT = ...
 -- Biçim: Ayrıntılı / Liste / Tablo (görev kutusu), Kart / Liste / Tablo (alınabilir kutusu).
 -- Tüm anahtarlar Settings.lua'daki seçeneklerle ortaktır; bu pencere yalnızca hızlı erişimdir.
 
-local WIDTH = 420
+local WIDTH = 400
 local DEFS = {}
 
 DEFS.tracker = {
@@ -50,6 +50,54 @@ end
 
 local popups = {}
 
+-- Modern sayfa: bölümler, bölmeli seçiciler (Biçim) ve anahtarlar (Neler görünsün). Anahtarlar Ayarlar penceresiyle ortaktır.
+local function buildSheet(f, def)
+ local K = FT.Kit
+ local width = WIDTH - 32
+ local y = 0
+ local controls = {}
+ local function section(text)
+  if y > 0 then y = y + 8 end
+  local fs = K.Text(f, 11, 'accent'); fs:SetPoint('TOPLEFT', 16, -(40 + y)); fs:SetText(text)
+  local line = K.Divider(f); line:SetPoint('LEFT', fs, 'RIGHT', 8, 0); line:SetPoint('RIGHT', f, 'RIGHT', -16, 0)
+  y = y + 22
+ end
+ local function changed() if FT.SettingsAfterChange then FT.SettingsAfterChange() end end
+ for _, d in ipairs(def.opts) do
+  if d.type == 'header' then section(d.text)
+  elseif d.type == 'choice' then
+   local label = K.Text(f, 12, 'text'); label:SetPoint('TOPLEFT', 16, -(40 + y + 5)); label:SetText(d.label)
+   local seg = K.Segmented(f, d.list, width - 112, 24, function(key)
+    ForeverTrailSettings[d.key] = key
+    changed(); f.refresh()
+   end)
+   seg:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -16, -(40 + y))
+   controls[#controls + 1] = {def = d, seg = seg}
+   y = y + 32
+  elseif d.type == 'check' then
+   local label = K.Text(f, 12, 'text'); label:SetPoint('TOPLEFT', 16, -(40 + y + 3)); label:SetText(d.label)
+   label:SetWidth(width - 50); label:SetJustifyH('LEFT'); label:SetWordWrap(false)
+   local sw = K.Switch(f)
+   sw:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -16, -(40 + y + 2))
+   sw:SetScript('OnClick', function(self)
+    local v = self:GetChecked() and true or false
+    ForeverTrailSettings[d.key] = v
+    if d.apply then pcall(d.apply, v) end
+    changed()
+   end)
+   controls[#controls + 1] = {def = d, sw = sw}
+   y = y + 28
+  end
+ end
+ f.refresh = function()
+  for _, c in ipairs(controls) do
+   if c.seg then c.seg:SetValue(ForeverTrailSettings[c.def.key] or c.def.default)
+   else c.sw:SetChecked(FT.GetSetting and FT.GetSetting(c.def.key)) end
+  end
+ end
+ return y
+end
+
 local function build(kind)
  local def = DEFS[kind]
  local f = FT.NewWindow('ForeverTrail' .. kind .. 'ViewOptions', UIParent)
@@ -57,14 +105,20 @@ local function build(kind)
  local title = f:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
  title:SetPoint('TOPLEFT', 14, -10); title:SetText(def.title)
  if FT.StyleTitle then FT.StyleTitle(title) end
- local page = CreateFrame('Frame', nil, f)
- page:SetPoint('TOPLEFT', 14, -34); page:SetSize(WIDTH - 28, 10)
- local y = FT.BuildOptions(page, -2, WIDTH - 28, def.opts) or -200
- f:SetSize(WIDTH, math.max(160, -y + 84))
+ local y
+ if FT.Kit then
+  y = -buildSheet(f, def)
+  f:SetSize(WIDTH, 40 - y + 64)
+ else
+  local page = CreateFrame('Frame', nil, f)
+  page:SetPoint('TOPLEFT', 14, -34); page:SetSize(WIDTH - 28, 10)
+  y = FT.BuildOptions(page, -2, WIDTH - 28, def.opts) or -200
+  f:SetSize(WIDTH, math.max(160, -y + 84))
+ end
  local all = FT.NewButton(f, 'Tüm ayarlar', 104, 22); all:SetPoint('BOTTOMLEFT', 14, 12)
  all:SetScript('OnClick', function() if FT.ToggleSettings then FT.ToggleSettings() end end)
  local reset = FT.NewButton(f, 'Varsayılan', 96, 22); reset:SetPoint('LEFT', all, 'RIGHT', 6, 0)
- reset:SetScript('OnClick', function() resetDefaults(kind) end)
+ reset:SetScript('OnClick', function() resetDefaults(kind); if f.refresh then f.refresh() end end)
  local close = FT.NewButton(f, 'Kapat', 80, 22); close:SetPoint('BOTTOMRIGHT', -14, 12)
  close:SetScript('OnClick', function() f:Hide() end)
  if FT.FixFonts then pcall(FT.FixFonts, f) end
@@ -73,7 +127,7 @@ local function build(kind)
 end
 
 function FT.ToggleViewOptions(kind)
- local ref = kind == 'tracker' and FT.tracker or FT.availableBox
+ local ref = FT.questDock or (kind == 'tracker' and FT.tracker or FT.availableBox)
  if not (DEFS[kind] and ref and FT.BuildOptions and FT.NewWindow) then return end
  local f = popups[kind]
  if not f then
@@ -83,14 +137,15 @@ function FT.ToggleViewOptions(kind)
  end
  if f:IsShown() then f:Hide(); return end
  f:ClearAllPoints()
- if kind == 'tracker' then f:SetPoint('TOPRIGHT', ref, 'TOPLEFT', -6, 0) else f:SetPoint('TOPLEFT', ref, 'TOPRIGHT', 6, 0) end
+ if kind == 'tracker' or FT.questDock then f:SetPoint('TOPRIGHT', ref, 'TOPLEFT', -6, 0) else f:SetPoint('TOPLEFT', ref, 'TOPRIGHT', 6, 0) end
  f:Show()
+ if f.refresh then f.refresh() end
  if FT.RefreshOptions then pcall(FT.RefreshOptions) end
 end
 
 -- Pencerelerin başlık çubuğuna küçük "Ayar" düğmesi (+/- düğmesinin solu)
 local function attach(frame, kind)
- if not frame or frame.viewGear then return end
+ if not frame or frame.viewGear or FT.questDock then return end
  local b = FT.NewButton and FT.NewButton(frame, 'Ayar', 36, 18)
  if not b then b = CreateFrame('Button', nil, frame, 'UIPanelButtonTemplate'); b:SetSize(36, 18); b:SetText('Ayar') end
  b:SetPoint('TOPRIGHT', -32, -8)

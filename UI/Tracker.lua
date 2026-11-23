@@ -244,12 +244,21 @@ function FT.CreateTracker()
  emptyText:SetTextColor(0.78, 0.72, 0.64)
  moreText = newText(tracker, 11, '', 'LEFT')
  moreText:SetTextColor(0.78, 0.72, 0.64)
+ tracker.headerText, tracker.toggleButton = header, toggle -- QuestDock bunları gizler
  applyAlpha()
  if ForeverTrailSettings.tracker == false then tracker:Hide() end
 end
 
+-- Ekranda görev penceresi varsa konumu ve ölçeği onunla yönetilir (QuestDock); yoksa kutunun kendisi
+function FT.QuestFrame() return FT.questDock or tracker end
+
 function FT.ToggleTracker()
  if not tracker then return end
+ if FT.questDock then
+  ForeverTrailSettings.tracker = ForeverTrailSettings.tracker == false
+  if ForeverTrailSettings.tracker then tracker:Show(); FT.RefreshTracker() else tracker:Hide() end
+  return
+ end
  ForeverTrailSettings.tracker = not tracker:IsShown() and true or false
  if ForeverTrailSettings.tracker then tracker:Show(); FT.RefreshTracker() else tracker:Hide() end
 end
