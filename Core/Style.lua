@@ -1,14 +1,14 @@
 local _, FT = ...
 
--- Sıcak, yumuşak görünüm: ceviz zemin, kehribar kenarlık, krem yazı.
+-- Varsayılan görünüm "Gece": koyu mürekkep zemin, ince kenarlık, kehribar vurgu. Renkler Engine'de ApplyTheme ile yeniden uygulanır.
 FT.Style = {
- bg = {0.14, 0.10, 0.07, 0.94},
- border = {0.82, 0.64, 0.32, 1},
- band = {0.40, 0.26, 0.12, 0.60},
- panelFill = {0.07, 0.04, 0.02, 0.45},
- accent = {0.95, 0.72, 0.35},
- text = {1, 0.94, 0.82},
- muted = {0.78, 0.72, 0.64},
+ bg = {0.071, 0.110, 0.141, 0.95},
+ border = {0.141, 0.204, 0.255, 1},
+ band = {0.114, 0.169, 0.220, 0.90},
+ panelFill = {0.04, 0.07, 0.09, 0.45},
+ accent = {0.898, 0.663, 0.310},
+ text = {0.93, 0.94, 0.96},
+ muted = {0.67, 0.70, 0.76},
 }
 FT.Themes = {
  sicak = {name='Sıcak', bg={0.14, 0.10, 0.07, 0.94}, border={0.82, 0.64, 0.32, 1}, band={0.40, 0.26, 0.12, 0.60}, accent={0.95, 0.72, 0.35}},
@@ -23,7 +23,16 @@ FT.Themes.kozmik = {name='Kozmik', bg={0.07, 0.04, 0.15, 0.93}, border={0.75, 0.
 FT.Themes.gunbatimi = {name='Gün Batımı', bg={0.13, 0.05, 0.08, 0.93}, border={1.00, 0.55, 0.40, 1}, band={0.44, 0.14, 0.14, 0.70}, accent={1.00, 0.64, 0.46}}
 FT.Themes.okyanus = {name='Okyanus', bg={0.03, 0.09, 0.14, 0.93}, border={0.35, 0.75, 0.95, 1}, band={0.07, 0.27, 0.40, 0.70}, accent={0.46, 0.84, 1.00}}
 FT.Themes.klasik = {name='Klasik WoW', bg={0.03, 0.03, 0.05, 0.82}, border={0.62, 0.62, 0.66, 1}, band={0.30, 0.24, 0.08, 0.55}, accent={1.00, 0.82, 0.00}}
-FT.themeOrder = {'klasik', 'aurora', 'kozmik', 'gunbatimi', 'okyanus', 'sicak', 'gece', 'orman', 'safak', 'mor', 'kum'}
+-- Sabit görünümün renk şemaları: zemin (üç kademeden en açığı), ince kenar, başlık bandı ve tek vurgu rengi.
+-- Menüde yalnızca bunlar görünür (themeOrder); yukarıdaki eski temalar kodda durur ama listelenmez.
+FT.Themes.g_gece = {name='Gece', bg={0.071, 0.110, 0.141, 0.95}, border={0.141, 0.204, 0.255, 1}, band={0.114, 0.169, 0.220, 0.90}, accent={0.898, 0.663, 0.310}}
+FT.Themes.g_grafit = {name='Grafit', bg={0.102, 0.110, 0.125, 0.95}, border={0.173, 0.188, 0.220, 1}, band={0.165, 0.180, 0.212, 0.90}, accent={0.498, 0.722, 0.902}}
+FT.Themes.g_orman = {name='Orman', bg={0.078, 0.122, 0.102, 0.95}, border={0.149, 0.220, 0.184, 1}, band={0.122, 0.200, 0.161, 0.90}, accent={0.604, 0.804, 0.478}}
+FT.Themes.g_erik = {name='Erik', bg={0.118, 0.082, 0.153, 0.95}, border={0.227, 0.165, 0.278, 1}, band={0.180, 0.125, 0.251, 0.90}, accent={0.898, 0.561, 0.659}}
+FT.defaultTheme = 'g_gece'
+FT.themeOrder = {'g_gece', 'g_grafit', 'g_orman', 'g_erik'}
+-- Eski tema anahtarları: kayıtlı ayarda kalmışsa yeni varsayılana çevrilir (kendi temam ve sınıf rengi korunur)
+FT.legacyThemes = {sicak = true, gece = true, orman = true, safak = true, mor = true, kum = true, aurora = true, kozmik = true, gunbatimi = true, okyanus = true, klasik = true}
 local skinned, bands, accents, buttons = {}, {}, {}, {}
 
 -- Başlık bandı: soldan sağa solan geçişli renk (eski ve yeni istemci uyumlu)
@@ -57,7 +66,7 @@ function FT.RegisterAccent(texture, alpha)
 end
 
 function FT.ApplyTheme(key)
- local theme = FT.Themes[key] or FT.Themes.sicak
+ local theme = FT.Themes[key] or FT.Themes[FT.defaultTheme]
  local s = FT.Style
  s.bg, s.border, s.band, s.accent = theme.bg, theme.border, theme.band, theme.accent
  for _, entry in ipairs(skinned) do
@@ -76,7 +85,7 @@ function FT.ApplyTheme(key)
  if FT.StylePanel then pcall(FT.StylePanel) end
  if FT.RefreshHub then pcall(FT.RefreshHub) end
  if FT.BumpLayers then FT.BumpLayers() end
- if ForeverTrailSettings then ForeverTrailSettings.theme = FT.Themes[key] and key or 'sicak' end
+ if ForeverTrailSettings then ForeverTrailSettings.theme = FT.Themes[key] and key or FT.defaultTheme end
 end
 
 FT.TypeColor = {

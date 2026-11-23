@@ -90,12 +90,16 @@ function FT.Initialize()
  if FT.RestoreCustomTarget then FT.RestoreCustomTarget() end
  if FT.InstallMapClick then FT.InstallMapClick() end
  if FT.CreateSettings then FT.CreateSettings() end
- if ForeverTrailSettings.themeVersion ~= 2 then ForeverTrailSettings.theme = 'aurora'; ForeverTrailSettings.themeVersion = 2 end
  -- Questie görünümüne geçiş: eski görünüm seçimlerini bir kez sıfırla (simge stili, görev kutusu, ayar penceresi, tema)
  if (ForeverTrailSettings.designVersion or 0) < 3 then
   for _, k in ipairs({'c_iconStyle', 'c_trackerStyle', 'c_optionsStyle', 'c_trackerSort', 'c_objColor', 'c_trackerBg', 'c_trackerDensity'}) do ForeverTrailSettings[k] = nil end
-  ForeverTrailSettings.theme = 'klasik'
   ForeverTrailSettings.designVersion = 3
+ end
+ -- Sabit görünüme geçiş (v0.2): eski temalardan biri kayıtlıysa ya da hiç seçilmediyse yeni varsayılan şema
+ if ForeverTrailSettings.themeVersion ~= 3 then
+  local t = ForeverTrailSettings.theme
+  if not t or (FT.legacyThemes and FT.legacyThemes[t]) then ForeverTrailSettings.theme = FT.defaultTheme end
+  ForeverTrailSettings.themeVersion = 3
  end
  if FT.ApplyTheme then FT.ApplyTheme(ForeverTrailSettings.theme) end
  if FT.card and FT.card.close then FT.card.close:HookScript('OnClick', function() ForeverTrailSettings.card = false end) end

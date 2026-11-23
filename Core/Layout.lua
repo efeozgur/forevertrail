@@ -289,7 +289,7 @@ end
 local function customTheme()
  local s = ForeverTrailSettings
  if not s.customTheme then
-  local base = FT.Themes[s.theme or 'aurora'] or FT.Themes.aurora
+  local base = FT.Themes[s.theme or FT.defaultTheme] or FT.Themes[FT.defaultTheme]
   s.customTheme = {bg = {unpack(base.bg)}, border = {unpack(base.border)}, band = {unpack(base.band)}, accent = {unpack(base.accent)}}
  end
  local c = s.customTheme

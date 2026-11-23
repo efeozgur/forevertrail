@@ -357,6 +357,15 @@ DESIGN = ('teslim(7)=%s, zorluk(5)=%.2f/%.2f/%.2f, uzaklık(6)=%s'):format(FT.Tu
 for _, page in ipairs({'rehber', 'gorevler', 'yerler', 'ansiklopedi', 'araclar', 'ayarlar'}) do try('hub ' .. page, FT.OpenHub, page) end
 for _, tab in ipairs({'gorev', 'yol', 'canta', 'uyari', 'gorunum', 'ozel'}) do try('ayar sekmesi ' .. tab, FT.SettingsTab, tab) end
 for _, key in ipairs(FT.themeOrder or {}) do try('tema ' .. key, FT.ApplyTheme, key) end
+try('renk şemaları', function()
+ assert(FT.defaultTheme == 'g_gece' and FT.Themes.g_gece, 'varsayılan şema')
+ local shown = {}
+ for _, k in ipairs(FT.themeOrder) do shown[k] = true; local t = FT.Themes[k]; assert(t and t.bg and t.border and t.band and t.accent, 'şema alanları ' .. k) end
+ for _, k in ipairs({'g_gece', 'g_grafit', 'g_orman', 'g_erik'}) do assert(shown[k], 'menüde yok: ' .. k) end
+ for old in pairs(FT.legacyThemes) do assert(FT.Themes[old] and not shown[old], 'eski tema kodda durmalı ama menüde olmamalı: ' .. old) end
+ FT.ApplyTheme('g_erik'); assert(ForeverTrailSettings.theme == 'g_erik', 'şema uygulanmadı')
+ FT.ApplyTheme('yok'); assert(ForeverTrailSettings.theme == 'g_gece', 'bilinmeyen şema varsayılana dönmeli')
+end)
 for _, name in ipairs({'SuggestNext', 'ShowMissedQuests', 'ShowSetupWizard', 'ShowSummary', 'ShowProfessionGuide', 'ShowTalentAdvice',
  'ShowLogCleanup', 'ShowDungeonQuests', 'ToggleDataWindow', 'ToggleRecorder', 'ToggleTransfer', 'BuildRoute', 'SelectNearest',
  'ScanUpgrades', 'ShareStep', 'ToggleCard', 'ToggleTracker', 'ToggleArrow', 'ToggleDock', 'ToggleLock', 'ResetLayout', 'CycleFont',

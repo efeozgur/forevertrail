@@ -36,9 +36,9 @@ do
  local _, class = UnitClass and UnitClass('player')
  local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
  if c and FT.Themes then
-  FT.Themes.sinif = {name = 'Sınıf rengi', bg = {0.05, 0.05, 0.07, 0.92}, border = {c.r * 0.85, c.g * 0.85, c.b * 0.85, 1},
-   band = {c.r * 0.35, c.g * 0.35, c.b * 0.35, 0.65}, accent = {c.r, c.g, c.b}}
-  table.insert(FT.themeOrder, 2, 'sinif')
+  FT.Themes.sinif = {name = 'Sınıf rengi', bg = {0.05, 0.05, 0.07, 0.95}, border = {c.r * 0.45, c.g * 0.45, c.b * 0.45, 1},
+   band = {c.r * 0.30, c.g * 0.30, c.b * 0.30, 0.90}, accent = {c.r, c.g, c.b}}
+  table.insert(FT.themeOrder, 'sinif')
  end
 end
 

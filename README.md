@@ -283,7 +283,7 @@ Ekranın solunda, **bulunduğunuz bölgede alabileceğiniz** görevler; seviye, 
 
 - **Tek pencere düzeni (Hub):** Rehber, Görevler, Ansiklopedi, Sınıf, Meslekler, Yerler, Araçlar ve Ayarlar tek ana pencerede; Esc ile kapanır, başlıktan sürüklenir.
 - **İkon şeridi:** Rehber, Harita, Yakın, Yerler, Çanta, Ayarlar, Araçlar, Kilit düğmeleri (`/ftrail cubuk`).
-- **Temalar:** Aurora (varsayılan), Kozmik, Gün Batımı, Okyanus, Sıcak, Gece, Orman, Şafak, Mor, Kum, Klasik WoW, Sınıf rengi ve renk seçicili **kendi temanız**.
+- **Renk şemaları:** Sabit bir görünüm vardır; renkler 4 şemadan seçilir: **Gece** (varsayılan, koyu mürekkep + kehribar), **Grafit** (nötr gri + buz mavisi), **Orman** (koyu yeşil + yaprak yeşili), **Erik** (koyu mor + gül pembesi). Ayrıca **Sınıf rengi** ve renk seçicili **kendi temanız** vardır. Eski temalar (Aurora, Kozmik vb.) kodda durur ama menüde görünmez; kayıtlı eski tema ilk açılışta Gece'ye çevrilir.
 - **Questie görünümü (varsayılan):** Harita ve minimapte Questie tarzı simgeler, zeminsiz görev kutusu, sade isim plakası simgesi, Questie düzeninde ayar penceresi. Eski görünümler Ayarlar'dan seçilir (Sade/Renkli simge, Kutulu/Şeffaf kutu).
 - **Düzen modu** (`/ftrail yerlesim`): ızgara, sürükle-bırak; hazır düzenler (Varsayılan, Sade, Geniş ekran, HUD); `Konumları sıfırla`.
 - **Sade görünüm**, **sessiz mod** (`/ftrail sessiz`), **küçük mod** (`/ftrail kucuk`), arayüz ölçeği, yazı boyutu, görev kutusu saydamlığı, yazı tipi (`/ftrail font`: WoWTR / Arial; Türkçe harfler için).
