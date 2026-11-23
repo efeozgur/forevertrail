@@ -19,6 +19,8 @@ local function get(key)
 end
 
 local function show(widget, v) if widget then if v then widget:Show() else widget:Hide() end end end
+-- Yazıyı ortak metin rengine boyar (düz görünüm)
+local function tint(fs) local c = FT.Kit and FT.Kit.Color('text') or {1, 0.94, 0.82}; fs:SetTextColor(c[1], c[2], c[3]) end
 
 -- Sayfalar: içeriği ayrı ayrı kurulan eski sayfalar. Kullanıcı bunları 6 kategorinin alt sekmesi olarak görür.
 local PAGES = {
@@ -204,13 +206,13 @@ function FT.CreateSettings()
  -- Questie gibi: solda kategori listesi, sağda başlık + açıklama + içerik
  local side = frame:CreateTexture(nil, 'BACKGROUND', nil, 2)
  side:SetPoint('TOPLEFT', 8, -28); side:SetPoint('BOTTOMLEFT', 8, 8); side:SetWidth(SIDEW - 8)
- side:SetColorTexture(0, 0, 0, 0.22)
+ if FT.Kit then FT.Kit.Fill(side, 'rail') else side:SetColorTexture(0, 0, 0, 0.22) end
  frame.sideBg = side
  frame.pageTitle = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormalLarge')
  frame.pageTitle:SetPoint('TOPLEFT', SIDEW + 12, -32); applyFont(frame.pageTitle)
  frame.pageDesc = frame:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
  frame.pageDesc:SetPoint('TOPLEFT', frame.pageTitle, 'BOTTOMLEFT', 0, -4); frame.pageDesc:SetWidth(CW); frame.pageDesc:SetJustifyH('LEFT')
- applyFont(frame.pageDesc); frame.pageDesc:SetTextColor(0.75, 0.71, 0.64)
+ applyFont(frame.pageDesc); do local m = FT.Kit and FT.Kit.Color('muted') or {0.75, 0.71, 0.64}; frame.pageDesc:SetTextColor(m[1], m[2], m[3]) end
  local headLine = frame:CreateTexture(nil, 'ARTWORK'); headLine:SetHeight(1)
  headLine:SetPoint('TOPLEFT', SIDEW + 12, -70); headLine:SetPoint('TOPRIGHT', -12, -70); headLine:SetColorTexture(1, 1, 1, 1)
  if FT.RegisterAccent then FT.RegisterAccent(headLine, 0.4) end
@@ -222,7 +224,7 @@ function FT.CreateSettings()
    page:SetPoint('TOPLEFT', SIDEW + 12, -80); page:SetPoint('BOTTOMRIGHT', -12, 10)
   else
    -- uzun sayfalar pencereden taşmasın: kaydırılabilir kap
-   local holder = CreateFrame('ScrollFrame', nil, frame, 'UIPanelScrollFrameTemplate')
+   local holder = (FT.Kit and FT.Kit.Scroll(frame) or CreateFrame('ScrollFrame', nil, frame, 'UIPanelScrollFrameTemplate'))
    holder:SetPoint('TOPLEFT', SIDEW + 12, -80); holder:SetPoint('BOTTOMRIGHT', -30, 10)
    page = CreateFrame('Frame', nil, holder)
    page:SetSize(CW - 18, 1200)
@@ -254,7 +256,7 @@ function FT.CreateSettings()
   b.bg = b:CreateTexture(nil, 'BACKGROUND', nil, 3); b.bg:SetAllPoints()
   b.bar = b:CreateTexture(nil, 'ARTWORK'); b.bar:SetPoint('TOPLEFT'); b.bar:SetPoint('BOTTOMLEFT'); b.bar:SetWidth(3)
   b.icon = b:CreateTexture(nil, 'ARTWORK'); b.icon:SetSize(16, 16); b.icon:SetPoint('LEFT', 9, 0)
-  b.icon:SetTexture('Interface\\AddOns\\ForeverTrail\\Media\\' .. t.icon)
+  b.icon:SetTexture('Interface\\AddOns\\ForeverTrail\\Media\\' .. t.icon); b.icon:SetDesaturated(true)
   b.text = b:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight'); b.text:SetPoint('LEFT', b.icon, 'RIGHT', 7, 0)
   b.text:SetText(t.label); applyFont(b.text)
   b:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); b:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
@@ -269,11 +271,11 @@ function FT.CreateSettings()
   if page then
   local row = rowsUsed[item.tab] or 0
   rowsUsed[item.tab] = row + 1
-  local check = CreateFrame('CheckButton', nil, page, 'UICheckButtonTemplate')
+  local check = (FT.Kit and FT.Kit.CheckBox(page) or CreateFrame('CheckButton', nil, page, 'UICheckButtonTemplate'))
   check:SetPoint('TOPLEFT', 0, -row * 26)
   local label = page:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
   label:SetPoint('LEFT', check, 'RIGHT', 4, 0); label:SetWidth(CW - 40); label:SetJustifyH('LEFT')
-  label:SetText(item.label); applyFont(label); label:SetTextColor(1, 0.94, 0.82)
+  label:SetText(item.label); applyFont(label); tint(label)
   check:SetScript('OnClick', function(self)
    local value = self:GetChecked() and true or false
    ForeverTrailSettings[item.key] = value
@@ -291,7 +293,7 @@ function FT.CreateSettings()
  local function slider(name, labelText, minValue, maxValue, step, getValue, onChange)
   local text = look:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
   text:SetPoint('TOPLEFT', 4, y); text:SetText(labelText); applyFont(text)
-  local s = CreateFrame('Slider', name, look, 'OptionsSliderTemplate')
+  local s = (FT.Kit and FT.Kit.Slider(look, name) or CreateFrame('Slider', name, look, 'OptionsSliderTemplate'))
   s:SetPoint('TOPLEFT', 6, y - 18); s:SetWidth(CW - 16)
   s:SetMinMaxValues(minValue, maxValue); s:SetValueStep(step); s:SetValue(getValue())
   s:SetScript('OnValueChanged', function(_, value) onChange(math.floor(value / step + 0.5) * step) end)
@@ -361,7 +363,7 @@ local function paintNav(on)
   b.bar:SetShown(sel); b.bar:SetColorTexture(a[1], a[2], a[3], 1)
   b.bg:SetColorTexture(1, 1, 1, sel and 0.09 or 0)
   if sel then b.text:SetTextColor(a[1], a[2], a[3]); b.icon:SetVertexColor(a[1], a[2], a[3])
-  else b.text:SetTextColor(0.85, 0.82, 0.76); b.icon:SetVertexColor(0.75, 0.73, 0.68) end
+  else local m = FT.Kit and FT.Kit.Color('muted') or {0.8, 0.78, 0.72}; b.text:SetTextColor(m[1], m[2], m[3]); b.icon:SetVertexColor(m[1], m[2], m[3]) end
  end
 end
 
@@ -452,7 +454,7 @@ function FT.BuildCustomizePage(page, width)
   local sx = col * (width / 2)
   local text = page:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
   text:SetPoint('TOPLEFT', sx + 4, y); text:SetText(def.label); applyFont(text)
-  local s = CreateFrame('Slider', 'ForeverTrailCustom' .. def.key, page, 'OptionsSliderTemplate')
+  local s = (FT.Kit and FT.Kit.Slider(page, 'ForeverTrailCustom' .. def.key) or CreateFrame('Slider', 'ForeverTrailCustom' .. def.key, page, 'OptionsSliderTemplate'))
   s:SetPoint('TOPLEFT', sx + 6, y - 16); s:SetWidth(width / 2 - 20)
   s:SetMinMaxValues(def.min, def.max); s:SetValueStep(def.step)
   local low, high = _G[s:GetName() .. 'Low'], _G[s:GetName() .. 'High']
@@ -601,7 +603,7 @@ function FT.BuildOptions(page, y, width, defs)
    local text = page:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
    text:SetPoint('TOPLEFT', sx + 4, y); text:SetText(def.label); applyFont(text)
    local name = 'ForeverTrailOpt' .. def.key
-   local s = CreateFrame('Slider', name, page, 'OptionsSliderTemplate')
+   local s = (FT.Kit and FT.Kit.Slider(page, name) or CreateFrame('Slider', name, page, 'OptionsSliderTemplate'))
    s:SetPoint('TOPLEFT', sx + 6, y - 16); s:SetWidth(width / 2 - 20)
    s:SetMinMaxValues(def.min, def.max); s:SetValueStep(def.step)
    local low, high = _G[name .. 'Low'], _G[name .. 'High']
@@ -615,11 +617,11 @@ function FT.BuildOptions(page, y, width, defs)
    if col == 1 then y = y - 40; col = 0 else col = 1 end
   elseif def.type == 'check' then
    if col == 1 then y = y - 40; col = 0 end
-   local c = CreateFrame('CheckButton', nil, page, 'UICheckButtonTemplate')
-   c:SetPoint('TOPLEFT', 0, y + 4); c:SetSize(24, 24)
+   local c = (FT.Kit and FT.Kit.CheckBox(page) or CreateFrame('CheckButton', nil, page, 'UICheckButtonTemplate'))
+   c:SetPoint('TOPLEFT', 0, y + 1); c:SetSize(18, 18)
    local label = page:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
    label:SetPoint('LEFT', c, 'RIGHT', 4, 0); label:SetWidth(width - 40); label:SetJustifyH('LEFT')
-   label:SetText(def.label); applyFont(label); label:SetTextColor(1, 0.94, 0.82)
+   label:SetText(def.label); applyFont(label); tint(label)
    c:SetChecked(get(def.key))
    c:SetScript('OnClick', function(self)
     local v = self:GetChecked() and true or false
@@ -874,7 +876,7 @@ function FT.BuildQuestiePages(frame, width)
   local page = frame.pages[key]
   if page and not page.ftBuilt then
    page.ftBuilt = true
-   local scroll = CreateFrame('ScrollFrame', nil, page, 'UIPanelScrollFrameTemplate')
+   local scroll = (FT.Kit and FT.Kit.Scroll(page) or CreateFrame('ScrollFrame', nil, page, 'UIPanelScrollFrameTemplate'))
    scroll:SetPoint('TOPLEFT', 0, 0); scroll:SetPoint('BOTTOMRIGHT', -24, 0)
    local child = CreateFrame('Frame', nil, scroll)
    child:SetSize(width - 26, 10)
@@ -997,7 +999,7 @@ function FT.BuildSettingsNav(f)
   end
  end
  -- arama kutusu
- local box = CreateFrame('EditBox', nil, f, 'InputBoxTemplate')
+ local box = (FT.Kit and FT.Kit.Input(f) or CreateFrame('EditBox', nil, f, 'InputBoxTemplate'))
  box:SetSize(150, 20); box:SetPoint('TOPRIGHT', f, 'TOPRIGHT', -36, -32); box:SetAutoFocus(false)
  if box.SetMaxLetters then box:SetMaxLetters(40) end
  local hint = box:CreateFontString(nil, 'OVERLAY', 'GameFontDisableSmall')

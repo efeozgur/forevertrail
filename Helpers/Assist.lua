@@ -243,7 +243,7 @@ function FT.ToggleRecorder()
   if FT.StyleTitle then FT.StyleTitle(title) end
   recorder.status = recorder:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
   recorder.status:SetPoint('TOPLEFT', 14, -30); recorder.status:SetWidth(272); recorder.status:SetJustifyH('LEFT')
-  local box = CreateFrame('EditBox', nil, recorder, 'InputBoxTemplate')
+  local box = (FT.Kit and FT.Kit.Input(recorder) or CreateFrame('EditBox', nil, recorder, 'InputBoxTemplate'))
   box:SetSize(260, 22); box:SetPoint('TOPLEFT', 20, -48); box:SetAutoFocus(false)
   box:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
   local function refresh()

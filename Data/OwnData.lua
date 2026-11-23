@@ -268,7 +268,7 @@ function FT.ToggleDataWindow()
   if FT.StyleTitle then FT.StyleTitle(title) end
   transfer.info = transfer:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
   transfer.info:SetPoint('TOPLEFT', 14, -30); transfer.info:SetWidth(352); transfer.info:SetJustifyH('LEFT')
-  local box = CreateFrame('EditBox', nil, transfer, 'InputBoxTemplate')
+  local box = (FT.Kit and FT.Kit.Input(transfer) or CreateFrame('EditBox', nil, transfer, 'InputBoxTemplate'))
   box:SetSize(340, 22); box:SetPoint('TOP', 0, -70); box:SetAutoFocus(false); box:SetMaxLetters(0)
   box:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
   local function btn(text, x, fn)

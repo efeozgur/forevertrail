@@ -251,7 +251,7 @@ function FT.ToggleProfiles()
   local title = w:CreateFontString(nil, 'OVERLAY', 'GameFontNormal'); title:SetPoint('TOP', 0, -7); title:SetText('Profiller')
   if FT.StyleTitle then FT.StyleTitle(title) end
   w.current = w:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall'); w.current:SetPoint('TOPLEFT', 14, -30)
-  local box = CreateFrame('EditBox', nil, w, 'InputBoxTemplate')
+  local box = (FT.Kit and FT.Kit.Input(w) or CreateFrame('EditBox', nil, w, 'InputBoxTemplate'))
   box:SetSize(180, 20); box:SetPoint('TOPLEFT', 20, -50); box:SetAutoFocus(false)
   box:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
   local save = FT.NewButton(w, 'Kaydet', 90, 22); save:SetPoint('LEFT', box, 'RIGHT', 8, 0)

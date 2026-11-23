@@ -203,7 +203,7 @@ FT.RefreshEncyclopedia = refreshList
 function FT.BuildEncyclopedia(holder)
  if enc or not holder then return end
  enc = {filter='all', hereOnly=true, page=1, filterButtons={}}
- enc.search = CreateFrame('EditBox', nil, holder, 'InputBoxTemplate')
+ enc.search = (FT.Kit and FT.Kit.Input(holder) or CreateFrame('EditBox', nil, holder, 'InputBoxTemplate'))
  enc.search:SetSize(250, 20); enc.search:SetPoint('TOPLEFT', 8, -2); enc.search:SetAutoFocus(false)
  enc.search:SetScript('OnTextChanged', function() enc.page = 1; refreshList() end)
  enc.search:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)

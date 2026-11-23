@@ -188,6 +188,12 @@ function FT.QuestonSkin(f, alpha)
 end
 
 function FT.NewWindow(name, parent)
+ if FT.Kit then
+  local f = FT.Kit.Window(name, parent)
+  FT.fontRoots[#FT.fontRoots + 1] = f
+  f:HookScript('OnShow', function(self) if FT.FixFonts then FT.FixFonts(self) end end)
+  return f
+ end
  if FT.QuestonLook() then
   local f = CreateFrame('Frame', name, parent, BackdropTemplateMixin and 'BackdropTemplate' or nil)
   FT.fontRoots[#FT.fontRoots + 1] = f
@@ -216,6 +222,7 @@ end
 
 -- Düz, sıcak tonlu düğme: üzerine gelince parlar, devre dışıyken (seçili sekme) vurgulu kenarlık alır.
 function FT.SkinButton(b)
+ if b.Refresh then return b:Refresh() end -- Kit düğmesi kendini boyar
  if not (b.SetBackdrop or b.fill) then return end
  local s = FT.Style
  local selected = b.IsEnabled and not b:IsEnabled()
@@ -232,6 +239,7 @@ function FT.SkinButton(b)
 end
 
 function FT.NewButton(parent, text, width, height)
+ if FT.Kit then return FT.Kit.Button(parent, text, width, height) end
  if FT.QuestonLook() then
   local b = CreateFrame('Button', nil, parent, 'UIPanelButtonTemplate')
   b:SetSize(width, height or 22)

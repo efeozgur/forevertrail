@@ -494,7 +494,7 @@ function FT.BuildClassPage(holder)
  page.import = FT.NewButton(holder, 'Kendi planım', 66, 22); page.import:SetPoint('TOPLEFT', 380, -122)
  page.import:SetScript('OnClick', function()
   if not page.box then
-   page.box = CreateFrame('EditBox', nil, holder, 'InputBoxTemplate'); page.box:SetSize(420, 20); page.box:SetPoint('TOPLEFT', 6, -152)
+   page.box = (FT.Kit and FT.Kit.Input(holder) or CreateFrame('EditBox', nil, holder, 'InputBoxTemplate')); page.box:SetSize(420, 20); page.box:SetPoint('TOPLEFT', 6, -152)
    page.box:SetAutoFocus(true)
    page.box:SetScript('OnEnterPressed', function(self) FT.ImportTalentLink(self:GetText()); self:Hide() end)
    page.box:SetScript('OnEscapePressed', function(self) self:Hide() end)

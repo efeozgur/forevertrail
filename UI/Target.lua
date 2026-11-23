@@ -79,7 +79,8 @@ end
 
 local ROWS = 5
 local card, shownKey
-local AMBER = {0.82, 0.64, 0.32}
+-- Kart içindeki çerçeve kenarları: temanın ince çizgi rengi (kullanıldığı anda okunur, tema değişince güncel kalır)
+local AMBER = setmetatable({}, {__index = function(_, k) local c = FT.Kit and FT.Kit.Color('line') or {0.82, 0.64, 0.32}; return c[k] end})
 
 local function borderFrame(parent, w, h, edgeSize)
  local f = CreateFrame('Frame', nil, parent, BackdropTemplateMixin and 'BackdropTemplate' or nil)

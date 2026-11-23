@@ -40,12 +40,12 @@ local function build()
  win.checks = {}
  for i, row in ipairs(ROWS) do
   local def = findDef(row.key)
-  local check = CreateFrame('CheckButton', nil, win, 'UICheckButtonTemplate')
+  local check = (FT.Kit and FT.Kit.CheckBox(win) or CreateFrame('CheckButton', nil, win, 'UICheckButtonTemplate'))
   check:SetPoint('TOPLEFT', 14, -34 - (i - 1) * 26)
   local label = win:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
   label:SetPoint('LEFT', check, 'RIGHT', 4, 0); label:SetWidth(240); label:SetJustifyH('LEFT')
   label:SetText(row.label or (def and def.label) or row.key)
-  label:SetTextColor(1, 0.94, 0.82)
+  local c = FT.Kit and FT.Kit.Color('text') or {1, 0.94, 0.82}; label:SetTextColor(c[1], c[2], c[3])
   check.key = row.key
   check:SetScript('OnClick', function(self)
    local value = self:GetChecked() and true or false

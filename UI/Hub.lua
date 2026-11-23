@@ -36,6 +36,7 @@ local function adopt(frame, page, x, y)
  frame:SetFrameLevel(holders[page]:GetFrameLevel() + 2)
  if frame.close then frame.close:Hide() end
  if frame.softBg then frame.softBg:Hide() end
+ if FT.Kit then FT.Kit.Unchrome(frame) end
  if frame.title then frame.title:Hide() end
  frame:SetMovable(false)
  frame:SetScript('OnDragStart', nil)
@@ -68,8 +69,6 @@ end
 
 local opening = false
 function FT.OpenHub(page)
- if FT.QuestonActive and (page == 'araclar' or page == 'ayarlar') and FT.OpenQuestonSettings then if hub then hub:Hide() end if FT.OpenQuestonSettings(page == 'araclar' and 'ft_araclar' or 'ft_rehber') then return end end
- if page == 'ayarlar' and FT.QuestieOptionsOn and FT.QuestieOptionsOn() and FT.OpenQuestieOptions then if hub then hub:Hide() end return FT.OpenQuestieOptions() end
  if opening then return end
  opening = true
  local ok, err = pcall(function()

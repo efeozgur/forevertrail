@@ -126,9 +126,10 @@ function Kit.Button(parent, text, width, height, kind)
  function b:GetText() return self.label:GetText() end
  function b:GetFontString() return self.label end
  function b:Refresh()
+  -- Devre dışı düğme seçili sekme gibi gösterilir (eski davranış): açık zemin, vurgu kenarlı ve yazılı
   local off = self.IsEnabled and self:IsEnabled() == false
   local fill, edge, text
-  if off then fill, edge, text = Kit.Color('mid'), Kit.Color('line'), Kit.Color('muted')
+  if off then fill, edge, text = Kit.Color('card'), Kit.Color('accent'), Kit.Color('accent')
   elseif self.kind == 'primary' then
    fill = self.hover and lighten(Kit.Color('accent'), 1.12) or Kit.Color('accent')
    edge, text = fill, Kit.Color('deep')
@@ -161,4 +162,118 @@ function Kit.Check(parent, label, get, set)
  c:SetScript('OnClick', function(self) self:SetChecked(not self.on); if set then set(self.on) end end)
  c:SetChecked(get and get())
  return c
+end
+
+-- Pencere: düz zemin, ince kenar, 28 px başlık şeridi ve ortak kapatma düğmesi. Pencereler başlıklarını kendileri yazar.
+function Kit.Window(name, parent)
+ local f = CreateFrame('Frame', name, parent)
+ Kit.Skin(f, 'mid', 'line')
+ f.headerBand = f:CreateTexture(nil, 'BACKGROUND', nil, 2)
+ f.headerBand:SetPoint('TOPLEFT', 1, -1); f.headerBand:SetPoint('TOPRIGHT', -1, -1); f.headerBand:SetHeight(27)
+ Kit.Fill(f.headerBand, 'panel')
+ f.headerLine = f:CreateTexture(nil, 'ARTWORK')
+ f.headerLine:SetHeight(1); f.headerLine:SetPoint('TOPLEFT', 1, -28); f.headerLine:SetPoint('TOPRIGHT', -1, -28)
+ Kit.Fill(f.headerLine, 'line')
+ f.close = Kit.CloseButton(f, function() f:Hide() end)
+ f.close:SetPoint('TOPRIGHT', -3, -1)
+ return f
+end
+
+-- Bir pencere başka bir pencerenin (ana pencere) içine alınırken kendi çerçevesini bırakır
+function Kit.Unchrome(f)
+ for _, key in ipairs({'edge', 'fill', 'headerBand', 'headerLine', 'close'}) do
+  if f[key] then f[key]:Hide() end
+ end
+end
+
+-- Yazısız düz onay kutusu: oyunun CheckButton'ı gibi SetChecked / GetChecked / OnClick (tıklamada önce değişir, sonra çağrılır).
+function Kit.CheckBox(parent)
+ local c = CreateFrame('Button', nil, parent)
+ c:SetSize(18, 18)
+ Kit.Skin(c, 'deep', 'line')
+ c.mark = c:CreateTexture(nil, 'ARTWORK')
+ c.mark:SetPoint('TOPLEFT', 4, -4); c.mark:SetPoint('BOTTOMRIGHT', -4, 4)
+ Kit.Fill(c.mark, 'accent')
+ c.mark:Hide()
+ function c:SetChecked(v) self.on = v and true or false; self.mark:SetShown(self.on) end
+ function c:GetChecked() return self.on end
+ local rawSetScript, userClick = c.SetScript, nil
+ function c:SetScript(name, fn)
+  if name == 'OnClick' then userClick = fn else rawSetScript(self, name, fn) end
+ end
+ rawSetScript(c, 'OnClick', function(self) self:SetChecked(not self.on); if userClick then userClick(self) end end)
+ return c
+end
+
+-- Düz kaydırıcı: ince çizgi, vurgu dolgusu, küçük tutamak. OptionsSliderTemplate yerine geçer.
+function Kit.Slider(parent, name)
+ local s = CreateFrame('Slider', name, parent)
+ s:SetOrientation('HORIZONTAL'); s:SetHeight(14)
+ s.track = s:CreateTexture(nil, 'BACKGROUND'); s.track:SetHeight(4)
+ s.track:SetPoint('LEFT', 0, 0); s.track:SetPoint('RIGHT', 0, 0)
+ Kit.Fill(s.track, 'line')
+ s.fillBar = s:CreateTexture(nil, 'ARTWORK'); s.fillBar:SetHeight(4); s.fillBar:SetPoint('LEFT', 0, 0); s.fillBar:SetWidth(1)
+ Kit.Fill(s.fillBar, 'accent')
+ s:SetThumbTexture('Interface\Buttons\WHITE8X8')
+ local thumb = s:GetThumbTexture()
+ if thumb then thumb:SetSize(8, 14); track(function() local a = Kit.Color('accent'); thumb:SetVertexColor(a[1], a[2], a[3]) end) end
+ local function update(self)
+  local lo, hi = self:GetMinMaxValues()
+  local v, w = self:GetValue(), self:GetWidth()
+  if lo and hi and v and w and hi > lo then self.fillBar:SetWidth(math.max(1, w * (v - lo) / (hi - lo))) end
+ end
+ local rawSetScript, rawSetValue, rawSetMinMax = s.SetScript, s.SetValue, s.SetMinMaxValues
+ function s:SetScript(name, fn)
+  if name == 'OnValueChanged' then rawSetScript(self, name, function(sl, v) update(sl); if fn then fn(sl, v) end end)
+  else rawSetScript(self, name, fn) end
+ end
+ function s:SetValue(v) rawSetValue(self, v); update(self) end
+ function s:SetMinMaxValues(lo, hi) rawSetMinMax(self, lo, hi); update(self) end
+ return s
+end
+
+-- Düz arama / yazı kutusu (InputBoxTemplate yerine): koyu zemin, ince çizgi, odaktayken vurgu kenarlı.
+function Kit.Input(parent)
+ local e = CreateFrame('EditBox', nil, parent)
+ e:SetSize(160, 22); e:SetAutoFocus(false)
+ Kit.Skin(e, 'deep', 'line')
+ Kit.Font(e, 12)
+ e:SetTextInsets(8, 8, 0, 0)
+ track(function() local c = Kit.Color('text'); e:SetTextColor(c[1], c[2], c[3]) end)
+ local function edge()
+  local c = Kit.Color(e.focused and 'accent' or 'line'); e.edge:SetColorTexture(c[1], c[2], c[3], 1)
+ end
+ e:HookScript('OnEditFocusGained', function() e.focused = true; edge() end)
+ e:HookScript('OnEditFocusLost', function() e.focused = false; edge() end)
+ e:HookScript('OnEscapePressed', function(self) self:ClearFocus() end)
+ track(edge)
+ return e
+end
+
+-- Düz kaydırma alanı: ince bir kaydırma çubuğu (alanın sağ dışında 8 px), fare tekerleği.
+function Kit.Scroll(parent)
+ local sf = CreateFrame('ScrollFrame', nil, parent)
+ sf:EnableMouseWheel(true)
+ sf.bar = sf:CreateTexture(nil, 'ARTWORK'); sf.bar:SetWidth(3)
+ sf.bar:SetPoint('TOPRIGHT', sf, 'TOPRIGHT', 8, 0); sf.bar:SetPoint('BOTTOMRIGHT', sf, 'BOTTOMRIGHT', 8, 0)
+ Kit.Fill(sf.bar, 'line')
+ sf.thumb = sf:CreateTexture(nil, 'OVERLAY'); sf.thumb:SetWidth(3)
+ Kit.Fill(sf.thumb, 'accent')
+ local function update(self)
+  local ok, range = pcall(self.GetVerticalScrollRange, self)
+  local h = self:GetHeight()
+  if not ok or type(range) ~= 'number' or range <= 0 or not h or h <= 0 then self.thumb:Hide(); return end
+  local off = self:GetVerticalScroll() or 0
+  local th = math.max(24, h * h / (h + range))
+  self.thumb:SetHeight(th); self.thumb:ClearAllPoints()
+  self.thumb:SetPoint('TOPRIGHT', self, 'TOPRIGHT', 8, -((off / range) * (h - th)))
+  self.thumb:Show()
+ end
+ sf:SetScript('OnMouseWheel', function(self, delta)
+  local range = self:GetVerticalScrollRange() or 0
+  self:SetVerticalScroll(math.max(0, math.min(range, (self:GetVerticalScroll() or 0) - delta * 40)))
+ end)
+ sf:SetScript('OnVerticalScroll', update)
+ sf:SetScript('OnScrollRangeChanged', update)
+ return sf
 end

@@ -243,7 +243,7 @@ local function createTransfer()
  f:SetScript('OnDragStop', function(self) self:StopMovingOrSizing() end)
  local title = f:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
  title:SetPoint('TOP', 0, -7); title:SetText('Ayarları aktar')
- local box = CreateFrame('EditBox', nil, f, 'InputBoxTemplate')
+ local box = (FT.Kit and FT.Kit.Input(f) or CreateFrame('EditBox', nil, f, 'InputBoxTemplate'))
  box:SetSize(320, 22); box:SetPoint('TOP', 0, -38); box:SetAutoFocus(false); box:SetMaxLetters(0)
  box:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
  f.box = box

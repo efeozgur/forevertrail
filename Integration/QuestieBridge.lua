@@ -180,7 +180,7 @@ if QOE and QOE.ShowFrame then
   if not ok or not QOE.popup then return FT.OpenFTOptions and FT.OpenFTOptions(tab) end
   selectQuestieTab(PAGE_TO_TAB[tab or ''] or (tab and tab:match('^ft_') and tab) or 'ft_rehber')
  end
- FT.ToggleSettings = function() FT.OpenQuestieOptions() end
+ FT.ToggleSettings = function() if FT.ToggleHub then return FT.ToggleHub('ayarlar') end FT.OpenQuestieOptions() end
 end
 
 ----------------------------------------------------------------------

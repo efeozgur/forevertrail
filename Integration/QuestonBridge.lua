@@ -111,5 +111,5 @@ ev:SetScript('OnEvent', function(self, _, name)
   if FT.OpenQuestonSettings(PAGE[tab or ''] or (tab and tab:match('^ft_') and tab) or 'ft_rehber') then return end
   if FT.OpenFTOptions then return FT.OpenFTOptions(tab) end
  end
- FT.ToggleSettings = function() FT.OpenQuestieOptions() end
+ FT.ToggleSettings = function() if FT.ToggleHub then return FT.ToggleHub('ayarlar') end FT.OpenQuestieOptions() end
 end)
