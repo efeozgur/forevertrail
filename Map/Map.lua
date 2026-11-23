@@ -345,11 +345,21 @@ local lastLayerKey, lastLayerTime = nil, -100
 -- Harita katmanlarını yeniden çizmeye zorla (veri ya da ayar değişince)
 function FT.BumpLayers() FT.layerVersion = (FT.layerVersion or 0) + 1 end
 
+local switchedKey -- açık haritanın en son hangi hedef için çevrildiği
 function FT.RefreshMap()
  if not caption then return end
  local step = FT.TargetStep()
  local show = (FT.nav and FT.nav.step and FT.nav.step.hint) and FT.nav.step or step
  if FT.EnsureWaypoint(step) and not FT.chainPreview and show.uiMapID and WorldMapFrame:GetMapID() ~= show.uiMapID then WorldMapFrame:SetMapID(show.uiMapID) end
+ -- Hedef adım değişince (rehber seçildi, adım ilerledi) açık harita o adımın haritasına geçer; rota yalnızca açık harita hedefin
+ -- haritasıysa çizilir. Koordinatı hazır adımlar (bölge rehberleri) için yukarıdaki koşul hiç tetiklenmez. Sonra kullanıcı serbestçe gezinebilir.
+ if show and WorldMapFrame:IsShown() then
+  local key = tostring(FT.guide and FT.guide.guideId) .. ':' .. tostring(step and step.stepId) .. ':' .. tostring(show.uiMapID)
+  if key ~= switchedKey then
+   switchedKey = key
+   if show.uiMapID and not FT.chainPreview and WorldMapFrame:GetMapID() ~= show.uiMapID then WorldMapFrame:SetMapID(show.uiMapID) end
+  end
+ end
  if FT.DrawChain then pcall(FT.DrawChain, WorldMapFrame:GetMapID()) end
  player:Hide()
  route:Hide()

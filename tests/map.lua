@@ -22,7 +22,8 @@ methods.IsShown = function(self) return self.visible == true end
 methods.SetText = function(self, text) self.text = text end
 WorldMapFrame = widget()
 WorldMapFrame.pinFrameLevelsManager = {definitions={PIN_FRAME_LEVEL_DIG_SITE={startLevel=2100}}}
-methods.GetMapID = function() return 1 end
+methods.SetMapID = function(self, id) self.mapID = id end
+methods.GetMapID = function(self) return self.mapID or 1 end
 ShowUIPanel = function() end
 hooksecurefunc = function() end
 C_Map = {
@@ -60,6 +61,20 @@ assert(visibleWith('Interface\\Buttons\\WHITE8X8') >= 3, 'ışıklar kıvrımlı
 ft.CurrentRoute = nil
 ft.RefreshMap()
 assert(ft.MapRouteSegments() == 1, 'yol verisi kalkınca düz çizgiye dönülmeli (ek parçalar gizlenmeli): ' .. ft.MapRouteSegments())
+-- hedef adım değişince açık harita o adımın haritasına geçer (koordinatı hazır adım için de)
+WorldMapFrame.visible = true
+WorldMapFrame.mapID = 1
+step.uiMapID, step.x, step.y, step.stepId = 5, .4, .4, 'harita-gecisi'
+ft.RefreshMap()
+assert(WorldMapFrame.mapID == 5, 'hedef başka haritadaysa açık harita ona geçmeli: ' .. tostring(WorldMapFrame.mapID))
+WorldMapFrame.mapID = 7; ft.RefreshMap()
+assert(WorldMapFrame.mapID == 7, 'aynı hedef için kullanıcının gezdiği harita zorla geri çevrilmemeli')
+step.stepId = 'sonraki-adim'; ft.RefreshMap()
+assert(WorldMapFrame.mapID == 5, 'yeni adım için harita yeniden geçmeli')
+WorldMapFrame.visible = false; WorldMapFrame.mapID = 9; step.stepId = 'kapali-harita'; ft.RefreshMap()
+assert(WorldMapFrame.mapID == 9, 'harita kapalıyken çevrilmemeli')
+step.uiMapID, step.x, step.y, step.stepId = 1, .5, .5, nil
+WorldMapFrame.visible = true; WorldMapFrame.mapID = 1; ft.RefreshMap()
 local report = ft.MapDebug()
 assert(report:find('target=1,0.5,0.5',1,true) and report:find('route=true',1,true), 'diagnostics must include target and route state')
 step.x, step.y = nil, nil

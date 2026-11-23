@@ -264,6 +264,24 @@ INV[16] = 'item:100'
 SCORE = ('puan yeni %.1f / eski %.1f'):format(FT.ItemScore('item:200'), FT.ItemScore('item:100'))
 try('çanta dolu', FT.ShowSwapCompare, 'item:400', 5000, {{bag = 0, slot = 2, link = 'item:300', value = 3, count = 1}}, function(v) SWAPPED = v.link end)
 try('çanta seç', function() local r = FT.swapCompare.rows[1]; r:GetScript('OnClick')(r) end)
+-- En yakın adım (ok sağ tık): seçili bölge rehberinde kalır, günlük rehberine geçmez
+do
+ local saved = FT.guide
+ local g = {guideId = 'yakin-testi', version = 1, title = 'Y', zone = 'Z', steps = {
+  {stepId = 'a', type = 'accept', questId = 801, uiMapID = 1429, x = 0.10, y = 0.10, text = 'a'},
+  {stepId = 'b', type = 'accept', questId = 802, uiMapID = 1429, x = 0.49, y = 0.42, text = 'b'},
+  {stepId = 'c', type = 'accept', questId = 803, uiMapID = 1429, x = 0.90, y = 0.90, text = 'c'}}}
+ FT.guide = g; FT.active, FT.view, FT.complete = 1, 1, false
+ FT.SelectNearest()
+ assert(FT.guide == g and FT.guide.guideId == 'yakin-testi', 'bölge rehberi seçiliyken günlük rehberine geçilmemeli: ' .. tostring(FT.guide and FT.guide.guideId))
+ assert(FT.active == 2, 'en yakın adım seçilmeli: ' .. FT.active)
+ -- elle atlanan adım aday olmaz
+ ForeverTrailCharacter.skipped = {['yakin-testi:b'] = true}
+ FT.active = 1; FT.SelectNearest()
+ assert(FT.active ~= 2, 'atlanan adım en yakın olarak seçilmemeli')
+ ForeverTrailCharacter.skipped = nil
+ FT.guide = saved
+end
 -- NPC işlemleri: hazır rehber seçiliyken yalnızca rehberdeki görevler otomatik alınır/teslim edilir
 do
  local QID, accepted, completed, rewards, selectedA, selectedT = nil, {}, {}, {}, {}, {}

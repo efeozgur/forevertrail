@@ -183,8 +183,12 @@ local function readSteps()
 end
 
 function FT.SelectNearest()
- for index, guide in ipairs(FT.validGuides) do
-  if guide.live then FT.SelectGuide(index); break end
+ -- Hazır ya da bölge rehberi seçiliyken onun içinde en yakın yapılmamış adım seçilir; günlük rehberine geçilmez
+ local custom = FT.guide and not FT.guide.live and FT.guide.steps and true or false
+ if not custom then
+  for index, guide in ipairs(FT.validGuides) do
+   if guide.live then FT.SelectGuide(index); break end
+  end
  end
  local function notify(text) FT.notice = text; FT.Refresh() end
  if not (C_Map and C_Map.GetBestMapForUnit and FT.PlayerPosition) then return notify('Konum okunamıyor.') end
@@ -194,7 +198,13 @@ function FT.SelectNearest()
  if not good or not px then return notify('Konum okunamıyor.') end
  local best, bestDistance
  for index, step in ipairs(FT.guide.steps) do
-  if step.questId then
+  local finished = false
+  if custom and step.questId then
+   -- yapılmış ya da elle atlanmış adım aday değil
+   finished = FT.IsStepDone(step, FT.QuestState(step.questId, step.objectiveIndex)) or
+    (ForeverTrailCharacter and ForeverTrailCharacter.skipped and ForeverTrailCharacter.skipped[tostring(FT.guide.guideId) .. ':' .. tostring(step.stepId)]) and true or false
+  end
+  if step.questId and not finished then
    FT.EnsureWaypoint(step, true)
    if step.uiMapID == map and step.x and step.y then
     local measured, yards = pcall(FT.DistanceYards, step, px, py)
