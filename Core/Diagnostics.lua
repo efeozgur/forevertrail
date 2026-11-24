@@ -172,7 +172,7 @@ end
 -- Beklenen modüller. Oyun TOC'u yalnızca tamamen kapanıp açılınca yeniden okur; /reload yeni eklenen dosyaları YÜKLEMEZ.
 -- Yeni bir sürümden sonra yalnızca /reload yapılırsa bazı özellikler eksik kalır: bu kontrol bunu söyler.
 FT.ExpectedModules = {
- {'Rehber sekmesi', 'RefreshGuideTab'}, {'Otopilot', 'AutoPilotStep'}, {'Rota', 'CurrentRoute'}, {'Yolculuk kartı', 'RefreshRouteCard'},
+ {'Rehber sekmesi', 'RefreshGuideTab'}, {'Hedef listesi', 'RefreshTargetList'}, {'Otopilot', 'AutoPilotStep'}, {'Rota', 'CurrentRoute'}, {'Yolculuk kartı', 'RefreshRouteCard'},
  {'Adım bilgisi', 'StepInfo'}, {'Rehber seçici', 'ToggleGuidePicker'}, {'Bölge rehberleri', 'AutoGuide'},
  {'Görevler listesi', 'BuildSuggestions'}, {'Görev penceresi', 'BuildQuestDock'},
 }

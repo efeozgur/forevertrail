@@ -97,6 +97,7 @@ SlashCmdList.FOREVERTRAIL = function(raw)
  elseif msg == 'ozet' then FT.ShowSummary()
  elseif msg == 'meslek' then FT.ShowProfessionGuide()
  elseif msg == 'yerler' then FT.TogglePlaces()
+ elseif msg == 'hedefler' then if FT.ToggleTargetList then FT.ToggleTargetList() end
  elseif msg == 'yolbilgi' then if FT.RoadsInfo then FT.RoadsInfo() end
  elseif cmd == 'kaydet' then FT.AddPlaceHere(rest ~= '' and rest or 'Kayıtlı yer', 'Kayıtlı')
  elseif msg == 'ara' then FT.ClearVia()

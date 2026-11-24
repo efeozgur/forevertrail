@@ -225,15 +225,16 @@ function FT.BuildRoute()
  end
  local live = FT.guide
  local function notify(text) FT.notice = text; FT.Refresh() end
- local order, groups = {}, {}
+ -- Duraklar (adımlar) bazında, görev içi sırayı koruyarak en kısa yola göre sıralanır (Guide/RouteOpt.lua)
+ local steps, seen, count = {}, {}, 0
  for _, step in ipairs(live.steps) do
   if step.questId then
-   if not groups[step.questId] then groups[step.questId] = {}; order[#order+1] = step.questId end
-   local list = groups[step.questId]
-   list[#list+1] = step
+   FT.EnsureWaypoint(step, true)
+   steps[#steps+1] = step
+   if not seen[step.questId] then seen[step.questId] = true; count = count + 1 end
   end
  end
- if #order == 0 then return notify('Günlükte rota için görev yok.') end
+ if count == 0 then return notify('Günlükte rota için görev yok.') end
  local map, px, py
  if C_Map and C_Map.GetBestMapForUnit then
   local ok, value = pcall(C_Map.GetBestMapForUnit, 'player')
@@ -243,60 +244,27 @@ function FT.BuildRoute()
    if good then px, py = x, y end
   end
  end
- local known, unknown = {}, {}
- for _, questId in ipairs(order) do
-  local anchor
-  for _, step in ipairs(groups[questId]) do
-   FT.EnsureWaypoint(step, true)
-   if not anchor and map and step.uiMapID == map and step.x and step.y then anchor = step end
-  end
-  if anchor then known[#known+1] = {questId=questId, anchor=anchor} else unknown[#unknown+1] = questId end
+ local ordered, total, oldTotal = steps, 0, 0
+ if FT.RouteOrder then
+  local ok, result, newLen, oldLen = pcall(FT.RouteOrder, steps, (map and px) and {map = map, x = px, y = py} or nil)
+  if ok and type(result) == 'table' and #result == #steps then ordered, total, oldTotal = result, newLen or 0, oldLen or 0 end
  end
- local route, cx, cy = {}, px, py
- local total = 0
- local function take(questId)
-  for _, step in ipairs(groups[questId]) do
-   local copy = {}
-   for key, value in pairs(step) do copy[key] = value end
-   route[#route+1] = copy
-  end
+ local route = {}
+ for _, step in ipairs(ordered) do
+  local copy = {}
+  for key, value in pairs(step) do copy[key] = value end
+  route[#route+1] = copy
  end
- while #known > 0 do
-  local bestIndex, bestDistance = 1, nil
-  if cx and cy then
-   for i, entry in ipairs(known) do
-    local ok, yards = pcall(FT.DistanceYards, entry.anchor, cx, cy)
-    if ok and yards and (not bestDistance or yards < bestDistance) then bestIndex, bestDistance = i, yards end
-   end
-  end
-  if bestDistance then total = total + bestDistance end
-  local entry = table.remove(known, bestIndex)
-  take(entry.questId)
-  cx, cy = entry.anchor.x, entry.anchor.y
-  -- aynı hedefi isteyen görevleri hemen arkasına diz
-  local grouped = true
-  while grouped and FT.SharesTarget do
-   grouped = false
-   for i, other in ipairs(known) do
-    if FT.SharesTarget(entry.questId, other.questId) then
-     table.remove(known, i)
-     take(other.questId)
-     cx, cy = other.anchor.x, other.anchor.y
-     entry = other
-     grouped = true
-     break
-    end
-   end
-  end
- end
- for _, questId in ipairs(unknown) do take(questId) end
  local guide = {guideId='auto-route', version=1, title='Otomatik rota', zone='Günlük', steps=route}
  local valid, reason = FT.ValidateGuide(guide)
  if not valid then return notify('Rota oluşturulamadı: ' .. tostring(reason)) end
  FT.guide = guide
  FT.active, FT.view, FT.complete = 1, 1, false
- FT.notice = ('Rota oluşturuldu: %d görev, en yakından başlıyor.'):format(#order)
- if total > 0 and FT.FormatETA then FT.notice = FT.notice .. (' Tahmini yol: ~%d yd (%s).'):format(total, FT.FormatETA(total / 7)) end
+ FT.notice = ('Rota oluşturuldu: %d görev, durakların yakınlığına göre sıralandı.'):format(count)
+ if total > 0 and total < 4000 and FT.FormatETA then
+  FT.notice = FT.notice .. (' Tahmini yol: ~%d yd (%s).'):format(total, FT.FormatETA(total / 7))
+  if oldTotal > total * 1.05 then FT.notice = FT.notice .. (' Günlük sırasından %%%d kısa.'):format(math.floor((1 - total / oldTotal) * 100 + 0.5)) end
+ end
  FT.SaveStep()
  FT.Evaluate()
  FT.OpenMap()

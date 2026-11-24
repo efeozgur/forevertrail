@@ -29,6 +29,7 @@ Core/Engine.lua
 Map/Map.lua
 UI/Arrow.lua
 Guide/Journal.lua
+Guide/RouteOpt.lua
 Guide/StepInfo.lua
 Guide/AutoGuide.lua
 Guide/AutoPilot.lua
@@ -67,6 +68,7 @@ UI/ViewOptions.lua
 UI/QuestDock.lua
 UI/QuestList.lua
 UI/GuideTab.lua
+UI/TargetList.lua
 UI/GuidePicker.lua
 UI/AvailList.lua
 UI/QuestInfo.lua

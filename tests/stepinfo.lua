@@ -53,4 +53,20 @@ xp = 900; ft.PaceEvent('PLAYER_XP_UPDATE')
 xp = 50; xpMax = 1200; clock = 7200; ft.PaceEvent('PLAYER_XP_UPDATE')
 perHour = ft.Pace()
 assert(math.abs(perHour - (500 + 300 + 100 + 50) / 2) < 1e-6, 'seviye atlayınca kazanç: ' .. tostring(perHour))
+
+-- XP tahmini ve Yapılacaklar özeti (xp=50, eşik 1200, seviye 10)
+UnitLevel = function() return 10 end
+ft.QuestState = function() return {status = 'not_taken'} end
+C_QuestLog.IsComplete = function(id) return id == 11 end
+local todoGuide = {steps = {{type = 'turnin', questId = 11}, {type = 'turnin', questId = 14}, {type = 'turnin', questId = 14}}}
+local sum = ft.TodoSummary(todoGuide, 1)
+assert(sum.readyCount == 1 and sum.readyXP == 110 and sum.activeCount == 1 and sum.activeXP == 120, 'günlük görevleri: ' .. sum.readyXP .. '/' .. sum.activeXP)
+assert(sum.futureCount == 1 and sum.futureXP == 140, 'rehberde kalan (günlükte olmayan, tekrarsız): ' .. sum.futureCount .. '/' .. sum.futureXP)
+assert(sum.totalXP == 370 and sum.thisXP == 110, 'toplam ve bu görev: ' .. sum.totalXP)
+assert(sum.rows[1].questId == 11 and sum.rows[1].status == 'ready' and sum.rows[2].status == 'active', 'hazır görev önce')
+assert(sum.ready[1] == 10 and math.abs(sum.ready[2] - (50 + 110) / 1200) < 1e-9, 'teslim sonrası oran')
+assert(sum.all[1] == 10 and math.abs(sum.all[2] - (50 + 370) / 1200) < 1e-9 and not sum.all[3], 'hepsi bitince oran')
+local lv, frac, jumped = ft.ProjectXP(3000)
+assert(lv == 12 and jumped and frac > 0 and frac < 1, 'çok seviye atlama: ' .. tostring(lv))
+lv = ft.ProjectXP(0); assert(lv == 10, 'kazanç yoksa seviye değişmez')
 print('StepInfo tests passed')

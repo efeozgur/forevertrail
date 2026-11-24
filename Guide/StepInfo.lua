@@ -110,6 +110,102 @@ function FT.PendingTurnIns(exceptQuestId)
  return count, xp
 end
 
+-- Seviye tahmini: rehber `index` adımından sürdürülürse, teslim adımlarının XP'si bir sonraki seviyeyi hangi adımda getirir?
+-- Dönüş: adım sırası, seviye (yoksa nil)
+function FT.LevelForecast(guide, index)
+ if not (guide and guide.steps and index and UnitXP and UnitXPMax and UnitLevel and FT.QuestXPInfo) then return nil end
+ local need = UnitXPMax('player') - UnitXP('player')
+ if need <= 0 then return nil end
+ local gained = 0
+ for i = index, #guide.steps do
+  local s = guide.steps[i]
+  if s and s.type == 'turnin' and s.questId then
+   local ok, xp = pcall(FT.QuestXPInfo, s.questId)
+   if ok and type(xp) == 'number' then gained = gained + xp end
+   if gained >= need then return i, UnitLevel('player') + 1 end
+  end
+ end
+end
+
+-- XP kazancı eklenince seviye ve seviye içi oran: (level, oran 0-1, çok seviye atlandı mı).
+-- Sonraki seviyelerin XP eşiği bilinmiyor; her seviye için şimdiki eşiğin ~%7 fazlası varsayılır (tahmini).
+function FT.ProjectXP(gain)
+ if not (UnitXP and UnitXPMax and UnitLevel) then return nil end
+ local level, xp, max = UnitLevel('player'), UnitXP('player'), UnitXPMax('player')
+ if not max or max <= 0 then return nil end
+ local cap = GetMaxPlayerLevel and GetMaxPlayerLevel() or 60
+ local jumped = false
+ xp = xp + (gain or 0)
+ while xp >= max and level < cap do
+  xp = xp - max; level = level + 1; max = max * 1.07; jumped = true
+ end
+ return level, math.min(1, xp / max), jumped
+end
+
+-- "Yapılacaklar": günlükteki görevler (teslime hazır / sürüyor) ve rehberde kalan görevlerin XP katkısı.
+-- Dönüş: {rows = {{questId,title,xp,status,npc,estimated}...}, readyCount, readyXP, activeXP, futureCount, futureXP, totalXP,
+--         thisXP, thisPct, ready = {level, oran}, all = {level, oran, tahminiMi}, estimated}
+function FT.TodoSummary(guide, index)
+ local q = C_QuestLog
+ local out = {rows = {}, readyCount = 0, readyXP = 0, activeCount = 0, activeXP = 0, futureCount = 0, futureXP = 0, estimated = false}
+ local seen = {}
+ local max = UnitXPMax and UnitXPMax('player') or 0
+ local function xpOf(id)
+  if not FT.QuestXPInfo then return nil end
+  local ok, v, est = pcall(FT.QuestXPInfo, id)
+  if ok and type(v) == 'number' and v > 0 then
+   if est then out.estimated = true end
+   return v, est
+  end
+ end
+ if q and q.GetNumQuestLogEntries and q.GetInfo then
+  local ready, active = {}, {}
+  for i = 1, q.GetNumQuestLogEntries() do
+   local info = q.GetInfo(i)
+   local id = info and not info.isHeader and info.questID
+   if id and id > 0 then
+    seen[id] = true
+    local done = false
+    if q.IsComplete then local ok, v = pcall(q.IsComplete, id); done = ok and v == true end
+    local xp, est = xpOf(id)
+    local row = {questId = id, title = FT.QuestTitle and FT.QuestTitle(id, info.title) or info.title or '', xp = xp or 0, estimated = est,
+     status = done and 'ready' or 'active', npc = FT.StepNpc and FT.StepNpc({type = 'turnin', questId = id}) or nil}
+    if done then out.readyCount = out.readyCount + 1; out.readyXP = out.readyXP + row.xp; ready[#ready + 1] = row
+    else out.activeCount = out.activeCount + 1; out.activeXP = out.activeXP + row.xp; active[#active + 1] = row end
+   end
+  end
+  table.sort(ready, function(a, b) return a.xp > b.xp end)
+  table.sort(active, function(a, b) return a.xp > b.xp end)
+  for _, r in ipairs(ready) do out.rows[#out.rows + 1] = r end
+  for _, r in ipairs(active) do out.rows[#out.rows + 1] = r end
+ end
+ -- rehberde kalan, günlükte olmayan görevler (teslim adımı olanlar)
+ if guide and guide.steps and index then
+  for i = index, #guide.steps do
+   local s = guide.steps[i]
+   if s and s.type == 'turnin' and s.questId and not seen[s.questId] then
+    seen[s.questId] = true
+    local state = FT.QuestState and FT.QuestState(s.questId) or {}
+    if state.status ~= 'turned_in' then
+     out.futureCount = out.futureCount + 1
+     out.futureXP = out.futureXP + (xpOf(s.questId) or 0)
+    end
+   end
+  end
+  local cur = guide.steps[index]
+  if cur and cur.questId then
+   out.thisXP = xpOf(cur.questId)
+   if out.thisXP and max > 0 then out.thisPct = out.thisXP / max end
+  end
+ end
+ out.totalXP = out.readyXP + out.activeXP + out.futureXP
+ local rl, rp = FT.ProjectXP(out.readyXP)
+ if rl then out.ready = {rl, rp} end
+ local al, ap, jumped = FT.ProjectXP(out.totalXP)
+ if al then out.all = {al, ap, jumped} end
+ return out
+end
+
 ----------------------------------------------------------------------
 -- Tempo: oturumdaki XP hızı ve seviyeye kalan süre
 ----------------------------------------------------------------------

@@ -1,7 +1,8 @@
 local _, FT = ...
 
--- Dünya haritasının yanında "Yol sor" paneli: baktığın haritadaki hizmet NPC'leri (gömülü veriden)
--- ve kayıtlı yerler. Bir satıra tıklayınca ok, harita güzergahı ve minimap oraya döner.
+-- Dünya haritasının yanında "Yol sor" paneli: baktığın haritadaki hizmet NPC'leri (gömülü veriden) ve kayıtlı yerler.
+-- Çip şeridi (sonuç sayılı), "en yakın" hızlı şeridi, kaydırılabilir liste (yakın/ad/tür sıralaması, favori yıldızı),
+-- yerinde açılan satır, haritada işaretler ve aktif hedef kartı. Bir satıra tıklayınca ok, harita güzergahı ve minimap oraya döner.
 
 local FLAGS = {vendor=4, flight=8, trainer=16, inn=128, bank=256, auction=4096, stable=8192, repair=16384}
 local CATS = {
@@ -183,9 +184,26 @@ local function globalSearch(text)
  return out
 end
 
-local panel, rows, catButtons, searchBox, hint, ping, everywhere, detail, selected, emptyText, pageText, searchHint, targetText, targetClear
-local category, page, filtered = 'hepsi', 1, {}
-local PER = 11
+----------------------------------------------------------------------
+-- Arayüz: düz (Kit) görünüm; çip şeridi, kaydırılabilir liste, yerinde açılan satır, aktif hedef kartı
+----------------------------------------------------------------------
+local PANEL_W, HEAD_H = 300, 30
+local ROW_H, EXP_H, MAXSHOW = 42, 112, 60
+local CHIP_H = 22
+local PRIMARY = {hepsi = true, gorev = true, teslim = true, repair = true, vendor = true, inn = true}
+local GLYPH = {gorev = '!', teslim = '?', repair = 'T', vendor = 'S', inn = 'H', bank = 'B', flight = 'U', trainer = 'E', sinif = 'S',
+ meslek = 'M', auction = 'M', stable = 'A', evcil = 'E', zindan = 'Z', nadir = 'N', posta = 'P', kayit = '*', npc = '•'}
+local QUICK = {{'repair', 'Tamirci'}, {'inn', 'Han'}, {'flight', 'Uçuş'}, {'bank', 'Banka'}}
+local SORTS = {{'yakin', 'Yakın'}, {'ad', 'Ad'}, {'tur', 'Tür'}}
+
+local panel, body, sf, list, rows, chipFrame, chips, searchBox, searchHint, sortSeg, countText, emptyText, moreText
+local card, ping, pins, switchEverywhere, headerButtons
+local category, filtered, selectedKey = 'hepsi', {}, nil
+local counts = {}
+local favSet = {}
+
+local function S() return ForeverTrailSettings or {} end
+local function kit() return FT.Kit end
 
 local function playerDistance(e)
  if not (C_Map and C_Map.GetBestMapForUnit) then return nil end
@@ -200,94 +218,123 @@ local function playerDistance(e)
  return math.sqrt(dx * dx + dy * dy)
 end
 
-local function refresh()
- if not panel or not panel:IsShown() then return end
- local mapID = WorldMapFrame and WorldMapFrame:GetMapID()
- local text = (searchBox:GetText() or ''):lower()
- filtered = {}
- if mapID then
-  if (category == 'posta' or category == 'hepsi') and FT.MailboxesOn then
-   for _, e in ipairs(FT.MailboxesOn(mapID)) do filtered[#filtered + 1] = e end
-  end
-  if FLAGS[category] or category == 'hepsi' then
-   for _, e in ipairs(servicesOn(mapID)) do
-    if (category == 'hepsi' or hasFlag(e.flags, FLAGS[category])) and (text == '' or e.name:lower():find(text, 1, true) or (e.sub and e.sub:lower():find(text, 1, true))) then
-     filtered[#filtered + 1] = e
-    end
-   end
-  end
-  for _, e in ipairs(extraOn(category, mapID)) do
-   if text == '' or e.name:lower():find(text, 1, true) or (e.sub and e.sub:lower():find(text, 1, true)) then filtered[#filtered + 1] = e end
-  end
-  if ForeverTrailSettings.routeEverywhere and #text >= 3 then
-   local seen = {}
-   for _, e in ipairs(filtered) do seen[e.name] = true end
-   for _, e in ipairs(globalSearch(text)) do if not seen[e.name] then filtered[#filtered + 1] = e end end
-  end
-  if category == 'hepsi' or category == 'kayit' then
-   for _, p in ipairs(ForeverTrailSettings.places or {}) do
-    if p.map == mapID and (text == '' or p.name:lower():find(text, 1, true)) then
-     filtered[#filtered + 1] = {name=p.name, sub=p.cat, cat='kayit', map=p.map, x=p.x, y=p.y}
-    end
-   end
-  end
- end
- for _, e in ipairs(filtered) do e.dist = playerDistance(e) end
- table.sort(filtered, function(a, b)
-  if (a.dist ~= nil) ~= (b.dist ~= nil) then return a.dist ~= nil end
-  if a.dist and b.dist then return a.dist < b.dist end
-  return a.name < b.name
- end)
- page = math.max(1, math.min(page, math.ceil(math.max(1, #filtered) / PER)))
- for i, r in ipairs(rows) do
-  local e = i <= PER and filtered[(page - 1) * PER + i] or nil
-  r.entry = e
-  if e then
-   r.name:SetText(e.name)
-   r.sub:SetText(e.sub or CAT_LABEL[e.cat] or '')
-   local c = CAT_COLOR[e.cat] or CAT_COLOR.npc
-   r.bar:SetColorTexture(c[1], c[2], c[3], 1)
-   if e.dist then r.dist:SetText(('%d yd'):format(e.dist + 0.5))
-   elseif e.map ~= mapID then r.dist:SetText('|cff9aa0a6' .. (FT.MapName and FT.MapName(e.map) or '') .. '|r')
-   else r.dist:SetText(('%.0f, %.0f'):format(e.x * 100, e.y * 100)) end
-   r:Show()
-  else r:Hide() end
- end
- local name = mapID and FT.MapName and FT.MapName(mapID) or ''
- local pages = math.max(1, math.ceil(#filtered / PER))
- if #filtered == 0 then
-  hint:SetText(name ~= '' and (name .. ' haritası') or '')
-  emptyText:SetText('Burada sonuç yok.\nBaşka bir tür seç, aramayı değiştir ya da haritada başka bir bölgeye geç.\nTüm dünyada aramak için "Her yer" düğmesini aç.')
-  emptyText:Show()
- else
-  hint:SetText(('%s  ·  %d yer   (%d/%d)'):format(name, #filtered, page, pages))
-  emptyText:Hide()
- end
- pageText:SetText(#filtered > PER and ('Sayfa %d / %d'):format(page, pages) or '')
- for _, b in ipairs(catButtons) do if b.key == category then b:Disable() else b:Enable() end end
- if everywhere then everywhere:SetText(ForeverTrailSettings.routeEverywhere and 'Her yer: açık' or 'Her yer: kapalı') end
- local t = FT.customTarget
- if t then
-  targetText:SetText('|cff55ff55Ok şu an:|r ' .. tostring(t.questTitle or t.text or 'Seçtiğin nokta'))
-  targetClear:Show()
- else
-  targetText:SetText('|cff9aa0a6Henüz hedef seçmedin.|r')
-  targetClear:Hide()
- end
+local function etaText(d)
+ if not d then return '' end
+ local ok, text = pcall(function() return FT.FormatETA and FT.FormatETA(d / 7) or '' end)
+ return ok and text or ''
 end
-FT.RefreshMapRoute = refresh
-function FT.RouteCategory(c) category = c; page = 1; refresh() end
-function FT.RouteSearch(t) if searchBox then searchBox:SetText(t or '') end; page = 1; refresh() end
-function FT.RouteCount() return #filtered end
-FT.MapServices = servicesOn
+
+local function keyOf(e) return ('%s:%s:%d:%d'):format(tostring(e.map), tostring(e.name), math.floor((e.x or 0) * 1000 + 0.5), math.floor((e.y or 0) * 1000 + 0.5)) end
+
+local function buildFavSet()
+ favSet = {}
+ for _, p in ipairs(S().places or {}) do favSet[keyOf(p)] = true end
+end
+
+local function matches(e, text)
+ if text == '' then return true end
+ local name = type(e.name) == 'string' and e.name:lower() or ''
+ if name:find(text, 1, true) then return true end
+ return type(e.sub) == 'string' and e.sub:lower():find(text, 1, true) ~= nil
+end
+
+-- Bir tür için, bu haritadaki yerler (mesafe/sıralama yok)
+local function collect(cat, mapID, text, everywhere)
+ local out = {}
+ if not mapID then return out end
+ if (cat == 'posta' or cat == 'hepsi') and FT.MailboxesOn then
+  for _, e in ipairs(FT.MailboxesOn(mapID)) do if matches(e, text) then out[#out + 1] = e end end
+ end
+ if FLAGS[cat] or cat == 'hepsi' then
+  for _, e in ipairs(servicesOn(mapID)) do
+   if (cat == 'hepsi' or hasFlag(e.flags, FLAGS[cat])) and matches(e, text) then out[#out + 1] = e end
+  end
+ end
+ for _, e in ipairs(extraOn(cat, mapID)) do if matches(e, text) then out[#out + 1] = e end end
+ if everywhere and #text >= 3 then
+  local seen = {}
+  for _, e in ipairs(out) do seen[e.name] = true end
+  for _, e in ipairs(globalSearch(text)) do if not seen[e.name] then out[#out + 1] = e end end
+ end
+ if cat == 'hepsi' or cat == 'kayit' then
+  local have = {}
+  for _, e in ipairs(out) do have[keyOf(e)] = true end
+  for _, p in ipairs(S().places or {}) do
+   if p.map == mapID and matches(p, text) and (cat == 'kayit' or not have[keyOf(p)]) then
+    out[#out + 1] = {name = p.name, sub = p.cat, cat = 'kayit', map = p.map, x = p.x, y = p.y, saved = true}
+   end
+  end
+ end
+ return out
+end
+
+local function buildCounts(mapID)
+ if not mapID then return end
+ local c = {}
+ for _, def in ipairs(CATS) do
+  local ok, result = pcall(collect, def.key, mapID, '', false)
+  c[def.key] = ok and #result or 0
+ end
+ counts[mapID] = c
+end
+FT.liveListeners[#FT.liveListeners + 1] = function() counts = {} end
+
+local function attachTip(button, title, text)
+ button:HookScript('OnEnter', function(self)
+  if not GameTooltip then return end
+  GameTooltip:SetOwner(self, 'ANCHOR_TOP'); GameTooltip:SetText(title, 1, 0.82, 0)
+  if text and text ~= '' then GameTooltip:AddLine(text, 0.9, 0.9, 0.9, true) end
+  GameTooltip:Show()
+ end)
+ button:HookScript('OnLeave', function() if GameTooltip then GameTooltip:Hide() end end)
+end
+
+local function goTo(e)
+ if not e then return end
+ if e.questId and FT.GoToQuest then FT.GoToQuest(e.questId) else FT.SetCustomTarget(e.map, e.x, e.y, e.name) end
+ if FT.RefreshMapRoute then FT.RefreshMapRoute() end
+end
+
+-- Haritada vurgu: listedeki yerler için bizim kendi işaretlerimiz (başka eklentilerin işaretlerine dokunulmaz)
+local function hidePins()
+ for _, p in ipairs(pins or {}) do p:Hide() end
+ if ping then ping:Hide() end
+end
+
+local function drawPins(mapID)
+ local overlay = FT.mapParts and FT.mapParts.overlay
+ pins = pins or {}
+ if not overlay or not panel or not panel:IsShown() or S().routeHighlight == false then
+  for _, p in ipairs(pins) do p:Hide() end
+  return
+ end
+ local used = 0
+ for _, e in ipairs(filtered) do
+  if e.map == mapID and used < 40 then
+   used = used + 1
+   local p = pins[used]
+   if not p then
+    p = overlay:CreateTexture(nil, 'OVERLAY')
+    p:SetTexture('Interface\\Cooldown\\star4'); p:SetBlendMode('ADD')
+    pins[used] = p
+   end
+   local c = CAT_COLOR[e.cat] or CAT_COLOR.npc
+   local chosen = selectedKey and keyOf(e) == selectedKey
+   p:SetSize(chosen and 40 or 22, chosen and 40 or 22)
+   p:SetVertexColor(c[1], c[2], c[3], chosen and 1 or 0.85)
+   p:ClearAllPoints(); p:SetPoint('CENTER', overlay, 'TOPLEFT', e.x * overlay:GetWidth(), -e.y * overlay:GetHeight())
+   p:Show()
+  end
+ end
+ for i = used + 1, #pins do pins[i]:Hide() end
+end
 
 local function showPing(e)
- local parts = FT.mapParts
- local overlay = parts and parts.overlay
+ local overlay = FT.mapParts and FT.mapParts.overlay
  if not overlay then return end
  if not ping then
   ping = overlay:CreateTexture(nil, 'OVERLAY')
-  ping:SetTexture('Interface\\Cooldown\\star4'); ping:SetBlendMode('ADD'); ping:SetSize(46, 46)
+  ping:SetTexture('Interface\\Cooldown\\star4'); ping:SetBlendMode('ADD'); ping:SetSize(54, 54)
  end
  if not e or e.map ~= WorldMapFrame:GetMapID() then ping:Hide(); return end
  local a = FT.Style.accent
@@ -307,54 +354,312 @@ local function nearestFlight(e)
  return best
 end
 
-local function showDetail(e)
- selected = e
- if not detail then return end
- if not e then
-  detail.text:SetText(''); detail.empty:Show(); detail.go:Hide(); detail.map:Hide(); detail.save:Hide()
-  return
- end
- detail.empty:Hide(); detail.go:Show(); detail.map:Show(); detail.save:Show()
- local lines = {('|cffffd100%s|r'):format(e.name)}
- if e.sub and e.sub ~= '' then lines[#lines + 1] = e.sub end
+local function detailText(e)
+ local lines = {}
  local zone = FT.MapName and FT.MapName(e.map) or ''
- lines[#lines + 1] = ('%s  %.1f, %.1f%s'):format(zone, e.x * 100, e.y * 100, e.dist and ('  ·  ' .. math.floor(e.dist + 0.5) .. ' yd') or '')
+ lines[#lines + 1] = ('%s  %.1f, %.1f'):format(zone, (e.x or 0) * 100, (e.y or 0) * 100)
  local f = nearestFlight(e)
- if f then lines[#lines + 1] = '|cff9aa0a6En yakın uçuş: ' .. f.name .. '|r' end
+ if f and f.name ~= e.name then lines[#lines + 1] = 'En yakın uçuş: ' .. f.name end
  if e.questId and FT.QuestStatus then lines[#lines + 1] = FT.QuestStatus(e.questId) end
- detail.text:SetText(table.concat(lines, '\n'))
- detail:Show()
+ return table.concat(lines, '\n')
 end
 
-local function attachTip(button, title, text)
- button:HookScript('OnEnter', function(self)
-  if not GameTooltip then return end
-  GameTooltip:SetOwner(self, 'ANCHOR_TOP'); GameTooltip:SetText(title, 1, 0.82, 0)
-  if text and text ~= '' then GameTooltip:AddLine(text, 0.9, 0.9, 0.9, true) end
+local function toggleFav(e)
+ local places = S().places
+ if not places then ForeverTrailSettings.places = {}; places = ForeverTrailSettings.places end
+ local key = keyOf(e)
+ local removed = false
+ for i = #places, 1, -1 do
+  if keyOf(places[i]) == key then table.remove(places, i); removed = true end
+ end
+ if not removed then
+  table.insert(places, {name = e.name, cat = e.sub or CAT_LABEL[e.cat] or 'Kayıtlı', map = e.map, x = e.x, y = e.y})
+  FT.Print('Favorilere eklendi: ' .. tostring(e.name))
+ end
+ counts = {}
+end
+
+----------------------------------------------------------------------
+-- Çipler
+----------------------------------------------------------------------
+local function paintChip(c)
+ local K = kit()
+ local on = c.key == category
+ local fill = K.Color(on and 'accent' or (c.hover and 'panel' or 'card'))
+ local text = K.Color(on and 'deep' or (c.hover and 'accent' or 'text'))
+ c.fill:SetColorTexture(fill[1], fill[2], fill[3], 1)
+ c.label:SetTextColor(text[1], text[2], text[3])
+ c:SetAlpha(c.empty and not on and 0.5 or 1)
+end
+
+local function newChip()
+ local K = kit()
+ local c = CreateFrame('Button', nil, chipFrame)
+ c:SetHeight(CHIP_H)
+ c.edge = c:CreateTexture(nil, 'BACKGROUND', nil, 0); c.edge:SetAllPoints(); K.Fill(c.edge, 'line')
+ c.fill = c:CreateTexture(nil, 'BACKGROUND', nil, 1); c.fill:SetPoint('TOPLEFT', 1, -1); c.fill:SetPoint('BOTTOMRIGHT', -1, 1)
+ c.dot = c:CreateTexture(nil, 'ARTWORK'); c.dot:SetSize(6, 6); c.dot:SetPoint('LEFT', 7, 0)
+ c.label = c:CreateFontString(nil, 'OVERLAY'); K.Font(c.label, 11); c.label:SetPoint('LEFT', 17, 0)
+ c:SetScript('OnEnter', function(self)
+  self.hover = true; paintChip(self)
+  if not (GameTooltip and self.tipTitle) then return end
+  GameTooltip:SetOwner(self, 'ANCHOR_TOP'); GameTooltip:SetText(self.tipTitle, 1, 0.82, 0)
+  if self.tipText and self.tipText ~= '' then GameTooltip:AddLine(self.tipText, 0.9, 0.9, 0.9, true) end
   GameTooltip:Show()
  end)
- button:HookScript('OnLeave', function() if GameTooltip then GameTooltip:Hide() end end)
+ c:SetScript('OnLeave', function(self) self.hover = false; paintChip(self); if GameTooltip then GameTooltip:Hide() end end)
+ c:SetScript('OnClick', function(self)
+  if self.key == '_more' then
+   ForeverTrailSettings.routeChipsOpen = not S().routeChipsOpen
+   FT.RouteRelayout()
+  else
+   category = self.key; ForeverTrailSettings.routeCat = category
+   FT.RefreshMapRoute()
+  end
+ end)
+ return c
 end
 
-local function goTo(e)
- if not e then return end
- if e.questId and FT.GoToQuest then FT.GoToQuest(e.questId) else FT.SetCustomTarget(e.map, e.x, e.y, e.name) end
- if FT.RefreshMapRoute then FT.RefreshMapRoute() end
+-- Çipleri dizer ve çip alanının yüksekliğini döndürür
+local function layoutChips(mapID)
+ local K = kit()
+ local width = PANEL_W - 20
+ local c = counts[mapID] or {}
+ local open = S().routeChipsOpen
+ local order = {}
+ for _, def in ipairs(CATS) do
+  if PRIMARY[def.key] or (open and ((c[def.key] or 0) > 0 or def.key == category)) then order[#order + 1] = def end
+ end
+ local x, y, rowsUsed = 0, 0, 1
+ local function place(chip, w)
+  if x > 0 and x + w > width then x = 0; y = y + CHIP_H + 4; rowsUsed = rowsUsed + 1 end
+  chip:ClearAllPoints(); chip:SetPoint('TOPLEFT', chipFrame, 'TOPLEFT', x, -y); chip:SetWidth(w); chip:Show()
+  x = x + w + 4
+ end
+ local used = 0
+ for _, def in ipairs(order) do
+  used = used + 1
+  local chip = chips[used] or newChip(); chips[used] = chip
+  local n = c[def.key]
+  chip.key = def.key
+  chip.empty = (n or 0) == 0 and def.key ~= 'hepsi'
+  chip.label:SetText(def.label .. ((n and n > 0) and (' ' .. n) or ''))
+  local cc = CAT_COLOR[def.key] or CAT_COLOR.npc
+  chip.dot:SetColorTexture(cc[1], cc[2], cc[3], 1); chip.dot:Show()
+  chip.tipTitle, chip.tipText = def.label, def.tip
+  place(chip, 22 + #def.label * 6 + ((n and n > 0) and ((#tostring(n) + 1) * 6) or 0))
+  paintChip(chip)
+ end
+ -- "Diğer" düğmesi
+ used = used + 1
+ local more = chips[used] or newChip(); chips[used] = more
+ more.key = '_more'; more.empty = false; more.dot:Hide()
+ local hidden = 0
+ for _, def in ipairs(CATS) do if not PRIMARY[def.key] and (c[def.key] or 0) > 0 then hidden = hidden + 1 end end
+ more.label:SetText(open and 'Daha az' or ('Diğer ' .. hidden))
+ more.label:ClearAllPoints(); more.label:SetPoint('CENTER', 0, 0)
+ more.tipTitle, more.tipText = 'Diğer türler', 'Satıcı, banka, uçuş ve diğer türleri göster ya da gizle. Yalnızca bu haritada sonucu olanlar listelenir.'
+ place(more, open and 66 or 66)
+ paintChip(more)
+ for i = used + 1, #chips do chips[i]:Hide() end
+ local height = rowsUsed * CHIP_H + (rowsUsed - 1) * 4
+ chipFrame:SetHeight(height)
+ return height
 end
 
--- Panel haritanın yanında dikey durur: varsayılan sağda; yer yoksa (ya da seçilirse) solda;
--- ikisi de sığmıyorsa (tam ekran harita) haritanın içinde sağ kenarda.
-local PANEL_W, LIST_TOP, BOTTOM_H = 340, 252, 198
+----------------------------------------------------------------------
+-- Satırlar
+----------------------------------------------------------------------
+local function paintRowStar(r)
+ local K = kit()
+ local e = r.entry
+ local on = e and (e.saved or favSet[keyOf(e)])
+ local c = K.Color(on and 'accent' or 'muted')
+ r.star.text:SetTextColor(c[1], c[2], c[3])
+ r.star:SetAlpha(on and 1 or 0.55)
+end
+
+local function newRow(i)
+ local K = kit()
+ local r = CreateFrame('Button', nil, list)
+ r:SetHeight(ROW_H)
+ r.bg = r:CreateTexture(nil, 'BACKGROUND'); r.bg:SetAllPoints(); K.Fill(r.bg, 'card', 0.7)
+ r.hl = r:CreateTexture(nil, 'BORDER'); r.hl:SetAllPoints(); r.hl:SetColorTexture(1, 1, 1, 0.06); r.hl:Hide()
+ r.bar = r:CreateTexture(nil, 'ARTWORK'); r.bar:SetWidth(3); r.bar:SetPoint('TOPLEFT', 0, 0); r.bar:SetPoint('BOTTOMLEFT', 0, 0)
+ r.badge = r:CreateTexture(nil, 'ARTWORK'); r.badge:SetSize(24, 24); r.badge:SetPoint('TOPLEFT', 10, -9)
+ r.glyph = K.Text(r, 13, 'text'); r.glyph:SetPoint('CENTER', r.badge, 'CENTER', 0, 0)
+ r.name = K.Text(r, 12, 'text'); r.name:SetPoint('TOPLEFT', 42, -7); r.name:SetWidth(PANEL_W - 20 - 42 - 86); r.name:SetJustifyH('LEFT'); r.name:SetWordWrap(false)
+ r.sub = K.Text(r, 10, 'muted'); r.sub:SetPoint('TOPLEFT', 42, -23); r.sub:SetWidth(PANEL_W - 20 - 42 - 86); r.sub:SetJustifyH('LEFT'); r.sub:SetWordWrap(false)
+ r.dist = K.Text(r, 11, 'text'); r.dist:SetPoint('TOPRIGHT', -30, -7); r.dist:SetJustifyH('RIGHT')
+ r.eta = K.Text(r, 10, 'muted'); r.eta:SetPoint('TOPRIGHT', -30, -23); r.eta:SetJustifyH('RIGHT')
+ r.star = CreateFrame('Button', nil, r); r.star:SetSize(22, 22); r.star:SetPoint('TOPRIGHT', -4, -5)
+ r.star.text = K.Text(r.star, 15, 'muted'); r.star.text:SetPoint('CENTER', 0, 0); r.star.text:SetText('★')
+ r.star:SetScript('OnClick', function()
+  if r.entry then toggleFav(r.entry); FT.RefreshMapRoute() end
+ end)
+ r.star:SetScript('OnEnter', function(self)
+  if not GameTooltip then return end
+  GameTooltip:SetOwner(self, 'ANCHOR_LEFT'); GameTooltip:SetText('Favori', 1, 0.82, 0)
+  GameTooltip:AddLine('Favori yerler listenin en üstünde durur ("Kayıtlarım" türünde de bulunur).', 0.9, 0.9, 0.9, true); GameTooltip:Show()
+ end)
+ r.star:SetScript('OnLeave', function() if GameTooltip then GameTooltip:Hide() end end)
+ -- açılan bölüm
+ r.detail = K.Text(r, 10, 'muted'); r.detail:SetPoint('TOPLEFT', 42, -46); r.detail:SetWidth(PANEL_W - 20 - 52); r.detail:SetJustifyH('LEFT'); r.detail:SetJustifyV('TOP'); r.detail:SetHeight(34)
+ r.mapBtn = K.Button(r, 'Haritada gör', 96, 22); r.mapBtn:SetPoint('BOTTOMLEFT', 42, 8)
+ r.mapBtn:SetScript('OnClick', function()
+  local e = r.entry
+  if e and WorldMapFrame.SetMapID then WorldMapFrame:SetMapID(e.map); showPing(e) end
+ end)
+ r.goBtn = K.Button(r, 'Yol göster', 84, 22, 'primary'); r.goBtn:SetPoint('LEFT', r.mapBtn, 'RIGHT', 6, 0)
+ r.goBtn:SetScript('OnClick', function() goTo(r.entry) end)
+ r:SetScript('OnEnter', function(self)
+  self.hl:Show(); showPing(self.entry)
+  local e = self.entry
+  if e and e.npcId and FT.ShowTooltipModel then
+   GameTooltip:SetOwner(self, 'ANCHOR_LEFT'); GameTooltip:SetText(e.name, 0.8, 0.55, 1); GameTooltip:AddLine(e.sub or '', 1, 1, 1)
+   if FT.ShowTip then FT.ShowTip(GameTooltip) else GameTooltip:Show() end
+   pcall(FT.ShowTooltipModel, e.npcId)
+  end
+ end)
+ r:SetScript('OnLeave', function(self) self.hl:Hide(); showPing(nil); if GameTooltip then GameTooltip:Hide() end end)
+ r:SetScript('OnClick', function(self)
+  local e = self.entry
+  if not e then return end
+  local k = keyOf(e)
+  selectedKey = (selectedKey == k) and nil or k
+  if selectedKey then
+   goTo(e)
+   FT.Print(('Yol: %s%s'):format(e.name, e.dist and (' (' .. math.floor(e.dist + 0.5) .. ' yd)') or ''))
+  end
+  FT.RefreshMapRoute()
+ end)
+ rows[i] = r
+ return r
+end
+
+local function updateTargetCard()
+ if not card then return end
+ local t = FT.customTarget
+ if not t then card:Hide(); return false end
+ local d = t.uiMapID and playerDistance({map = t.uiMapID, x = t.x, y = t.y}) or nil
+ card.name:SetText(tostring(t.questTitle or t.text or 'Seçtiğin nokta'))
+ if d then card.info:SetText(('%d yd  ·  %s'):format(math.floor(d + 0.5), etaText(d)))
+ else card.info:SetText((FT.MapName and t.uiMapID and FT.MapName(t.uiMapID) or 'Başka bölge') .. '  ·  başka bölgede') end
+ card:Show()
+ return true
+end
+
+-- Yalnızca mesafe yazılarını tazeler (sıralama değişmez); saniyede bir
+local function updateDistances()
+ if not (panel and panel:IsShown()) then return end
+ for _, r in ipairs(rows) do
+  local e = r:IsShown() and r.entry
+  if e then
+   e.dist = playerDistance(e)
+   if e.dist then r.dist:SetText(('%d yd'):format(e.dist + 0.5)); r.eta:SetText(etaText(e.dist)) end
+  end
+ end
+ updateTargetCard()
+end
+
+local function sortList(mode)
+ local rank = {}
+ for i, def in ipairs(CATS) do rank[def.key] = i end
+ table.sort(filtered, function(a, b)
+  local fa, fb = (a.saved or favSet[keyOf(a)]) and true or false, (b.saved or favSet[keyOf(b)]) and true or false
+  if fa ~= fb then return fa end
+  if mode == 'ad' then
+   if a.name ~= b.name then return tostring(a.name) < tostring(b.name) end
+  elseif mode == 'tur' then
+   local ra, rb = rank[a.cat] or 99, rank[b.cat] or 99
+   if ra ~= rb then return ra < rb end
+  end
+  if (a.dist ~= nil) ~= (b.dist ~= nil) then return a.dist ~= nil end
+  if a.dist and b.dist and a.dist ~= b.dist then return a.dist < b.dist end
+  if a.name ~= b.name then return tostring(a.name) < tostring(b.name) end
+  return (a.x or 0) < (b.x or 0)
+ end)
+end
+
+local function refresh()
+ if not panel or not panel:IsShown() then return end
+ local s = S()
+ buildFavSet()
+ local mapID = WorldMapFrame and WorldMapFrame:GetMapID()
+ if mapID and not counts[mapID] then buildCounts(mapID) end
+ local text = (searchBox:GetText() or ''):lower()
+ filtered = collect(category, mapID, text, s.routeEverywhere and #text >= 3)
+ for _, e in ipairs(filtered) do e.dist = playerDistance(e) end
+ sortList(s.routeSort or 'yakin')
+ -- çipler (yükseklik değişirse liste alanı yeniden yerleşir)
+ local ch = layoutChips(mapID)
+ if ch ~= panel.chipH then panel.chipH = ch; FT.RouteRelayout(true) end
+ -- liste
+ local shown = math.min(#filtered, MAXSHOW)
+ local y = 0
+ local K = kit()
+ for i = 1, shown do
+  local e = filtered[i]
+  local r = rows[i] or newRow(i)
+  r.entry = e
+  local open = selectedKey and keyOf(e) == selectedKey
+  r:ClearAllPoints(); r:SetPoint('TOPLEFT', list, 'TOPLEFT', 0, -y); r:SetWidth(PANEL_W - 28)
+  r:SetHeight(open and EXP_H or ROW_H)
+  local c = CAT_COLOR[e.cat] or CAT_COLOR.npc
+  r.bar:SetColorTexture(c[1], c[2], c[3], 1)
+  r.badge:SetColorTexture(c[1], c[2], c[3], 0.22)
+  r.glyph:SetText(GLYPH[e.cat] or '•'); r.glyph:SetTextColor(c[1], c[2], c[3])
+  r.name:SetText(tostring(e.name))
+  r.sub:SetText(e.sub or CAT_LABEL[e.cat] or '')
+  if e.dist then r.dist:SetText(('%d yd'):format(e.dist + 0.5)); r.eta:SetText(etaText(e.dist))
+  elseif e.map ~= mapID then r.dist:SetText(''); r.eta:SetText('|cff9aa0a6' .. (FT.MapName and FT.MapName(e.map) or '') .. '|r')
+  else r.dist:SetText(''); r.eta:SetText(('%.0f, %.0f'):format((e.x or 0) * 100, (e.y or 0) * 100)) end
+  paintRowStar(r)
+  r.detail:SetShown(open and true or false); r.mapBtn:SetShown(open and true or false); r.goBtn:SetShown(open and true or false)
+  if open then r.detail:SetText(detailText(e)) end
+  r:Show()
+  y = y + (open and EXP_H or ROW_H) + 2
+ end
+ for i = shown + 1, #rows do rows[i]:Hide(); rows[i].entry = nil end
+ if #filtered > MAXSHOW then
+  moreText:ClearAllPoints(); moreText:SetPoint('TOPLEFT', list, 'TOPLEFT', 4, -(y + 4))
+  moreText:SetText(('+%d yer daha: aramayı daralt'):format(#filtered - MAXSHOW)); moreText:Show(); y = y + 24
+ else moreText:Hide() end
+ list:SetHeight(math.max(1, y)); list:SetWidth(PANEL_W - 28)
+ -- başlık satırı ve boş durum
+ local name = mapID and FT.MapName and FT.MapName(mapID) or ''
+ countText:SetText(('%s  ·  %d yer'):format(name ~= '' and name or 'Harita', #filtered))
+ if #filtered == 0 then
+  emptyText:SetText('Burada sonuç yok.\nBaşka bir tür seç, aramayı değiştir ya da haritada başka bir bölgeye geç.\nTüm dünyada aramak için "Her yer" anahtarını aç.')
+  emptyText:Show()
+ else emptyText:Hide() end
+ if sortSeg then sortSeg:SetValue(s.routeSort or 'yakin') end
+ if switchEverywhere then switchEverywhere:SetChecked(s.routeEverywhere and true or false) end
+ if headerButtons then headerButtons.mark:SetText(s.routeHighlight == false and 'İşaret: kapalı' or 'İşaret: açık') end
+ local hasCard = updateTargetCard() and true or false
+ if hasCard ~= (panel.hadCard == true) then panel.hadCard = hasCard; FT.RouteRelayout(true) end
+ drawPins(mapID)
+end
+FT.RefreshMapRoute = refresh
+function FT.RouteCategory(c) category = c; ForeverTrailSettings.routeCat = c; refresh() end
+function FT.RouteSearch(t) if searchBox then searchBox:SetText(t or '') end; refresh() end
+function FT.RouteCount() return #filtered end
+function FT.RouteEntries() return filtered end -- test ve tanı için
+FT.MapServices = servicesOn
+
+----------------------------------------------------------------------
+-- Yerleşim
+----------------------------------------------------------------------
 local sideButton
 
 local function layout()
- if not (panel and rows) then return end
+ if not (panel and body) then return end
  local mapHeight = WorldMapFrame and WorldMapFrame.GetHeight and WorldMapFrame:GetHeight() or 700
- local h = math.max(600, math.min(840, mapHeight))
+ local h = math.max(560, math.min(840, mapHeight))
  local scale = (WorldMapFrame:GetEffectiveScale() or 1) / (UIParent:GetEffectiveScale() or 1)
  local right, left = WorldMapFrame:GetRight(), WorldMapFrame:GetLeft()
  local screen = UIParent:GetWidth() or 1920
- local wantLeft = ForeverTrailSettings.routeSide == 'left'
+ local wantLeft = S().routeSide == 'left'
  local roomRight = right and (right * scale + PANEL_W + 6) <= screen
  local roomLeft = left and (left * scale - PANEL_W - 6) >= 0
  panel:ClearAllPoints()
@@ -365,143 +670,143 @@ local function layout()
  else
   panel:SetPoint('TOPRIGHT', WorldMapFrame, 'TOPRIGHT', -8, -40); h = h - 60
  end
- panel:SetSize(PANEL_W, h)
- PER = math.max(4, math.min(11, math.floor((h - BOTTOM_H - LIST_TOP) / 30)))
- for i, r in ipairs(rows) do
-  r:ClearAllPoints()
-  r:SetPoint('TOPLEFT', 10, -LIST_TOP - (i - 1) * 30)
-  r:SetShown(i <= PER)
- end
- if sideButton then sideButton:SetText(wantLeft and 'Sağa al' or 'Sola al') end
+ local collapsed = S().routeCollapsed
+ panel:SetSize(PANEL_W, collapsed and HEAD_H or h)
+ body:SetShown(not collapsed)
+ if sideButton then sideButton:SetText(wantLeft and '>' or '<') end
+ -- gövde: arama, hızlı şerit, çipler, başlık satırı, liste, hedef kartı
+ local chipH = panel.chipH or CHIP_H
+ chipFrame:ClearAllPoints(); chipFrame:SetPoint('TOPLEFT', body, 'TOPLEFT', 10, -88); chipFrame:SetSize(PANEL_W - 20, chipH)
+ local rowY = 88 + chipH + 8
+ countText:ClearAllPoints(); countText:SetPoint('TOPLEFT', body, 'TOPLEFT', 12, -(rowY + 6))
+ sortSeg:ClearAllPoints(); sortSeg:SetPoint('TOPRIGHT', body, 'TOPRIGHT', -10, -rowY)
+ sf:ClearAllPoints()
+ sf:SetPoint('TOPLEFT', body, 'TOPLEFT', 10, -(rowY + 28))
+ sf:SetPoint('BOTTOMRIGHT', body, 'BOTTOMRIGHT', -18, (FT.customTarget and 70 or 10))
+ emptyText:ClearAllPoints(); emptyText:SetPoint('TOPLEFT', body, 'TOPLEFT', 14, -(rowY + 40))
+ card:ClearAllPoints(); card:SetPoint('BOTTOMLEFT', body, 'BOTTOMLEFT', 10, 10); card:SetPoint('BOTTOMRIGHT', body, 'BOTTOMRIGHT', -10, 10)
 end
 
-local CAT_ROWS = 4
+function FT.RouteRelayout(skipRefresh)
+ layout()
+ if not skipRefresh then refresh() end
+end
+
+-- Hızlı şerit: oyuncunun bulunduğu bölgedeki en yakın hizmet
+local function quickGo(key, label)
+ local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit('player')
+ local best, bd
+ if map then
+  for _, e in ipairs(servicesOn(map)) do
+   if hasFlag(e.flags, FLAGS[key]) then
+    local d = playerDistance(e)
+    if d and (not bd or d < bd) then best, bd = e, d end
+   end
+  end
+ end
+ if not best then
+  category = key; ForeverTrailSettings.routeCat = key
+  FT.Print(('Bu bölgede %s bulunamadı; listeyi gözden geçir.'):format(label:lower()))
+  refresh()
+  return
+ end
+ best.dist = bd
+ selectedKey = keyOf(best)
+ if WorldMapFrame and WorldMapFrame.SetMapID and WorldMapFrame:GetMapID() ~= map then WorldMapFrame:SetMapID(map) end
+ goTo(best)
+ FT.Print(('En yakın %s: %s (%d yd)'):format(label:lower(), best.name, math.floor(bd + 0.5)))
+end
 
 local function create()
+ local K = kit()
  panel = FT.NewWindow('ForeverTrailMapRoute', WorldMapFrame)
  FT.mapRoute = panel
  panel:SetSize(PANEL_W, 700)
  panel:SetClampedToScreen(true)
  panel:SetFrameStrata(WorldMapFrame:GetFrameStrata())
  panel:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 20)
+ rows, chips = {}, {}
+ category = S().routeCat or 'hepsi'
 
- -- Üst: başlık, ne yapılır, arama
+ -- başlık şeridi
  local title = panel:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
  title:SetPoint('TOPLEFT', 12, -8); title:SetText('Yol sor')
  if FT.StyleTitle then FT.StyleTitle(title) end
- sideButton = FT.NewButton(panel, 'Sola al', 62, 18); sideButton:SetPoint('TOPRIGHT', -8, -6)
- sideButton:SetScript('OnClick', function()
-  ForeverTrailSettings.routeSide = ForeverTrailSettings.routeSide == 'left' and 'right' or 'left'
-  layout()
- end)
+ headerButtons = {}
+ local collapse = K.Button(panel, '–', 22, 20); collapse:SetPoint('TOPRIGHT', -34, -5)
+ collapse:SetScript('OnClick', function() ForeverTrailSettings.routeCollapsed = not S().routeCollapsed; FT.RouteRelayout() end)
+ attachTip(collapse, 'Daralt', 'Paneli yalnızca başlık satırına küçültür.')
+ sideButton = K.Button(panel, '<', 22, 20); sideButton:SetPoint('RIGHT', collapse, 'LEFT', -3, 0)
+ sideButton:SetScript('OnClick', function() ForeverTrailSettings.routeSide = S().routeSide == 'left' and 'right' or 'left'; layout() end)
  attachTip(sideButton, 'Panelin yeri', 'Paneli haritanın soluna ya da sağına taşır. Yer yoksa harita içinde açılır.')
- local how = panel:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- how:SetPoint('TOPLEFT', 12, -28); how:SetWidth(316); how:SetJustifyH('LEFT'); how:SetTextColor(0.8, 0.78, 0.72)
- how:SetText('Nereye gitmek istiyorsun?\n1) Bir tür seç ya da ara   2) Listeden bir yere tıkla\n3) Ok ve harita seni oraya götürür')
- searchBox = (FT.Kit and FT.Kit.Input(panel) or CreateFrame('EditBox', nil, panel, 'InputBoxTemplate'))
- searchBox:SetSize(170, 20); searchBox:SetPoint('TOPLEFT', 20, -78); searchBox:SetAutoFocus(false)
- searchHint = panel:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- searchHint:SetPoint('LEFT', searchBox, 'LEFT', 6, 0); searchHint:SetTextColor(0.5, 0.5, 0.5); searchHint:SetText('Ara: han, tamirci, uçuş...')
- searchBox:SetScript('OnEditFocusGained', function() searchHint:Hide() end)
- searchBox:SetScript('OnEditFocusLost', function(self) if (self:GetText() or '') == '' then searchHint:Show() end end)
+ headerButtons.mark = K.Button(panel, 'İşaret: açık', 86, 20); headerButtons.mark:SetPoint('RIGHT', sideButton, 'LEFT', -3, 0)
+ headerButtons.mark:SetScript('OnClick', function() ForeverTrailSettings.routeHighlight = S().routeHighlight == false and true or false; refresh() end)
+ attachTip(headerButtons.mark, 'Haritada işaretle', 'Listedeki yerleri haritada parlayan işaretlerle gösterir (başka eklentilerin işaretlerine dokunmaz).')
+
+ body = CreateFrame('Frame', nil, panel)
+ body:SetPoint('TOPLEFT', 0, -HEAD_H); body:SetPoint('BOTTOMRIGHT', 0, 0)
+
+ -- arama + her yer anahtarı
+ searchBox = K.Input(body)
+ searchBox:SetSize(178, 22); searchBox:SetPoint('TOPLEFT', 10, -8)
+ searchHint = K.Text(body, 11, 'muted'); searchHint:SetPoint('LEFT', searchBox, 'LEFT', 9, 0); searchHint:SetText('Ara: han, tamirci, uçuş...')
+ searchBox:HookScript('OnEditFocusGained', function() searchHint:Hide() end)
+ searchBox:HookScript('OnEditFocusLost', function(self) if (self:GetText() or '') == '' then searchHint:Show() end end)
  searchBox:SetScript('OnTextChanged', function(self)
-  page = 1
   if (self:GetText() or '') ~= '' then searchHint:Hide() end
   refresh()
  end)
- searchBox:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
- everywhere = FT.NewButton(panel, 'Her yer: kapalı', 118, 20); everywhere:SetPoint('TOPLEFT', 204, -78)
- everywhere:SetScript('OnClick', function() ForeverTrailSettings.routeEverywhere = not ForeverTrailSettings.routeEverywhere; page = 1; refresh() end)
- attachTip(everywhere, 'Her yerde ara', 'Kapalıyken yalnızca baktığın haritada aranır. Açıkken tüm dünyada aranır (en az 3 harf yaz).')
+ local everyLabel = K.Text(body, 10, 'muted'); everyLabel:SetPoint('LEFT', searchBox, 'RIGHT', 8, 0); everyLabel:SetText('Her yer')
+ switchEverywhere = K.Switch(body); switchEverywhere:SetPoint('LEFT', everyLabel, 'RIGHT', 4, 0)
+ switchEverywhere:SetScript('OnClick', function(self) ForeverTrailSettings.routeEverywhere = self:GetChecked() and true or nil; refresh() end)
+ attachTip(switchEverywhere, 'Her yerde ara', 'Kapalıyken yalnızca baktığın haritada aranır. Açıkken tüm dünyada aranır (en az 3 harf yaz).')
 
- -- Türler: 4 sütun
- catButtons = {}
- for i, c in ipairs(CATS) do
-  local b = FT.NewButton(panel, c.label, 76, 22)
-  b:SetPoint('TOPLEFT', 10 + ((i - 1) % 4) * 80, -106 - math.floor((i - 1) / 4) * 25)
-  b.key = c.key
-  b:SetScript('OnClick', function() category = c.key; page = 1; refresh() end)
-  attachTip(b, c.label, c.tip)
-  catButtons[i] = b
+ -- hızlı şerit: en yakın tamirci / han / uçuş / banka
+ local qLabel = K.Text(body, 10, 'muted'); qLabel:SetPoint('TOPLEFT', 12, -40); qLabel:SetText('En yakın')
+ local qx = 10
+ for _, q in ipairs(QUICK) do
+  local b = K.Button(body, q[2], 66, 22); b:SetPoint('TOPLEFT', qx, -56)
+  b:SetScript('OnClick', function() quickGo(q[1], q[2]) end)
+  attachTip(b, 'En yakın ' .. q[2]:lower(), 'Bulunduğun bölgedeki en yakın yeri hedef yapar; ok ve harita oraya döner.')
+  qx = qx + 70
  end
 
- -- Sonuç listesi
- hint = panel:CreateFontString(nil, 'OVERLAY', 'GameFontNormalSmall')
- hint:SetPoint('TOPLEFT', 12, -(LIST_TOP - 18)); hint:SetWidth(316); hint:SetJustifyH('LEFT'); hint:SetWordWrap(false)
- emptyText = panel:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
- emptyText:SetPoint('TOPLEFT', 14, -(LIST_TOP + 10)); emptyText:SetWidth(312); emptyText:SetJustifyH('LEFT'); emptyText:SetTextColor(0.8, 0.78, 0.72); emptyText:Hide()
- rows = {}
- for i = 1, 11 do
-  local r = CreateFrame('Button', nil, panel)
-  r:SetSize(320, 28); r:SetPoint('TOPLEFT', 10, -LIST_TOP - (i - 1) * 30)
-  r.bg = r:CreateTexture(nil, 'BACKGROUND'); r.bg:SetAllPoints(); r.bg:SetColorTexture(1, 1, 1, i % 2 == 0 and 0.04 or 0)
-  r.bar = r:CreateTexture(nil, 'ARTWORK'); r.bar:SetSize(3, 24); r.bar:SetPoint('LEFT', 1, 0)
-  r:SetHighlightTexture('Interface\\Buttons\\WHITE8X8'); r:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.12)
-  r.name = r:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight'); r.name:SetPoint('TOPLEFT', 9, -3); r.name:SetWidth(236); r.name:SetJustifyH('LEFT'); r.name:SetWordWrap(false)
-  r.sub = r:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall'); r.sub:SetPoint('BOTTOMLEFT', 9, 3); r.sub:SetWidth(236); r.sub:SetJustifyH('LEFT'); r.sub:SetTextColor(0.65, 0.62, 0.56); r.sub:SetWordWrap(false)
-  r.dist = r:CreateFontString(nil, 'OVERLAY', 'GameFontNormalSmall'); r.dist:SetPoint('RIGHT', -6, 0); r.dist:SetWidth(70); r.dist:SetJustifyH('RIGHT'); r.dist:SetWordWrap(false)
-  r:SetScript('OnEnter', function(self)
-   showPing(self.entry)
-   if self.entry then showDetail(self.entry) end
-   if self.entry and self.entry.npcId and FT.ShowTooltipModel then
-    GameTooltip:SetOwner(self, 'ANCHOR_LEFT'); GameTooltip:SetText(self.entry.name, 0.8, 0.55, 1); GameTooltip:AddLine(self.entry.sub or '', 1, 1, 1)
-    if FT.ShowTip then FT.ShowTip(GameTooltip) else GameTooltip:Show() end
-    pcall(FT.ShowTooltipModel, self.entry.npcId)
-   end
-  end)
-  r:SetScript('OnLeave', function() showPing(nil); if GameTooltip then GameTooltip:Hide() end end)
-  r:SetScript('OnClick', function(self)
-   local e = self.entry
-   if not e then return end
-   showDetail(e)
-   goTo(e)
-   FT.Print(('Yol: %s%s'):format(e.name, e.dist and (' (' .. math.floor(e.dist + 0.5) .. ' yd)') or ''))
-  end)
-  rows[i] = r
- end
+ -- çipler
+ chipFrame = CreateFrame('Frame', nil, body); chipFrame:SetSize(PANEL_W - 20, CHIP_H)
+ panel.chipH = CHIP_H
 
- -- Alt blok (aşağıdan yukarı): sayfa düğmeleri / rota planı, ipucu, hedef satırı, ayrıntı
- local prev = FT.NewButton(panel, '< Önceki', 70, 22); prev:SetPoint('BOTTOMLEFT', 10, 8)
- prev:SetScript('OnClick', function() page = page - 1; refresh() end)
- local nextB = FT.NewButton(panel, 'Sonraki >', 70, 22); nextB:SetPoint('LEFT', prev, 'RIGHT', 4, 0)
- nextB:SetScript('OnClick', function() page = page + 1; refresh() end)
- pageText = panel:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- pageText:SetPoint('LEFT', nextB, 'RIGHT', 6, 0); pageText:SetTextColor(0.75, 0.72, 0.66)
- local plan = FT.NewButton(panel, 'Rota planı', 80, 22); plan:SetPoint('BOTTOMRIGHT', -8, 8)
+ -- liste başlığı: yer sayısı + sıralama
+ countText = K.Text(body, 11, 'muted'); countText:SetJustifyH('LEFT')
+ sortSeg = K.Segmented(body, SORTS, 126, 22, function(key) ForeverTrailSettings.routeSort = key; refresh() end)
+
+ -- kaydırılabilir liste
+ sf = K.Scroll(body)
+ list = CreateFrame('Frame', nil, sf); list:SetSize(PANEL_W - 28, 10)
+ sf:SetScrollChild(list)
+ moreText = K.Text(list, 10, 'muted'); moreText:Hide()
+ emptyText = K.Text(body, 12, 'muted'); emptyText:SetWidth(PANEL_W - 28); emptyText:SetJustifyH('LEFT'); emptyText:SetJustifyV('TOP'); emptyText:Hide()
+
+ -- aktif hedef kartı
+ card = CreateFrame('Frame', nil, body); card:SetHeight(54)
+ K.Skin(card, 'card', 'line')
+ card.name = K.Text(card, 12, 'accent'); card.name:SetPoint('TOPLEFT', 10, -8); card.name:SetPoint('RIGHT', card, 'RIGHT', -34, 0); card.name:SetJustifyH('LEFT'); card.name:SetWordWrap(false)
+ card.info = K.Text(card, 10, 'muted'); card.info:SetPoint('TOPLEFT', 10, -26); card.info:SetJustifyH('LEFT')
+ card.close = K.CloseButton(card, function() if FT.ClearCustomTarget then FT.ClearCustomTarget() end; refresh() end)
+ card.close:SetPoint('TOPRIGHT', -2, -2)
+ attachTip(card.close, 'Hedefi kaldır', 'Okun gösterdiği özel hedefi siler; ok görev rehberine döner.')
+ local plan = K.Button(card, 'Rota planı', 74, 20); plan:SetPoint('BOTTOMRIGHT', -8, 6)
  plan:SetScript('OnClick', function() if FT.ShowRoutePlan then FT.ShowRoutePlan() end end)
  attachTip(plan, 'Rota planı', 'Hedeflerini ve görevlerini en verimli sırayla listeler.')
- local tip = panel:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- tip:SetPoint('BOTTOMLEFT', 12, 36); tip:SetWidth(316); tip:SetJustifyH('LEFT'); tip:SetTextColor(0.6, 0.58, 0.54)
- tip:SetText('İpucu: Haritada Ctrl+tıkla, istediğin noktaya ok koy.')
- targetText = panel:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
- targetText:SetPoint('BOTTOMLEFT', 12, 66); targetText:SetWidth(214); targetText:SetJustifyH('LEFT'); targetText:SetWordWrap(false)
- targetClear = FT.NewButton(panel, 'Hedefi kaldır', 92, 20); targetClear:SetPoint('BOTTOMRIGHT', -8, 62)
- targetClear:SetScript('OnClick', function() if FT.ClearCustomTarget then FT.ClearCustomTarget() end; refresh() end)
- attachTip(targetClear, 'Hedefi kaldır', 'Okun gösterdiği özel hedefi siler; ok görev rehberine döner.')
+ card:Hide()
 
- detail = CreateFrame('Frame', nil, panel); detail:SetSize(324, 104); detail:SetPoint('BOTTOMLEFT', 8, 90)
- detail.bg = detail:CreateTexture(nil, 'BACKGROUND'); detail.bg:SetAllPoints(); detail.bg:SetColorTexture(0, 0, 0, 0.3)
- detail.text = detail:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall'); detail.text:SetPoint('TOPLEFT', 8, -7); detail.text:SetWidth(308); detail.text:SetJustifyH('LEFT'); detail.text:SetJustifyV('TOP')
- detail.empty = detail:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall'); detail.empty:SetPoint('TOPLEFT', 8, -7); detail.empty:SetWidth(308); detail.empty:SetJustifyH('LEFT'); detail.empty:SetTextColor(0.7, 0.68, 0.62)
- detail.empty:SetText('Listede bir yerin üzerine gel:\nayrıntısı burada görünür, haritada yeri parlar.')
- local dGo = FT.NewButton(detail, 'Yol göster', 96, 22); dGo:SetPoint('BOTTOMLEFT', 6, 6)
- dGo:SetScript('OnClick', function() goTo(selected) end)
- attachTip(dGo, 'Yol göster', 'Ok ve harita seni bu yere yönlendirir.')
- local dMap = FT.NewButton(detail, 'Haritada gör', 100, 22); dMap:SetPoint('LEFT', dGo, 'RIGHT', 4, 0)
- dMap:SetScript('OnClick', function() local e = selected; if e and WorldMapFrame.SetMapID then WorldMapFrame:SetMapID(e.map); showPing(e) end end)
- attachTip(dMap, 'Haritada gör', 'Haritayı bu yerin olduğu bölgeye çevirir.')
- local dSave = FT.NewButton(detail, 'Kaydet', 84, 22); dSave:SetPoint('LEFT', dMap, 'RIGHT', 4, 0)
- dSave:SetScript('OnClick', function()
-  local e = selected; if not e then return end
-  ForeverTrailSettings.places = ForeverTrailSettings.places or {}
-  table.insert(ForeverTrailSettings.places, {name=e.name, cat=e.sub or 'Kayıtlı', map=e.map, x=e.x, y=e.y})
-  FT.Print('Kaydedildi: ' .. e.name .. ' ("Kayıtlarım" türünde bulursun)')
+ K.Track(function() if panel then for _, c in ipairs(chips) do pcall(paintChip, c) end end end)
+ panel:SetScript('OnShow', function() layout(); counts = {}; refresh() end)
+ panel:SetScript('OnHide', function() hidePins() end)
+ local acc = 0
+ panel:SetScript('OnUpdate', function(_, dt)
+  acc = acc + dt
+  if acc >= 1 then acc = 0; updateDistances() end
  end)
- attachTip(dSave, 'Yerlerime ekle', 'Bu yeri kaydeder; sonra "Kayıtlarım" türünden hızlıca bulursun.')
- detail.go, detail.map, detail.save = dGo, dMap, dSave
- dGo:Hide(); dMap:Hide(); dSave:Hide()
-
- panel:SetScript('OnShow', function() layout(); page = 1; refresh() end)
  panel:Hide()
  layout()
  if FT.FixFonts then FT.FixFonts(panel) end
@@ -523,7 +828,7 @@ local function install()
   if ForeverTrailSettings.mapRouteOpen ~= false and ForeverTrailSettings.mapRoute ~= false then panel:Show() end
  end)
  WorldMapFrame:HookScript('OnSizeChanged', function() layout(); if panel:IsShown() then refresh() end end)
- if hooksecurefunc then pcall(hooksecurefunc, WorldMapFrame, 'SetMapID', function() if panel:IsShown() then page = 1; refresh() end end) end
+ if hooksecurefunc then pcall(hooksecurefunc, WorldMapFrame, 'SetMapID', function() if panel:IsShown() then refresh() end end) end
  local mode = FT.NewButton(WorldMapFrame, 'Görünüm', 120, 22)
  mode:SetFrameStrata(WorldMapFrame:GetFrameStrata()); mode:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 25)
  mode:SetPoint('RIGHT', toggle, 'LEFT', -4, 0)

@@ -519,6 +519,117 @@ try('görev penceresi', function()
   assert(FT.view == 1 and FT.active == 2 and box.resume:IsShown(), 'geri düğmesi yalnızca incelemeli, "Buradan sürdür" görünmeli')
   box.skip:GetScript('OnClick')(box.skip)
   assert(FT.active == 3 and FT.view == 3, 'Atla etkin adıma dönüp ilerletmeli: ' .. FT.active .. '/' .. FT.view)
+  -- Polestar tarzı ayrıntılar: açılır yolculuk, numaralı adımlar, hedef satırı, onay kutusu
+  do
+   FT.view, FT.active = 3, 3
+   FT.customTarget = {stepId = 'custom2', type = 'location', questTitle = 'Uzak Hedef', text = 'Uzak', uiMapID = 1426, x = 0.3, y = 0.3}
+   ForeverTrailSettings.gtJourneyOpen = nil; FT.RefreshGuideTab()
+   assert(box.goal:IsShown() and box.goal.name:GetText() == 'Uzak Hedef', 'hedef satırı: ' .. tostring(box.goal.name:GetText()))
+   assert(FT.GuideTabJourneyRows() >= 2, 'yolculuk varsayılan açık olmalı')
+   box.journeyHead:GetScript('OnClick')(box.journeyHead)
+   assert(ForeverTrailSettings.gtJourneyOpen == false and FT.GuideTabJourneyRows() == 0 and not box.goal:IsShown(), 'başlığa tıklayınca yolculuk kapanmalı')
+   box.journeyHead:GetScript('OnClick')(box.journeyHead)
+   assert(FT.GuideTabJourneyRows() >= 2 and box.goal:IsShown(), 'ikinci tıklama yeniden açmalı')
+   FT.customTarget = nil; ForeverTrailSettings.gtJourneyOpen = nil
+   -- onay kutusu: etkin adımı tamamlar, incelenen adımda işlem yapmaz
+   FT.view, FT.active = 3, 3; FT.RefreshGuideTab()
+   assert(not box.check.mark:IsShown(), 'etkin adımda kutu boş olmalı')
+   box.check:GetScript('OnClick')(box.check)
+   assert(FT.active == 4, 'onay kutusu adımı tamamlamalı: ' .. FT.active)
+   FT.view = 2; FT.RefreshGuideTab()
+   assert(box.check.mark:IsShown(), 'yapılmış adımda kutu dolu olmalı')
+   box.check:GetScript('OnClick')(box.check)
+   assert(FT.active == 4, 'incelenen adımda onay kutusu ilerletmemeli')
+   -- seviye tahmini yoksa satır boş kalır
+   assert(box.forecast:GetText() == '' or box.forecast:GetText():find('Bu gidişle', 1, true), 'tahmin satırı')
+   FT.view, FT.active = 1, 1; FT.RefreshGuideTab()
+  end
+  -- Yapılacaklar kartı: görev satırları, XP çubuğu, seviye tahmini
+  do
+   local real = FT.TodoSummary
+   FT.TodoSummary = function() return {
+    rows = {{questId = 11, title = 'Hazır Görev', xp = 450, status = 'ready', npc = 'Johaan'}, {questId = 12, title = 'Süren Görev', xp = 300, status = 'active'}},
+    readyCount = 1, readyXP = 450, activeCount = 1, activeXP = 300, futureCount = 2, futureXP = 900, totalXP = 1650,
+    thisXP = 450, thisPct = 0.12, ready = {10, 0.4}, all = {11, 0.2, true}, estimated = true}
+   end
+   FT.view, FT.active = 1, 1; FT.RefreshGuideTab()
+   local todo = box.todo
+   assert(todo:IsShown() and todo.rows[1]:IsShown() and todo.rows[2]:IsShown(), 'yapılacaklar satırları görünmeli')
+   assert(todo.rows[1].title:GetText() == 'Hazır Görev' and todo.rows[1].xp:GetText() == '+450 XP', 'satır: ' .. tostring(todo.rows[1].xp:GetText()))
+   assert(todo.rows[1].sub:GetText() == 'Teslim: Johaan' and todo.rows[2].sub:GetText() == 'Devam ediyor', 'alt satır')
+   assert(todo.head.right:GetText():find('4 görev', 1, true) and todo.head.right:GetText():find('1.650 XP', 1, true), 'başlık özeti: ' .. tostring(todo.head.right:GetText()))
+   local texts = {}
+   for _, fs in ipairs(todo.lines) do if fs:IsShown() then texts[#texts + 1] = fs:GetText() end end
+   assert(#texts == 3 and texts[1]:find('Bu görev: +450 XP', 1, true), 'üç özet satırı: ' .. #texts)
+   assert(texts[2]:find('Seviye 10', 1, true) and texts[3]:find('Seviye ~11', 1, true) and texts[3]:find('rehberde 2 görev', 1, true), 'seviye tahmini: ' .. tostring(texts[3]))
+   FT.TodoSummary = function() return {rows = {}, readyCount = 0, readyXP = 0, activeCount = 0, activeXP = 0, futureCount = 0, futureXP = 0, totalXP = 0} end
+   FT.RefreshGuideTab()
+   assert(not box.todo:IsShown(), 'yapılacak yoksa kart gizli olmalı')
+   FT.TodoSummary = real
+   FT.RefreshGuideTab()
+  end
+  -- hedef listesi: bağımsız pencere; portre/simge, ad, sayaç, tıklama ve odak
+  do
+   local realObj, realSet, realOpen = FT.ActiveObjectives, FT.SetCustomTarget, FT.OpenMap
+   steps[6] = {stepId = 's6', type = 'objective', questId = 999, questTitle = 'Av', text = 'Öldür', uiMapID = 1429, x = 0.4, y = 0.5}
+   FT.guide = {guideId = 'sekme-testi', version = 1, title = 'Sekme Testi', zone = 'Bölge', levels = '1-10', steps = steps}
+   FT.ActiveObjectives = function() return {
+    {questId = 111, title = 'Başka', index = 1, kind = 'kill', npcs = {1}, objs = {}, have = 0, need = 1, done = false, color = {1, 0.8, 0.3}, text = 'Başka görev: 0/1'},
+    {questId = 999, title = 'Av', index = 1, kind = 'kill', npcs = {299}, objs = {}, have = 0, need = 2, done = false, color = {1, 0.8, 0.3}, text = 'Outraged Pillager: 0/2'},
+    {questId = 999, title = 'Av', index = 2, kind = 'loot', npcs = {}, objs = {}, itemId = 2589, have = 3, need = 3, done = true, color = {1, 0.8, 0.3}, text = 'Linen Cloth: 3/3'},
+   } end
+   FT.view, FT.active = 6, 6
+   ForeverTrailSettings.targetList = nil; ForeverTrailSettings.targetListCollapsed = nil
+   FT.RefreshTargetList(true)
+   assert(FT.targetList and FT.targetList:IsShown(), 'hedef penceresi görünmeli')
+   assert(FT.targetList:GetParent() == UIParent, 'hedef penceresi bağımsız olmalı (rehber kutusunun içinde değil)')
+   local rs = FT.TargetListRows()
+   assert(#rs == 2, 'tamamlanan hedef listelenmemeli: ' .. #rs)
+   assert(rs[1].name:GetText() == 'Outraged Pillager' and rs[1].count:GetText() == '0/2', 'rehber görevi önce, ad ve sayaç: ' .. tostring(rs[1].name:GetText()))
+   assert(rs[2].name:GetText() == 'Başka görev', 'diğer görev sonra: ' .. tostring(rs[2].name:GetText()))
+   -- sağ tık: yalnızca o görevi izle; tekrar sağ tık: hepsi
+   rs[1]:GetScript('OnClick')(rs[1], 'RightButton')
+   assert(FT.TargetListFocus() == 999 and #FT.TargetListRows() == 1, 'sağ tık odaklanmalı: ' .. #FT.TargetListRows())
+   FT.TargetListRows()[1]:GetScript('OnClick')(FT.TargetListRows()[1], 'RightButton')
+   assert(FT.TargetListFocus() == nil and #FT.TargetListRows() == 2, 'ikinci sağ tık odağı kaldırmalı')
+   -- sol tık: en yakın noktaya git; nokta yoksa harita açılır
+   local set, opened = nil, 0
+   FT.SetCustomTarget = function(map, x, y, name) set = {map = map, x = x, y = y, name = name} end
+   FT.OpenMap = function() opened = opened + 1 end
+   local realSpawn = FT.SpawnPoints
+   FT.SpawnPoints = function() return {{map = 1429, x = 0.5, y = 0.5}, {map = 1429, x = 0.1, y = 0.1}} end
+   rs = FT.TargetListRows(); rs[1]:GetScript('OnClick')(rs[1], 'LeftButton')
+   assert(set and set.name == 'Outraged Pillager' and set.map == 1429, 'tık hedefi ayarlamalı: ' .. tostring(set and set.name))
+   FT.SpawnPoints = function() return {} end
+   set = nil; rs[1]:GetScript('OnClick')(rs[1], 'LeftButton')
+   assert(not set and opened == 1, 'nokta yoksa harita açılmalı')
+   FT.SpawnPoints = realSpawn
+   -- başlığa tıklayınca daralır
+   FT.targetList.head:GetScript('OnClick')(FT.targetList.head)
+   assert(#FT.TargetListRows() == 0 and ForeverTrailSettings.targetListCollapsed == true, 'başlık tıklaması daraltmalı')
+   FT.targetList.head:GetScript('OnClick')(FT.targetList.head)
+   assert(#FT.TargetListRows() == 2, 'ikinci tıklama genişletmeli')
+   -- ilerleme: sayaç artınca parlama; liste boşalınca pencere kapanır
+   FT.ActiveObjectives = function() return {
+    {questId = 999, title = 'Av', index = 1, kind = 'kill', npcs = {299}, objs = {}, have = 1, need = 2, done = false, color = {1, 0.8, 0.3}, text = 'Outraged Pillager: 1/2'},
+   } end
+   FT.RefreshTargetList(true)
+   rs = FT.TargetListRows()
+   assert(#rs == 1 and rs[1].count:GetText() == '1/2' and rs[1].flashT, 'ilerleyince satır parlamalı')
+   FT.ActiveObjectives = function() return {} end
+   FT.RefreshTargetList(true)
+   assert(not FT.targetList:IsShown(), 'hedef kalmayınca pencere gizlenmeli')
+   -- kapatma düğmesi ayarı kapatır
+   FT.ActiveObjectives = function() return {{questId = 999, title = 'Av', index = 1, kind = 'kill', npcs = {}, objs = {}, have = 0, need = 1, done = false, color = {1, 0.8, 0.3}, text = 'X: 0/1'}} end
+   FT.RefreshTargetList(true); assert(FT.targetList:IsShown())
+   FT.targetList.close:GetScript('OnClick')(FT.targetList.close)
+   assert(ForeverTrailSettings.targetList == false and not FT.targetList:IsShown(), 'kapat düğmesi pencereyi kapatmalı')
+   ForeverTrailSettings.targetList = nil
+   FT.ActiveObjectives, FT.SetCustomTarget, FT.OpenMap = realObj, realSet, realOpen
+   FT.targetList:Hide()
+   steps[6] = {stepId = 's6', type = 'manual', text = 'Adım 6'}
+   FT.view, FT.active = 1, 1
+  end
   -- karta tıklayınca harita açılır; sürükleme dock'a iletilir
   do
    local realOpen, opened = FT.OpenMap, 0
