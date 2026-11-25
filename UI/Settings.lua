@@ -12,7 +12,7 @@ local function applyFont(label)
  if size and label:SetFont(turkishFont, size, flags or '') == false and path then label:SetFont(path, size, flags or '') end
 end
 
-local OFF_BY_DEFAULT = {autoquestAll=true, hideContinent=true, qRaid=true, qareas=true, raidmarks=true, beep=true, autotalent=true, autoequip=true, trkAutoMin=true, trkCombat=true, trkInstance=true, autosummon=true, autorez=true, blockduels=true, maxcamera=true, noglow=true, autonext=true, auto=true, compact=true, banksort=true, autoreward=true, simple=true, announce=true, breadcrumbs=true, availHideLow=true}
+local OFF_BY_DEFAULT = {blizzTracker=true, autoquestAll=true, hideContinent=true, qRaid=true, qareas=true, raidmarks=true, beep=true, autotalent=true, autoequip=true, trkAutoMin=true, trkCombat=true, trkInstance=true, autosummon=true, autorez=true, blockduels=true, maxcamera=true, noglow=true, autonext=true, auto=true, compact=true, banksort=true, autoreward=true, simple=true, announce=true, breadcrumbs=true, availHideLow=true}
 local function get(key)
  if OFF_BY_DEFAULT[key] then return ForeverTrailSettings[key] == true end
  return ForeverTrailSettings[key] ~= false
@@ -156,9 +156,14 @@ local items = {
  {tab='uyari', key='platecolor', label='Görev yaratığının can barı görev renginde'},
  {tab='gorunum', key='anims', label='Pencereler yumuşak açılsın'},
  {tab='kutu', key='availbox', label='Solda alınabilir görevler kutusu', apply=function() if FT.RefreshAvailableBox then FT.RefreshAvailableBox() end end},
+ {tab='kutu', key='blizzTracker', label='Oyunun kendi görev takipçisini de göster', apply=function() if FT.ApplyBlizzTracker then FT.ApplyBlizzTracker() end end},
+ {tab='kutu', key='targetList', label='Hedefler penceresi (yapılmamış hedefler; /ftrail hedefler)', apply=function() if FT.RefreshTargetList then FT.RefreshTargetList(true) end end},
  {tab='kutu', key='trkdiff', label='Görev seviyesini göster, başlığı zorluk renginde boya', apply=function() if FT.RefreshTracker then FT.RefreshTracker() end end},
  {tab='kutu', key='trkzones', label='Bölge başlıkları (tıkla: bölgeyi daralt)', apply=function() if FT.RefreshTracker then FT.RefreshTracker() end end},
  {tab='kutu', key='trkAutoMin', label='Biten görevleri otomatik daralt', apply=function() if FT.RefreshTracker then FT.RefreshTracker() end end},
+ {tab='kutu', key='reqWarn', label='Göreve giderken eksik ön koşul ya da eşya varsa uyar (açılır pencere)'},
+ {tab='kutu', key='trkSteps', label='Görevin altında adım adım ne yapılacağını yaz (numaralı adımlar, yer, teslim)', apply=function() if FT.RefreshTracker then FT.RefreshTracker() end end},
+ {tab='kutu', key='gtPlan', label='Rehberde adım kartının altında görevin adımlarını göster', apply=function() if FT.RefreshGuideTab then FT.RefreshGuideTab() end end},
  {tab='kutu', key='trkHideDoneObj', label='Tamamlanan hedefleri gizle', apply=function() if FT.RefreshTracker then FT.RefreshTracker() end end},
  {tab='kutu', key='trkCombat', label='Savaşta görev kutusunu daralt', apply=function() if FT.RefreshTracker then FT.RefreshTracker() end end},
  {tab='kutu', key='trkInstance', label='Zindanda görev kutusunu daralt', apply=function() if FT.RefreshTracker then FT.RefreshTracker() end end},
@@ -697,6 +702,7 @@ FT.QuestiePageDefs = {
   C('arrow', 'Yön oku', nil, function() if FT.UpdateArrow then FT.UpdateArrow() end end),
   C('minimap', 'Mini haritada hedef işareti'),
   C('auto', 'Otomatik ilerle'),
+  C('reqWarn', 'Göreve giderken eksik ön koşul ya da eşya varsa uyar'),
   C('autonext', 'Sürekli rota: hedef bitince sıradakine geç'),
   C('retarget', 'Hedefi konumuma göre güncelle'),
   H('Danışmanlar'),
@@ -743,6 +749,8 @@ FT.QuestiePageDefs = {
   H('Takip'),
   C('tracker', 'Görev takibini etkinleştir', nil, function(v) if FT.tracker then if v then FT.tracker:Show() else FT.tracker:Hide() end end end),
   C('availbox', 'Solda alınabilir görevler kutusu'),
+  C('blizzTracker', 'Oyunun kendi görev takipçisini de göster (kapalıyken yalnızca ForeverTrail penceresi kalır)', nil, function() if FT.ApplyBlizzTracker then FT.ApplyBlizzTracker() end end),
+  C('targetList', 'Hedefler penceresi: yapılmamış hedefler (portre, ad, sayaç)', nil, function() if FT.RefreshTargetList then FT.RefreshTargetList(true) end end),
   {type='choice', key='c_trackerStyle', default='questie', label='Görünüm', list={{'questie', 'Questie'}, {'kutu', 'Kutulu'}, {'seffaf', 'Şeffaf'}}},
   {type='choice', key='c_trackerSort', default='bolge', label='Sıralama', list={{'bolge', 'Bölge'}, {'durum', 'Durum'}, {'yakin', 'Yakınlık'}, {'seviye', 'Seviye'}, {'yuzde', '% bitmiş'}}},
   {type='choice', key='c_trackerView', default='detay', label='Gösterim', list={{'detay', 'Ayrıntılı'}, {'liste', 'Kompakt'}}},
@@ -761,6 +769,7 @@ FT.QuestiePageDefs = {
   C('trkitems', 'Görev eşyası düğmeleri'),
   C('questitem', 'Ok altında görev eşyası düğmesi'),
   H('Hedefler'),
+  C('trkSteps', 'Adım adım yapılacaklar (numaralı, yer ve teslim ile)'),
   C('trkHideDoneObj', 'Tamamlanan hedefleri gizle'),
   {type='choice', key='c_objColor', default='beyaz', label='Hedef rengi', list={{'sade', 'Beyaz'}, {'beyaz', 'Beyaz > yeşil'}, {'kirmizi', 'Kırmızı > yeşil'}}},
   C('trkfx', 'İlerleyince +1 efekti'),

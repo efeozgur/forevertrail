@@ -39,6 +39,7 @@ local methods = {
  GetFrameLevel = function() return 1 end, GetFrameStrata = function() return 'MEDIUM' end,
  SetScale = function(self, s) self.__scale = s end, GetScale = function(self) return self.__scale or 1 end,
  EnableMouse = function(self, v) self.__mouse = v end, IsMouseEnabled = function(self) return self.__mouse == true end,
+ SetMovable = function(self, v) self.__movable = v end, IsMovable = function(self) return self.__movable == true end,
  SetTexture = function(self, t) self.__tex = t end, GetTexture = function(self) return self.__tex end,
  SetAlpha = function(self, a) self.__alpha = a end, GetAlpha = function(self) return self.__alpha or 1 end,
  GetEffectiveScale = function() return 1 end, GetLeft = function() return 0 end, GetTop = function() return 0 end,
@@ -693,6 +694,27 @@ try('görev penceresi', function()
  end
  for _, view in ipairs({'liste', 'tablo', 'detay'}) do ForeverTrailSettings.c_trackerView = view; FT.RefreshTracker() end
  ForeverTrailSettings.c_trackerSort = nil; ForeverTrailSettings.c_trackerView = nil; FT.RefreshTracker()
+ do -- görevin altında numaralı adımlar
+  local function rowsOf(q) local out = {} for _, r in ipairs(FT.QuestListStepRows()) do if r.quest == q then out[#out + 1] = r end end return out end
+  local savedMin = ForeverTrailCharacter.trkMin; ForeverTrailCharacter.trkMin = nil -- önceki adımlar görevleri küçültmüş olabilir
+  ForeverTrailSettings.trkSteps = nil; ForeverTrailSettings.c_trackerView = 'detay'; FT.RefreshTracker()
+  local r6 = rowsOf(6)
+  assert(#r6 >= 2, 'sürmekte olan görevde hedef + teslim adımı olmalı: ' .. #r6)
+  assert(r6[1].num == '1.' and (r6[1].text:find('^Topla: ') or r6[1].text:find('^Öldür: ') or r6[1].text:find('^Kullan: ') or r6[1].text == 'Görev hedefi'), 'ilk adım: ' .. tostring(r6[1].num) .. ' ' .. tostring(r6[1].text))
+  assert(r6[1].place and r6[1].place:find('Elwynn Forest · %d+, %d+'), 'ilk adımın yeri (bölge · koordinat): ' .. tostring(r6[1].place))
+  assert(r6[#r6].place and r6[#r6].place:find('%d+, %d+'), 'teslim adımının yeri: ' .. tostring(r6[#r6].place))
+  assert(r6[#r6].num == tostring(#r6) .. '.' and (r6[#r6].text:find('Teslim') or r6[#r6].text:find('teslim')), 'son adım teslim: ' .. tostring(r6[#r6].text))
+  FT.RefreshTracker(); assert(#rowsOf(6) == #r6, 'yeniden çizim adım sayısını değiştirmemeli')
+  ForeverTrailSettings.c_trackerView = 'liste'; FT.RefreshTracker()
+  assert(#FT.QuestListStepRows() == 0, 'kompakt görünümde adım yazılmaz')
+  ForeverTrailSettings.c_trackerView = nil; ForeverTrailSettings.trkSteps = false; FT.RefreshTracker()
+  assert(#FT.QuestListStepRows() == 0, 'ayar kapalıyken numaralı adım yok (eski hedef satırları)')
+  ForeverTrailSettings.trkSteps = nil; FT.RefreshTracker()
+  assert(#rowsOf(6) == #r6, 'ayar açılınca adımlar geri gelmeli')
+  ForeverTrailCharacter.trkMin = {[6] = true}; FT.RefreshTracker()
+  assert(#rowsOf(6) == 0, 'küçültülmüş görevde adım yazılmaz')
+  ForeverTrailCharacter.trkMin = savedMin; FT.RefreshTracker()
+ end
  for _, kind in ipairs({'tracker', 'avail'}) do FT.ToggleViewOptions(kind); FT.ToggleViewOptions(kind) end
  assert(ForeverTrailSettings.availbox ~= false, 'eski "alınabilir kutusunu kapat" ayarı temizlenmeli')
  FT.RefreshAvailableBox(); assert(FT.availableBox:IsShown(), 'alınabilir sekmesi görünür olmalı')
@@ -700,6 +722,390 @@ try('görev penceresi', function()
  tip:SetOwner(UIParent, 'ANCHOR_LEFT'); tip:SetText('[5] Test', 1, 1, 0); tip:AddLine('açıklama', 1, 1, 1); tip:AddLine(' ')
  tip:AddDoubleLine('Ödül', '100 XP', 0.6, 0.6, 0.6, 1, 1, 1); tip:AddBar('hedef', 1, 3, 0.5, 0.9, 0.5); tip:AddRule(); tip:Show(); tip:Hide()
  FT.QuestRowTip(FT.questDock, 1); FT.QuestInfoTip(FT.Kit.Tooltip(), 1, nil, 100); FT.Kit.HideTips()
+end)
+try('rehber: bu görevde adımlar ve ayrıntılı ipucu', function()
+ local g = FT.guide
+ local idx
+ for i, st in ipairs(g.steps) do if st.questId then idx = i; break end end
+ assert(idx, 'rehberde görevli adım olmalı')
+ local savedView, savedActive = FT.view, FT.active
+ FT.view = idx; ForeverTrailSettings.gtPlan = nil; ForeverTrailSettings.gtPlanOpen = nil; FT.RefreshGuideTab()
+ local rows = FT.GuideTabPlanRows()
+ assert(#rows >= 2, 'görevli adımda numaralı adımlar olmalı: ' .. #rows)
+ assert(rows[1].num == '1.' and rows[#rows].num == #rows .. '.' and rows[#rows].text:find('^Teslim'), 'numaralar ve son teslim adımı')
+ assert(rows[1].place and rows[1].place:find('%d+, %d+'), 'ilk adımın yeri')
+ ForeverTrailSettings.gtPlanOpen = false; FT.RefreshGuideTab()
+ assert(#FT.GuideTabPlanRows() == 0 and FT.guideBox.planHead:IsShown(), 'kapalıyken satırlar yok, başlık var')
+ ForeverTrailSettings.gtPlanOpen = nil; ForeverTrailSettings.gtPlan = false; FT.RefreshGuideTab()
+ assert(#FT.GuideTabPlanRows() == 0 and not FT.guideBox.planHead:IsShown(), 'ayar kapalıyken bölüm yok')
+ ForeverTrailSettings.gtPlan = nil; FT.RefreshGuideTab()
+ assert(#FT.GuideTabPlanRows() == #rows, 'ayar açılınca bölüm geri gelmeli')
+ -- adım kartının ipucu: görevin bütün ayrıntıları (tek ipucu, eski satır kalmaz)
+ local card = FT.guideBox.card
+ local tip = FT.Kit.Tooltip()
+ card.__scripts.OnEnter(card)
+ assert(tip.frame:IsShown() and tip:NumLines() >= 8, 'görev ayrıntı ipucu dolu olmalı: ' .. tip:NumLines())
+ local parts = tip:ShownParts()
+ card.__scripts.OnLeave(card); assert(not tip.frame:IsShown(), 'ayrılınca kapanmalı')
+ card.__scripts.OnEnter(card); assert(select(1, tip:ShownParts()) == parts, 'tekrar açılışta aynı sayıda satır (birikme yok)')
+ card.__scripts.OnLeave(card)
+ -- görev kutusu satırı ve alınabilir görev ipucu da aynı ayrıntılı içeriği verir
+ FT.QuestRowTip(FT.questDock, g.steps[idx].questId); assert(tip.frame:IsShown() and tip:NumLines() >= 8, 'görev satırı ipucu ayrıntılı olmalı: ' .. tip:NumLines())
+ FT.Kit.HideTips(); tip:SetOwner(UIParent, 'ANCHOR_LEFT'); FT.QuestInfoTip(tip, g.steps[idx].questId, {level = 5, giver = 'Test NPC'}, 50); tip:Show()
+ assert(tip:NumLines() >= 8, 'alınabilir görev ipucu ayrıntılı olmalı: ' .. tip:NumLines()); FT.Kit.HideTips()
+ FT.view, FT.active = savedView, savedActive; FT.RefreshGuideTab()
+end)
+try('yerleşim kilidi: pencerede simge, Shift ile taşıma, bir kerelik sıfırlama, profil', function()
+ local dock, s = FT.questDock, ForeverTrailSettings
+ local function walk(f, fn) fn(f); for _, c in ipairs({f:GetChildren()}) do walk(c, fn) end end
+ local btn
+ walk(dock, function(f) if f.__kind == 'Button' and f.on and f.icon and f.__scripts.OnClick and not f.text then btn = f end end)
+ assert(btn, 'görev penceresinde kilit düğmesi olmalı')
+ local realPrint, realShift, realLocked = FT.Print, IsShiftKeyDown, s.locked
+ local printed = {}; FT.Print = function(m) printed[#printed + 1] = m end
+ -- her iki durumda da görünür; kilitliyken dolgulu ve parlak, açıkken soluk; tıklayınca buradan değişir
+ s.locked = false; s.arrowLocked = false; FT.RefreshQuestDock()
+ assert(btn:IsShown() and not btn.on:IsShown() and btn.icon:GetAlpha() < 1, 'açıkken görünür ama soluk ve dolgusuz')
+ btn.__scripts.OnClick(btn)
+ assert(s.locked == true and s.arrowLocked == true and btn.on:IsShown() and btn.icon:GetAlpha() == 1, 'tıklayınca kilitlenir, dolgulu ve parlak olur')
+ btn.__scripts.OnEnter(btn); assert(FT.Kit.Tooltip().frame:IsShown(), 'kilit ipucu çıkmalı'); btn.__scripts.OnLeave(btn)
+ btn.__scripts.OnClick(btn)
+ assert(s.locked == false and not btn.on:IsShown() and btn.icon:GetAlpha() < 1, 'tekrar tıklayınca açılır, soluklaşır')
+ -- kilitliyken Shift ile yine taşınır; Shift'siz taşınmaz ve nedeni söylenir
+ local moved = 0; dock.StartMoving = function() moved = moved + 1 end
+ s.locked = true; local shift = false; IsShiftKeyDown = function() return shift end
+ printed = {} -- düğme tıklamalarının yazdığı 'kilitlendi/açıldı' satırlarını at
+ dock.__scripts.OnDragStart(dock); assert(moved == 0 and #printed == 1 and printed[1]:find('Shift', 1, true), 'kilitli, Shift yok: taşınmaz ve Shift ipucu verilir: ' .. tostring(printed[1]))
+ shift = true; dock.__scripts.OnDragStart(dock); assert(moved == 1, 'kilitliyken Shift basılıysa taşınmalı')
+ assert(FT.CanDrag() == true, 'Shift ile CanDrag doğru döner'); shift = false
+ s.locked = false; assert(FT.CanDrag() == true, 'kilitsizken her zaman sürüklenir')
+ dock.StartMoving = nil; IsShiftKeyDown = realShift
+ -- sekme iç boşluğu pencere daraldıkça küçülür (Ayar'ın altına binmesin), 24'ün altına inmez, 38'i aşmaz
+ assert(FT.QuestDockTabPad(262, 169, 3) == 31 and FT.QuestDockTabPad(150, 169, 3) == 24 and FT.QuestDockTabPad(500, 100, 3) == 38 and FT.QuestDockTabPad(100, 0, 0) == 38, 'sekme boşluğu hesabı')
+ -- bir kerelik sıfırlama: eskiden unutulup açık kalan kilit girişte kapanır; sonradan bilerek kilitlenen korunur
+ local real = ForeverTrailSettings
+ ForeverTrailSettings = {locked = true, arrowLocked = true}
+ assert(FT.MigrateLayoutLock() == true and not ForeverTrailSettings.locked and not ForeverTrailSettings.arrowLocked and ForeverTrailSettings.lockVersion == 1, 'eski kilit kapanmalı')
+ ForeverTrailSettings.locked = true
+ assert(FT.MigrateLayoutLock() == false and ForeverTrailSettings.locked == true, 'sonradan bilerek konan kilit korunmalı')
+ ForeverTrailSettings = {}
+ assert(FT.MigrateLayoutLock() == false and ForeverTrailSettings.lockVersion == 1, 'kilit yoksa sürüm yine işaretlenir')
+ ForeverTrailSettings = real
+ -- kayıtlı profil kilidi geri getirmez (eski profillerdeki kilit de yok sayılır)
+ local savedProfile = ForeverTrailCharacter and ForeverTrailCharacter.profile
+ s.locked = true; FT.SaveProfile('kilittest')
+ assert(s.profiles.kilittest and s.profiles.kilittest.locked == nil and s.profiles.kilittest.arrowLocked == nil, 'profil kilidi saklamamalı')
+ s.profiles.eskiprofil = {locked = true, arrowLocked = true, ftTestAnahtar = 7}
+ s.locked = false; s.arrowLocked = false
+ FT.LoadProfile('eskiprofil')
+ assert(not s.locked and not s.arrowLocked and s.ftTestAnahtar == 7, 'eski profilde kilit olsa da yüklenince pencereler kilitlenmemeli, diğer ayarlar yüklenmeli')
+ s.profiles.kilittest, s.profiles.eskiprofil, s.ftTestAnahtar = nil, nil, nil
+ if ForeverTrailCharacter then ForeverTrailCharacter.profile = savedProfile end
+ FT.Print, s.locked = realPrint, realLocked
+end)
+try('görev penceresi: Rehber sekmesi küçülünce kırpılır ve kaydırılır', function()
+ local dock, s = FT.questDock, ForeverTrailSettings
+ assert(dock and FT.guideScroll and dock.guideScroll == FT.guideScroll and FT.guideScroll.ftDragThrough, 'Rehber içeriği kaydırma alanında olmalı ve sürüklemeyi iletmeli')
+ assert(FT.guideScroll.barInset < 0, 'Rehber alanı tam genişlikte: kaydırma çubuğu pencerenin içinde kalmalı (dışına taşmamalı): ' .. tostring(FT.guideScroll.barInset))
+ local plain = FT.Kit.Scroll(UIParent)
+ assert(plain.barInset == 8 and plain.SetBarInset, 'kenar boşluklu listelerin çubuğu eskisi gibi dışarıda kalmalı')
+ local saved = {tab = s.dockTab, h = s.dockH, w = s.dockW, c = s.dockCollapsed}
+ local TAB_H = 36
+ s.dockTab = 'guide'; s.dockCollapsed = nil; s.dockW = nil
+ -- elle küçültülmüş: görünen alan pencerenin yüksekliğini aşmamalı (eskiden içerik pencerenin altından taşıyordu)
+ for _, h in ipairs({420, 250, 150}) do
+  s.dockH = h; FT.RefreshQuestDock()
+  assert(dock.guideView == math.max(80, h - TAB_H - 6), 'elle yükseklik ' .. h .. ': görünen alan ' .. tostring(dock.guideView))
+  assert(dock.totalH == h and FT.guideScroll:IsShown(), 'pencere yüksekliği elle ayarlanana eşit, alan görünür: ' .. tostring(dock.totalH))
+  assert(dock.guideView + TAB_H + 6 <= h or dock.guideView == 80, 'içerik pencere sınırını aşmamalı')
+ end
+ -- çok küçük pencerede bile alan en az 80
+ s.dockH = 100; FT.RefreshQuestDock(); assert(dock.guideView == 80, 'alt sınır 80: ' .. tostring(dock.guideView))
+ -- otomatik yükseklik: içerik kadar ama ekranın %88'ini aşmaz
+ s.dockH = nil; FT.RefreshQuestDock()
+ local cap = math.floor(UIParent:GetHeight() / math.max(0.1, dock:GetScale()) * 0.88) - TAB_H - 6
+ assert(dock.guideView and dock.guideView <= math.max(80, cap) and dock.totalH == TAB_H + dock.guideView + 6, 'otomatik yükseklik ekranla sınırlı: ' .. tostring(dock.guideView) .. ' <= ' .. cap)
+ -- başka sekmede ya da daraltılmışken Rehber alanı görünmez
+ s.dockTab = 'tracker'; FT.RefreshQuestDock()
+ assert(not FT.guideScroll:IsShown() and dock.guideView == nil, 'başka sekmede Rehber alanı gizli olmalı')
+ s.dockTab = 'guide'; s.dockCollapsed = true; FT.RefreshQuestDock()
+ assert(not FT.guideScroll:IsShown() and dock.totalH == TAB_H, 'daraltılınca yalnızca sekme şeridi kalmalı: ' .. tostring(dock.totalH))
+ s.dockTab, s.dockH, s.dockW, s.dockCollapsed = saved.tab, saved.h, saved.w, saved.c
+ FT.RefreshQuestDock()
+end)
+try('oyunun kendi takipçisi ayarlardan açılıp kapanır', function()
+ local s = ForeverTrailSettings
+ local def
+ for _, d in ipairs(FT.QuestiePageDefs.q_takip) do if d.key == 'blizzTracker' then def = d end end
+ assert(def and def.type == 'check' and type(def.apply) == 'function' and def.label:find('Oyunun kendi'), 'Ayarlar > Görev kutuları sayfasında kutu olmalı')
+ local frames = {}
+ for _, name in ipairs({'ObjectiveTrackerFrame', 'QuestWatchFrame', 'WatchFrame'}) do frames[name] = CreateFrame('Frame', name, UIParent) end
+ local realCombat = InCombatLockdown
+ InCombatLockdown = function() return false end
+ s.blizzTracker = nil
+ assert(FT.ApplyBlizzTracker() == 3, 'hangi takipçi çerçeveleri varsa hepsi uygulanır')
+ for name, f in pairs(frames) do assert(not f:IsShown(), name .. ' varsayılan olarak gizli olmalı') end
+ -- oyun takipçiyi kendisi yeniden gösterirse (görev eklenince) kapalıyken hemen tekrar gizlenir
+ for name, f in pairs(frames) do f:Show(); assert(not f:IsShown(), name .. ': oyunun yeniden göstermesi geri alınmalı') end
+ -- ayar açılınca gösterilir
+ s.blizzTracker = true; def.apply(true)
+ for name, f in pairs(frames) do assert(f:IsShown(), name .. ' ayar açıkken görünmeli') end
+ local one = frames.ObjectiveTrackerFrame; one:Hide(); one:Show(); assert(one:IsShown(), 'ayar açıkken oyunun gösterimi korunmalı')
+ -- tekrar kapatınca gizlenir
+ s.blizzTracker = false; def.apply(false)
+ for name, fr in pairs(frames) do assert(not fr:IsShown(), name .. ' ayar kapanınca gizlenmeli') end
+ -- savaşta çerçeveye dokunulmaz (korumalı eylem hatası olmasın), savaştan çıkınca uygulanır
+ s.blizzTracker = true; InCombatLockdown = function() return true end
+ for _, fr in pairs(frames) do fr:Hide() end
+ FT.ApplyBlizzTracker(); for name, fr in pairs(frames) do assert(not fr:IsShown(), name .. ': savaşta dokunulmamalı') end
+ InCombatLockdown = function() return false end
+ FT.ApplyBlizzTracker(); for name, fr in pairs(frames) do assert(fr:IsShown(), name .. ': savaş bitince uygulanmalı') end
+ s.blizzTracker = nil; FT.ApplyBlizzTracker()
+ InCombatLockdown = realCombat
+ for name in pairs(frames) do _G[name] = nil end
+end)
+try('görev penceresi: sekmelerden ve içerikten sürüklenir, kilit nedeni söylenir', function()
+ local dock = FT.questDock
+ assert(dock, 'görev penceresi')
+ local function walk(f, fn) fn(f); for _, c in ipairs({f:GetChildren()}) do walk(c, fn) end end
+ -- sekme adları (Rehber / Görevlerim / Alınabilir) sürüklemeyi pencereye iletmeli; tık yine sekmeyi seçer
+ local tabs = {}
+ walk(dock, function(f) if f.__kind == 'Button' and f.text and f.count and f.line then tabs[#tabs + 1] = f end end)
+ assert(#tabs == 3, 'üç sekme düğmesi: ' .. #tabs)
+ for _, t in ipairs(tabs) do assert(t.ftDragThrough and t.__scripts.OnDragStart and t.__scripts.OnClick, 'sekme sürüklemeyi iletmeli ve tıklanabilir kalmalı') end
+ assert(FT.tracker.ftDragThrough and FT.availableBox.ftDragThrough, 'pencereye alınan kutular da sürüklemeyi iletmeli (altlarındaki boşluk pencereyi tutsun)')
+ local realStart, realStop = dock.__scripts.OnDragStart, dock.__scripts.OnDragStop
+ local calls = {}
+ dock.__scripts.OnDragStart = function(w) calls.start = w end
+ dock.__scripts.OnDragStop = function(w) calls.stop = w end
+ tabs[1].__scripts.OnDragStart(tabs[1]); assert(calls.start == dock, 'sekmeden sürükleme pencereyi taşımaya başlamalı')
+ tabs[1].__scripts.OnDragStop(tabs[1]); assert(calls.stop == dock, 'bırakınca pencere durmalı ve konumu kaydetmeli')
+ dock.__scripts.OnDragStart, dock.__scripts.OnDragStop = realStart, realStop
+ -- kilitliyken pencere taşınmaz AMA nedeni söylenir (sessiz "bozuk" görünmez); açılınca taşınır
+ local moved, printed = 0, {}
+ dock.StartMoving = function() moved = moved + 1 end
+ local realPrint, realTime, realLocked = FT.Print, GetTime, ForeverTrailSettings.locked
+ FT.Print = function(m) printed[#printed + 1] = m end
+ local now = 5000; GetTime = function() return now end
+ ForeverTrailSettings.locked = true
+ dock.__scripts.OnDragStart(dock)
+ assert(moved == 0, 'kilitliyken pencere taşınmamalı')
+ assert(#printed == 1 and printed[1]:find('kilitli', 1, true) and printed[1]:find('/ftrail kilit', 1, true), 'kilit nedeni ve nasıl açılacağı söylenmeli: ' .. tostring(printed[1]))
+ tabs[2].__scripts.OnDragStart(tabs[2]); assert(#printed == 1, 'ipucu 15 saniyede en çok bir kez (yazı yağmuru olmasın)')
+ now = now + 16; tabs[2].__scripts.OnDragStart(tabs[2]); assert(#printed == 2 and moved == 0, 'süre geçince tekrar söylenir, sekmeden denense de taşınmaz')
+ ForeverTrailSettings.locked = false
+ dock.__scripts.OnDragStart(dock); assert(moved == 1, 'kilit açılınca taşınmalı')
+ FT.Print, GetTime, ForeverTrailSettings.locked = realPrint, realTime, realLocked
+ dock.StartMoving = nil
+end)
+try('hub: sürükleme her yerden pencereyi taşır', function()
+ local hub, Kit = FT.hub, FT.Kit
+ assert(hub and Kit.DragThrough and Kit.DragThroughTree and FT.HubDragScan, 'sürükleme iletme işlevleri')
+ for _, page in ipairs({'rehber', 'gorevler', 'ansiklopedi', 'sinif', 'meslek', 'yerler', 'araclar', 'ayarlar'}) do FT.OpenHub(page) end
+ FT.HubDragScan()
+ local function walk(f, fn) fn(f); for _, c in ipairs({f:GetChildren()}) do walk(c, fn) end end
+ -- hub'ın altındaki HER kaydırma alanı (fare tekeri = fareyi yakalar) sürüklemeyi iletmeli
+ local scrolls, bad = 0, 0
+ walk(hub, function(f)
+  if f.__kind == 'ScrollFrame' then
+   scrolls = scrolls + 1
+   if not (f.ftDragThrough and f.__scripts.OnDragStart and f.__scripts.OnDragStop) then bad = bad + 1 end
+  end
+ end)
+ assert(scrolls > 0 and bad == 0, 'her kaydırma alanı sürüklemeyi iletmeli: ' .. bad .. '/' .. scrolls)
+ -- ileten çerçeve hub'ın kendi sürükleme işlevlerini çağırır (konum kaydı hub'da kalır)
+ local calls = {}
+ local realStart, realStop = hub.__scripts.OnDragStart, hub.__scripts.OnDragStop
+ hub.__scripts.OnDragStart = function(w) calls.start = w end
+ hub.__scripts.OnDragStop = function(w) calls.stop = w end
+ local sf
+ walk(hub, function(f) if not sf and f.__kind == 'ScrollFrame' then sf = f end end)
+ sf.__scripts.OnDragStart(sf); assert(calls.start == hub, 'sürükleme başlayınca hub taşınmaya başlamalı')
+ sf.__scripts.OnDragStop(sf); assert(calls.stop == hub and sf.ftDragWin == nil, 'bırakınca hub durmalı ve konumu kaydetmeli')
+ -- sonradan oluşan satırlar (havuz) bir sonraki taramada kapsanır; küçük öğeler, kaydırıcı, yazı kutusu, boyut tutamağı dışarıda kalır
+ local holder = CreateFrame('Frame', nil, hub)
+ local row = CreateFrame('Button', nil, holder); row.GetWidth = function() return 300 end; row.GetHeight = function() return 30 end
+ local tiny = CreateFrame('Button', nil, holder); tiny.GetWidth = function() return 28 end; tiny.GetHeight = function() return 28 end
+ local slider, edit, check = CreateFrame('Slider', nil, holder), CreateFrame('EditBox', nil, holder), CreateFrame('CheckButton', nil, holder)
+ local grip = CreateFrame('Button', nil, holder); grip.GetWidth = function() return 300 end; grip.GetHeight = function() return 30 end
+ grip:SetScript('OnMouseDown', function() end)
+ local late = CreateFrame('ScrollFrame', nil, holder)
+ assert(FT.HubDragScan() >= 2, 'tarama yeni çerçeveleri bulmalı')
+ assert(row.ftDragThrough and late.ftDragThrough, 'sonradan oluşan satır ve kaydırma alanı kapsanmalı')
+ assert(not tiny.ftDragThrough, 'küçük düğme (kapat, simge) sürüklemeyi iletmemeli')
+ assert(not slider.ftDragThrough and not edit.ftDragThrough and not check.ftDragThrough, 'kaydırıcı, yazı kutusu ve onay kutusu kendi fare işini yapar')
+ assert(not grip.ftDragThrough, 'kendi fare işlevi olan (boyut tutamağı) dokunulmamalı')
+ assert(FT.HubDragScan() == 0, 'ikinci tarama yeni bir şey bulmamalı (tekrar kurulmaz)')
+ -- Kit.Scroll kuruluşta kendiliğinden iletir: yarın yazılacak her liste de pencereyi tutmayı engellemez
+ local fresh = Kit.Scroll(holder)
+ assert(fresh.ftDragThrough and fresh.__scripts.OnDragStart, 'Kit.Scroll sürüklemeyi kendiliğinden iletmeli')
+ fresh.__scripts.OnDragStart(fresh); assert(calls.start == hub, 'yeni liste de hub\'ı taşır')
+ -- taşınabilir bir pencerenin içinde olmayan kaydırma alanı hata vermez, bir şey de yapmaz
+ local orphan = Kit.Scroll(CreateFrame('Frame', nil, UIParent))
+ calls.start = nil
+ assert(pcall(orphan.__scripts.OnDragStart, orphan) and calls.start == nil, 'taşınamaz pencerede sürükleme sessizce yok sayılmalı')
+ hub.__scripts.OnDragStart, hub.__scripts.OnDragStop = realStart, realStop
+end)
+try('rehber: eksik ön koşul ve eşya uyarısı', function()
+ local g = FT.guide
+ local idx
+ for i, st in ipairs(g.steps) do if st.questId then idx = i; break end end
+ local qid = g.steps[idx].questId
+ local savedView, savedActive, realReq, realTarget, realChoice = FT.view, FT.active, FT.QuestRequirements, FT.SetCustomTarget, FT.ShowChoice
+ local fake = {
+  {kind = 'quest', questId = 111, title = 'Önce bu', text = 'Önce görev: Önce bu', detail = 'Görevi al: Test NPC', place = {map = 1429, x = 0.3, y = 0.4, text = 'Elwynn Forest · 30, 40'}, where = 'Elwynn Forest · 30, 40', npc = 'Test NPC'},
+  {kind = 'item', itemId = 900, name = 'Mühür', questId = 112, title = 'Mühür görevi', text = 'Eşya gerekli: Mühür', detail = '“Mühür görevi” görevinden gelir (ödül)'},
+ }
+ FT.view, FT.active = idx, idx
+ -- gereksinim yokken blok görünmez
+ FT.QuestRequirements = function() return {} end; FT.RefreshGuideTab()
+ assert(#FT.GuideTabReqRows() == 0 and not FT.guideBox.reqHead:IsShown(), 'gereksinim yokken uyarı bloğu yok')
+ local tip = FT.Kit.Tooltip()
+ local card = FT.guideBox.card
+ card.__scripts.OnEnter(card); local linesNone = tip:NumLines(); card.__scripts.OnLeave(card)
+ -- gereksinim varken: kartta amber satırlar, tıklayınca bağlantılı görevin NPC'sine rota
+ FT.QuestRequirements = function(id) return id == qid and fake or {} end; FT.RefreshGuideTab()
+ local rows = FT.GuideTabReqRows()
+ assert(#rows == 2 and FT.guideBox.reqHead:IsShown(), 'iki uyarı satırı ve başlık: ' .. #rows)
+ assert(rows[1].text == 'Önce görev: Önce bu' and rows[1].detail:find('Test NPC', 1, true) and rows[1].detail:find('Elwynn Forest · 30, 40', 1, true), 'ilk satır metni: ' .. tostring(rows[1].detail))
+ assert(rows[2].text == 'Eşya gerekli: Mühür', 'ikinci satır eşya')
+ local target
+ FT.SetCustomTarget = function(map, x, y, name) target = {map = map, x = x, y = y, name = name} end
+ local btn
+ for _, r in ipairs({FT.guideBox:GetChildren()}) do if r.req == fake[1] then btn = r end end
+ assert(btn and btn.__scripts.OnClick, 'uyarı satırı tıklanabilir')
+ btn.__scripts.OnClick(btn)
+ assert(target and target.map == 1429 and target.x == 0.3 and target.name == 'Test NPC', 'tık: bağlantılı görevin NPC\'sine rota')
+ FT.SetCustomTarget = realTarget
+ -- hepsi hazırsa (eşya çantada, görev bitti) başlık "Hazır" der; biri eksikse "Dikkat" der
+ fake[1].ready, fake[2].ready = true, true; FT.RefreshGuideTab()
+ assert(FT.guideBox.reqHead.text:GetText():find('Hazır', 1, true), 'hepsi hazırken başlık Hazır demeli: ' .. tostring(FT.guideBox.reqHead.text:GetText()))
+ fake[2].ready = nil; FT.RefreshGuideTab()
+ assert(FT.guideBox.reqHead.text:GetText():find('Dikkat', 1, true), 'biri eksikken başlık Dikkat demeli')
+ fake[1].ready = nil
+ -- ayrıntılı ipucu da aynı uyarıları taşır (başlık + iki satır, her biri için ikişer satır)
+ card.__scripts.OnEnter(card); local linesWith = tip:NumLines(); card.__scripts.OnLeave(card)
+ assert(linesWith == linesNone + 4, 'ipucunda her gereksinim için iki satır eklenmeli: ' .. linesNone .. ' -> ' .. linesWith)
+ -- yola çıkarken uyarı (bir kez), kapalıysa çıkmaz
+ local popups = {}
+ FT.ShowChoice = function(title, icon, text) popups[#popups + 1] = text; return true end
+ ForeverTrailSettings.reqWarn = nil
+ FT.view, FT.active = idx, idx
+ FT.Refresh()
+ FT.StepRequirementWarning()
+ assert(#popups <= 1, 'yola çıkış uyarısı en fazla bir kez')
+ FT.QuestRequirements, FT.ShowChoice = realReq, realChoice
+ FT.view, FT.active = savedView, savedActive; FT.RefreshGuideTab()
+end)
+try('ayarlarda hedefler penceresi', function()
+ -- Ayarlar > Görev kutuları sayfasında açma/kapama kutusu var ve pencereyi gerçekten açıp kapatıyor
+ local def
+ for _, d in ipairs(FT.QuestiePageDefs.q_takip) do if d.key == 'targetList' then def = d end end
+ assert(def and def.type == 'check' and type(def.apply) == 'function' and def.label:find('Hedefler penceresi'), 'q_takip sayfasında hedefler penceresi kutusu')
+ local real = FT.ActiveObjectives
+ FT.ActiveObjectives = function() return {{questId = 999, title = 'Av', index = 1, kind = 'kill', npcs = {299}, objs = {}, have = 0, need = 2, done = false, color = {1, 0.8, 0.3}, text = 'Outraged Pillager: 0/2'}} end
+ ForeverTrailSettings.targetList = nil; ForeverTrailSettings.targetListCollapsed = nil
+ def.apply(true); FT.RefreshTargetList(true)
+ assert(FT.targetList and FT.targetList:IsShown(), 'varsayılan açık: pencere görünmeli')
+ ForeverTrailSettings.targetList = false; def.apply(false)
+ assert(not FT.targetList:IsShown(), 'kutu kapatılınca pencere kapanmalı')
+ ForeverTrailSettings.targetList = true; def.apply(true)
+ assert(FT.targetList:IsShown(), 'kutu açılınca pencere geri gelmeli')
+ -- pencerenin kendi kapat düğmesi ayarı kapatır; ayar sayfası aynı anahtarı okur
+ FT.targetList.close:GetScript('OnClick')(FT.targetList.close)
+ assert(ForeverTrailSettings.targetList == false and not FT.targetList:IsShown(), 'kapat düğmesi ayarı da kapatmalı')
+ ForeverTrailSettings.targetList = nil; FT.RefreshTargetList(true)
+ FT.ActiveObjectives = real
+end)
+try('ipucu yerleşimi', function()
+ local P = FT.Kit.PlaceTip
+ local W, H, SW, SH = 316, 200, 1920, 1080
+ -- pencere solda: ipucu sağına açılır, satırın hizasında
+ local x, top, side = P({l = 100, r = 460, t = 700, b = 100}, {l = 110, r = 450, t = 500, b = 470}, W, H, SW, SH, 'ANCHOR_LEFT')
+ assert(side == 'right' and x == 468 and top == 500, 'sola sığmayınca sağa: ' .. tostring(side) .. ' ' .. tostring(x) .. ' ' .. tostring(top))
+ -- pencere sağda: soldan istese de sığan taraf sol olur ve pencerenin dışında kalır
+ x, top, side = P({l = 1500, r = 1860, t = 700, b = 100}, {l = 1510, r = 1850, t = 500, b = 470}, W, H, SW, SH, 'ANCHOR_RIGHT')
+ assert(side == 'left' and x == 1500 - 8 - W and x + W <= 1500, 'sağa sığmayınca sola: ' .. tostring(side) .. ' ' .. tostring(x))
+ x, top, side = P({l = 1500, r = 1860, t = 700, b = 100}, {l = 1510, r = 1850, t = 500, b = 470}, W, H, SW, SH, 'ANCHOR_LEFT')
+ assert(side == 'left', 'sola sığıyorsa sol tercih edilir')
+ -- iki yan da sığmıyor: geniş olan taraf, ekranın içinde
+ x, top, side = P({l = 100, r = 500, t = 700, b = 100}, {l = 110, r = 490, t = 500, b = 470}, W, H, 640, SH, 'ANCHOR_LEFT')
+ assert(x >= 4 and x + W <= 640 - 4, 'ekran dışına taşmamalı: ' .. tostring(x))
+ -- dikeyde ekrana sığdır: satır ekranın dibindeyse ipucu yukarı kayar
+ x, top = P({l = 100, r = 460, t = 700, b = 0}, {l = 110, r = 450, t = 90, b = 60}, W, H, SW, SH, 'ANCHOR_LEFT')
+ assert(top - H >= 4, 'ipucu alttan taşmamalı: ' .. tostring(top))
+ x, top = P({l = 100, r = 460, t = 1100, b = 0}, {l = 110, r = 450, t = 1090, b = 1060}, W, H, SW, SH, 'ANCHOR_LEFT')
+ assert(top <= SH - 4, 'ipucu üstten taşmamalı: ' .. tostring(top))
+ -- yatay şerit: altta durunca üstüne, en üstteyse altına açılır; simgenin üstünde ortalanır
+ x, top, side = P({l = 10, r = 450, t = 60, b = 10}, {l = 200, r = 234, t = 54, b = 16}, W, H, SW, SH, 'ANCHOR_TOP')
+ assert(side == 'top' and top == 60 + 8 + H and x == 217 - W / 2, 'şerit altta: ipucu üste, simgeye ortalı: ' .. tostring(side) .. ' ' .. tostring(top) .. ' ' .. tostring(x))
+ x, top, side = P({l = 10, r = 450, t = 1070, b = 1020}, {l = 200, r = 234, t = 1064, b = 1026}, W, H, SW, SH, 'ANCHOR_TOP')
+ assert(side == 'bottom' and top == 1020 - 8, 'şerit en üstte: ipucu alta: ' .. tostring(side) .. ' ' .. tostring(top))
+ -- dikey şerit: ipucu yana
+ x, top, side = P({l = 6, r = 58, t = 500, b = 60}, {l = 12, r = 52, t = 300, b = 266}, W, H, SW, SH, 'ANCHOR_RIGHT')
+ assert(side == 'right' and x == 58 + 8, 'dikey şerit solda: ipucu sağa: ' .. tostring(side) .. ' ' .. tostring(x))
+ -- gerçek ipucu: konum hesabı çalışırken hata vermemeli (benzetimde sol/sağ/üst/alt yoksa eski yerleşime düşer)
+ local tip = FT.Kit.Tooltip(); tip:SetOwner(FT.questDock or UIParent, 'ANCHOR_LEFT'); tip:SetText('x', 1, 1, 1); tip:Show(); FT.Kit.HideTips()
+end)
+try('ipucu hayalet satır', function()
+ local tip = FT.Kit.Tooltip()
+ -- uzun bir ipucu, ardından kısa bir ipucu: ilkinin satırları kutuda ve dışında kalmamalı
+ tip:SetOwner(UIParent, 'ANCHOR_LEFT'); tip:SetText('Uzun', 1, 1, 1)
+ for i = 1, 8 do tip:AddLine('satır ' .. i, 1, 1, 1) end
+ tip:AddRule(); tip:AddBar('çubuk', 1, 3, 0.5, 0.9, 0.5); tip:AddDoubleLine('sol', 'sağ', 1, 1, 1, 1, 1, 1)
+ tip:AddMedia({npc = 1234, icons = {{texture = 'Interface\\Icons\\INV_Misc_Bag_08', count = 3}, {texture = 'Interface\\Icons\\INV_Misc_Bag_08'}}})
+ tip:Show()
+ local parts, tiles = tip:ShownParts()
+ assert(parts >= 10 and tiles == 2, 'uzun ipucunda satırlar ve iki simge görünmeli: ' .. parts .. '/' .. tiles)
+ tip:SetOwner(UIParent, 'ANCHOR_LEFT'); tip:SetText('Kısa', 1, 1, 1); tip:AddLine('tek satır', 1, 1, 1); tip:Show()
+ parts, tiles = tip:ShownParts()
+ assert(parts == 2, 'kısa ipucunda yalnızca kendi iki satırı görünmeli, eskiler gizlenmeli: ' .. parts)
+ assert(tiles == 0, 'medya şeridi sonraki ipucuna taşmamalı: ' .. tiles)
+ FT.Kit.HideTips()
+end)
+try('ikon şeridi', function()
+ local dock = FT.dock
+ assert(dock and dock.buttons and #dock.buttons == 11, 'şeritte 8 ana düğme + araçlar + kilit + yön düğmesi olmalı: ' .. tostring(dock and dock.buttons and #dock.buttons))
+ for _, name in ipairs({'panel', 'map', 'nearest', 'places', 'silent', 'class', 'bag', 'settings', 'tools', 'lock', 'rotate'}) do
+  local f = io.open('Media/dock_' .. name .. '.tga', 'rb'); assert(f, 'simge dosyası yok: dock_' .. name .. '.tga'); f:close()
+ end
+ for i, b in ipairs(dock.buttons) do
+  assert(b.icon and b.mark and b.hover and b.Refresh, 'düğme ' .. i .. ' parçaları')
+  assert(b.__scripts.OnClick and b.__scripts.OnEnter and b.__scripts.OnLeave, 'düğme ' .. i .. ' olayları')
+ end
+ local silent, lock, panel = dock.buttons[5], dock.buttons[10], dock.buttons[1]
+ assert(not silent.mark:IsShown() and not FT.IsSilent(), 'başlangıçta sessiz kapalı')
+ silent.__scripts.OnClick(silent); assert(FT.IsSilent() and silent.mark:IsShown(), 'sessiz açılınca düğme vurgulanmalı')
+ silent.__scripts.OnClick(silent); assert(not FT.IsSilent() and not silent.mark:IsShown(), 'sessiz kapanınca vurgu kalkmalı')
+ ForeverTrailSettings.locked = false
+ lock.__scripts.OnClick(lock); assert(ForeverTrailSettings.locked and lock.mark:IsShown(), 'kilit vurgusu')
+ lock.__scripts.OnClick(lock); assert(not ForeverTrailSettings.locked and not lock.mark:IsShown(), 'kilit açılınca vurgu kalkmalı')
+ panel.__scripts.OnClick(panel)
+ assert(panel.mark:IsShown() == (FT.hub and FT.hub:IsShown() and true or false), 'panel düğmesi pencere açıklığını izlemeli')
+ panel.__scripts.OnClick(panel); FT.RefreshDock()
+ assert(panel.mark:IsShown() == (FT.hub and FT.hub:IsShown() and true or false), 'panel düğmesi kapanışı izlemeli')
+ -- yön: yatay <-> dikey (şeridin ucundaki küçük simge)
+ do
+  local items = {{size = 34}, {size = 34}, {divider = true}, {size = 28, pad = 2}}
+  local offH, wH, hH = FT.DockMetrics(items, false)
+  local offV, wV, hV = FT.DockMetrics(items, true)
+  assert(wH == hV and hH == wV, 'dikeyde genişlik ve yükseklik yer değiştirmeli: ' .. wH .. 'x' .. hH .. ' / ' .. wV .. 'x' .. hV)
+  assert(wH > hH and hV > wV, 'yatay şerit geniş, dikey şerit uzun olmalı')
+  assert(offH[1] < offH[2] and offH[2] < offH[3] and offH[3] < offH[4], 'öğeler sırayla dizilmeli')
+  for i = 1, #items do assert(offH[i] == offV[i], 'ana eksen konumları yöne bağlı olmamalı') end
+  local rotate = dock.buttons[11]
+  assert(rotate and not dock.vertical and ForeverTrailSettings.dockVertical ~= true, 'başlangıçta yatay')
+  rotate.__scripts.OnClick(rotate)
+  assert(dock.vertical == true and ForeverTrailSettings.dockVertical == true, 'tıklayınca dikey olmalı ve kaydedilmeli')
+  rotate.__scripts.OnEnter(rotate); assert(FT.Kit.Tooltip().frame:IsShown(), 'dikeyde de ipucu çıkmalı'); rotate.__scripts.OnLeave(rotate)
+  rotate.__scripts.OnClick(rotate)
+  assert(dock.vertical == false and ForeverTrailSettings.dockVertical == false, 'tekrar tıklayınca yatay')
+  ForeverTrailSettings.dockVertical = nil
+ end
+ FT.Kit.HideTips()
+ panel.__scripts.OnEnter(panel); assert(panel.over and panel.hover:IsShown() and FT.Kit.Tooltip().frame:IsShown(), 'üzerine gelince zemin ve ipucu')
+ panel.__scripts.OnLeave(panel); assert(not panel.over and not panel.hover:IsShown() and not FT.Kit.Tooltip().frame:IsShown(), 'ayrılınca ikisi de kapanmalı')
+ FT.ApplyTheme('g_gece'); FT.ApplyTheme('g_orman'); FT.RefreshDock()
 end)
 try('ortak bileşenler', function()
  local Kit = FT.Kit

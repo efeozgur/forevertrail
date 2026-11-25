@@ -254,11 +254,80 @@ function Kit.Input(parent)
 end
 
 -- Düz kaydırma alanı: ince bir kaydırma çubuğu (alanın sağ dışında 8 px), fare tekerleği.
+-- Sürükleme iletme. WoW'da fareye basılan yerdeki çerçeve olayı alır: fare tekerleği ya da fare açık bir çocuk (kaydırma alanı,
+-- büyük düğme, satır) altındaki pencerenin sürüklenmesini engeller ve olay ebeveyne GEÇMEZ. Çözüm sayfa sayfa yama değil, bu
+-- çerçevelerin sürüklemeyi kendi ait olduğu hareket ettirilebilir pencereye (kendi OnDragStart'ı olan ilk ata) iletmesidir.
+local function movableAncestor(f)
+ local p = f.GetParent and f:GetParent()
+ for _ = 1, 24 do
+  if not p or p == UIParent then return nil end
+  if p.IsMovable and p:IsMovable() and p.GetScript and p:GetScript('OnDragStart') then return p end
+  p = p.GetParent and p:GetParent()
+ end
+end
+
+function Kit.DragThrough(f)
+ if not f or f.ftDragThrough then return f end
+ f.ftDragThrough = true
+ f:EnableMouse(true)
+ f:RegisterForDrag('LeftButton')
+ f:SetScript('OnDragStart', function(self)
+  local w = movableAncestor(self)
+  if not w then return end
+  self.ftDragWin = w
+  local start = w:GetScript('OnDragStart')
+  if start then start(w) end
+ end)
+ f:SetScript('OnDragStop', function(self)
+  local w = self.ftDragWin
+  self.ftDragWin = nil
+  local stop = w and w:GetScript('OnDragStop')
+  if stop then stop(w) end
+ end)
+ return f
+end
+
+-- Bir pencerenin altındaki, fareyi yakalayıp sürüklemeyi engelleyebilecek çerçevelere sürükleme iletmeyi kurar (sonradan
+-- oluşturulanlar için yeniden çağrılabilir). Yalnızca ScrollFrame, Button ve fare açık Frame türlerine bakılır: Slider, EditBox ve
+-- CheckButton kendi fare işini yapar, bu yüzden hiç dokunulmaz. Kendi OnDragStart/OnMouseDown/OnMouseUp'ı olanlar (boyut tutamağı
+-- gibi) ve küçük öğeler (simge, kapat düğmesi) de atlanır. Dönüş: bu çağrıda yeni kurulan sayı.
+function Kit.DragThroughTree(root)
+ if not (root and root.GetChildren) then return 0 end
+ local n = 0
+ local function visit(f, depth)
+  if depth > 30 then return end
+  local kind = f.GetObjectType and f:GetObjectType()
+  if f ~= root and not f.ftDragThrough then
+   local eligible = kind == 'ScrollFrame'
+   if not eligible and (kind == 'Button' or kind == 'Frame') then
+    local mouse = kind == 'Button' or (f.IsMouseEnabled and f:IsMouseEnabled())
+    if mouse then
+     local w, h = f:GetWidth() or 0, f:GetHeight() or 0
+     eligible = w >= 80 and h >= 18
+    end
+   end
+   if eligible and not f:GetScript('OnDragStart') and not f:GetScript('OnMouseDown') and not f:GetScript('OnMouseUp') then
+    Kit.DragThrough(f); n = n + 1
+   end
+  end
+  for _, c in ipairs({f:GetChildren()}) do visit(c, depth + 1) end
+ end
+ visit(root, 0)
+ return n
+end
+
 function Kit.Scroll(parent)
  local sf = CreateFrame('ScrollFrame', nil, parent)
  sf:EnableMouseWheel(true)
+ Kit.DragThrough(sf) -- kaydırma alanı fareyi yakalar; sürüklemeyi pencereye iletir (listeler pencereyi tutmayı engellemesin)
+ sf.barInset = 8 -- çubuk alanın sağ kenarının bu kadar DIŞINDA durur (kenar boşluğu olan listeler için); pencereyi dolduran alanda eksi verilir
  sf.bar = sf:CreateTexture(nil, 'ARTWORK'); sf.bar:SetWidth(3)
  sf.bar:SetPoint('TOPRIGHT', sf, 'TOPRIGHT', 8, 0); sf.bar:SetPoint('BOTTOMRIGHT', sf, 'BOTTOMRIGHT', 8, 0)
+ function sf:SetBarInset(v)
+  self.barInset = v
+  self.bar:ClearAllPoints()
+  self.bar:SetPoint('TOPRIGHT', self, 'TOPRIGHT', v, 0); self.bar:SetPoint('BOTTOMRIGHT', self, 'BOTTOMRIGHT', v, 0)
+ end
  Kit.Fill(sf.bar, 'line')
  sf.thumb = sf:CreateTexture(nil, 'OVERLAY'); sf.thumb:SetWidth(3)
  Kit.Fill(sf.thumb, 'muted', 0.55)
@@ -269,7 +338,7 @@ function Kit.Scroll(parent)
   local off = self:GetVerticalScroll() or 0
   local th = math.max(24, h * h / (h + range))
   self.thumb:SetHeight(th); self.thumb:ClearAllPoints()
-  self.thumb:SetPoint('TOPRIGHT', self, 'TOPRIGHT', 8, -((off / range) * (h - th)))
+  self.thumb:SetPoint('TOPRIGHT', self, 'TOPRIGHT', self.barInset or 8, -((off / range) * (h - th)))
   self.thumb:Show()
  end
  sf:SetScript('OnMouseWheel', function(self, delta)
@@ -354,11 +423,57 @@ end
 -- Modern ipucu: oyunun GameTooltip yöntemlerini (SetOwner, SetText, AddLine, AddDoubleLine) sunar, ama düz çerçevede,
 -- sabit genişlikte, kaydırmasız satır aralığıyla çizer. AddBar (ilerleme çubuklu satır) ve AddRule (ince çizgi) ek yöntemlerdir.
 local tipObject
+
+-- Ekran dikdörtgenleri: {l, r, t, b} (sol/sağ/üst/alt, ekranın sol altından); alınamazsa nil
+local function rectOf(fr)
+ local ok, l, r, t, b = pcall(function() return fr:GetLeft(), fr:GetRight(), fr:GetTop(), fr:GetBottom() end)
+ if ok and type(l) == 'number' and type(r) == 'number' and type(t) == 'number' and type(b) == 'number' then return {l = l, r = r, t = t, b = b} end
+end
+
+-- Üzerine gelinen öğenin ait olduğu en üst pencere (UIParent'a bağlı ilk atası)
+local function topWindow(owner)
+ local p = owner
+ for _ = 1, 24 do
+  local up = p.GetParent and p:GetParent()
+  if not up or up == UIParent then break end
+  p = up
+ end
+ return p
+end
+
+-- İpucunun yeri (saf hesap, test edilebilir). win: pencere, own: üzerine gelinen öğe ({l, r, t, b}), w/h: ipucu boyu, sw/sh: ekran.
+-- hint: 'ANCHOR_LEFT'/'ANCHOR_RIGHT' (yan: önce o taraf, sığmazsa öbürü, ikisi de sığmazsa geniş olan) ya da
+-- 'ANCHOR_TOP'/'ANCHOR_BOTTOM' (üst/alt: aynı mantık). Dönüş: x, top (ipucunun sol-üst köşesi), taraf ('left'|'right'|'top'|'bottom')
+function Kit.PlaceTip(win, own, w, h, sw, sh, hint)
+ local gap = 8
+ local function clamp(v, lo, hi) if hi < lo then return lo end return math.max(lo, math.min(hi, v)) end
+ if hint == 'ANCHOR_TOP' or hint == 'ANCHOR_BOTTOM' then
+  local above, below = sh - win.t, win.b
+  local wantUp = hint == 'ANCHOR_TOP'
+  local fitUp, fitDown = above >= h + gap, below >= h + gap
+  local up
+  if wantUp then up = fitUp or (not fitDown and above >= below) else up = (not fitDown) and (fitUp or above >= below) end
+  local x = clamp((own.l + own.r) / 2 - w / 2, 4, sw - w - 4)
+  local top = up and (win.t + gap + h) or (win.b - gap)
+  return x, clamp(top, h + 4, sh - 4), up and 'top' or 'bottom'
+ end
+ local right, left = sw - win.r, win.l
+ local wantRight = hint ~= 'ANCHOR_LEFT'
+ local fitR, fitL = right >= w + gap, left >= w + gap
+ local onRight
+ if wantRight then onRight = fitR or (not fitL and right >= left) else onRight = (not fitL) and (fitR or right >= left) end
+ local x = onRight and (win.r + gap) or (win.l - gap - w)
+ return clamp(x, 4, sw - w - 4), clamp(own.t, h + 4, sh - 4), onRight and 'right' or 'left'
+end
+
 function Kit.Tooltip()
  if tipObject then return tipObject end
  local W, PAD = 288, 14
  local f = CreateFrame('Frame', 'ForeverTrailTip', UIParent)
  f:SetFrameStrata('TOOLTIP'); f:SetClampedToScreen(true); f:SetSize(W + PAD * 2, 40); f:Hide()
+ -- her zaman opak: altta katı siyah taban ve dışta yumuşak gölge (altındaki pencere ya da dünya görünmez, yazı net okunur)
+ local halo = f:CreateTexture(nil, 'BACKGROUND', nil, -2); halo:SetPoint('TOPLEFT', -4, 4); halo:SetPoint('BOTTOMRIGHT', 4, -4); halo:SetColorTexture(0, 0, 0, 0.55)
+ local base = f:CreateTexture(nil, 'BACKGROUND', nil, -1); base:SetAllPoints(); base:SetColorTexture(0.02, 0.02, 0.03, 1)
  Kit.Skin(f, 'panel', 'line')
  local top = f:CreateTexture(nil, 'ARTWORK'); top:SetHeight(2)
  top:SetPoint('TOPLEFT', 1, -1); top:SetPoint('TOPRIGHT', -1, -1)
@@ -384,6 +499,92 @@ function Kit.Tooltip()
   return p
  end
  local function font(fs, size) Kit.Font(fs, size) end
+
+ -- Medya şeridi: solda sabit NPC portresi (3B model, animasyonu donuk), yanında eşya simgeleri (kalite renginde çerçeve, adet).
+ -- Yalnızca AddMedia ile eklenince çizilir; model ya da simge yoksa şerit hiç yer kaplamaz.
+ local MEDIA_PORTRAIT, MEDIA_TILE, MEDIA_GAP = 72, 36, 6
+ local media
+ local function newMedia()
+  local m = CreateFrame('Frame', nil, f)
+  m.tiles = {}
+  local ok, model = pcall(CreateFrame, 'PlayerModel', nil, m)
+  if ok and model then
+   m.model = model
+   model:SetSize(MEDIA_PORTRAIT, MEDIA_PORTRAIT); model:SetPoint('TOPLEFT', 0, 0); model:Hide()
+   model.canFreeze = (model.SetPaused or model.FreezeAnimation or model.SetAnimation) and true or false
+   model.freeze = function()
+    if model.SetAnimation then pcall(model.SetAnimation, model, 0, 0) end
+    if model.FreezeAnimation then pcall(model.FreezeAnimation, model, 0, 0, 0) end
+    if model.SetPaused then pcall(model.SetPaused, model, true) end
+   end
+   if model.HookScript then pcall(model.HookScript, model, 'OnModelLoaded', function() model.freeze() end) end
+  end
+  return m
+ end
+ local function tile(m, i)
+  local t = m.tiles[i]
+  if not t then
+   t = CreateFrame('Frame', nil, m)
+   t:SetSize(MEDIA_TILE, MEDIA_TILE)
+   Kit.Skin(t, 'deep', 'line')
+   t.icon = t:CreateTexture(nil, 'ARTWORK'); t.icon:SetPoint('TOPLEFT', 2, -2); t.icon:SetPoint('BOTTOMRIGHT', -2, 2)
+   t.count = t:CreateFontString(nil, 'OVERLAY'); Kit.Font(t.count, 11, 'OUTLINE'); t.count:SetPoint('BOTTOMRIGHT', -3, 2)
+   m.tiles[i] = t
+  end
+  return t
+ end
+ -- Şeridi yerleştirir; yüksekliğini döndürür (gösterecek bir şey yoksa 0)
+ local function layoutMedia(it, y)
+  media = media or newMedia()
+  local x, h = 0, 0
+  local showModel = false
+  if it.npc and media.model and media.model.canFreeze then
+   if media.npc ~= it.npc then
+    media.npc = it.npc
+    media.model:ClearModel()
+    if not pcall(media.model.SetCreature, media.model, it.npc) then media.npc = nil end
+    if media.model.SetPortraitZoom then pcall(media.model.SetPortraitZoom, media.model, 0.8) end
+    media.model.freeze()
+   end
+   showModel = media.npc == it.npc
+  end
+  if media.model then media.model:SetShown(showModel) end
+  if showModel then x, h = MEDIA_PORTRAIT + 8, MEDIA_PORTRAIT end
+  local fit = math.max(1, math.floor((W - x + MEDIA_GAP) / (MEDIA_TILE + MEDIA_GAP)))
+  local used = 0
+  for _, ic in ipairs(it.icons or {}) do
+   if used >= fit then break end
+   used = used + 1
+   local t = tile(media, used)
+   t:ClearAllPoints(); t:SetPoint('TOPLEFT', media, 'TOPLEFT', x + (used - 1) * (MEDIA_TILE + MEDIA_GAP), showModel and -(MEDIA_PORTRAIT - MEDIA_TILE) / 2 or 0)
+   t.icon:SetTexture(ic.texture or 'Interface\\Icons\\INV_Misc_QuestionMark')
+   if t.edge then
+    local c = ic.color or Kit.Color('line')
+    t.edge:SetColorTexture(c[1], c[2], c[3], 1)
+   end
+   t.count:SetText((ic.count and ic.count > 1) and tostring(ic.count) or '')
+   t:Show()
+  end
+  for i = used + 1, #media.tiles do media.tiles[i]:Hide() end
+  if used > 0 then h = math.max(h, MEDIA_TILE) end
+  if h == 0 then media:Hide(); return 0 end
+  media:ClearAllPoints(); media:SetPoint('TOPLEFT', f, 'TOPLEFT', PAD, -y); media:SetSize(W, h); media:Show()
+  return h
+ end
+ function tip:AddMedia(spec) items[#items + 1] = {kind = 'media', npc = spec and spec.npc, icons = spec and spec.icons} end
+ -- Test ve tanı için: şu an görünen havuz satırı, simge ve portre sayısı
+ function tip:ShownParts()
+  local n = 0
+  for _, p in ipairs(pool) do
+   for _, k in ipairs({'left', 'right', 'rule', 'barBg', 'barFill'}) do if p[k]:IsShown() then n = n + 1 end end
+  end
+  local tiles, portrait = 0, false
+  if media and media:IsShown() then
+   for _, t in ipairs(media.tiles) do if t:IsShown() then tiles = tiles + 1 end end
+   portrait = media.model and media.model:IsShown() or false
+  end
+  return n, tiles, portrait
+ end
  function tip:ClearLines() items = {} end
  function tip:SetOwner(owner, anchor) self.owner, self.anchor = owner, anchor or 'ANCHOR_RIGHT'; items = {} end
  function tip:SetText(text, r, g, b) items = {{kind = 'title', text = text, r = r, g = g, b = b}} end
@@ -397,10 +598,15 @@ function Kit.Tooltip()
  function tip:Hide() f:Hide() end
  function tip:Show()
   local y, used = 12, 0
+  local mediaDrawn = false
   for _, it in ipairs(items) do
    used = used + 1
    local p = part(used)
-   if it.kind == 'title' then
+   if it.kind == 'media' then
+    local mh = layoutMedia(it, y)
+    mediaDrawn = mh > 0
+    if mh > 0 then y = y + mh + 8 end
+   elseif it.kind == 'title' then
     local c = color(it.r, it.g, it.b)
     font(p.left, 14); p.left:SetWidth(W); p.left:SetWordWrap(true); p.left:ClearAllPoints(); p.left:SetPoint('TOPLEFT', PAD, -y)
     p.left:SetText(it.text or ''); p.left:SetTextColor(c[1], c[2], c[3]); p.left:Show()
@@ -435,10 +641,35 @@ function Kit.Tooltip()
     else y = y + 2 end
    end
   end
+  -- önceki, daha uzun bir ipucundan kalan satırlar gizlenir (yoksa kutunun dışında hayalet yazı olarak kalırlar)
+  for i = used + 1, #pool do
+   local p = pool[i]
+   p.left:Hide(); p.right:Hide(); p.rule:Hide(); p.barBg:Hide(); p.barFill:Hide()
+  end
+  if media and not mediaDrawn then media:Hide() end
   f:SetSize(W + PAD * 2, y + 10)
   local owner, a = self.owner, self.anchor
   f:ClearAllPoints()
-  if not owner then f:SetPoint('CENTER', UIParent, 'CENTER', 0, 0)
+  -- Akıllı yerleşim: ipucu, üzerine gelinen pencerenin DIŞINA açılır (sağ/sol ya da üst/alt; hangisine sığıyorsa)
+  local smart = false
+  if owner and owner.GetLeft and UIParent then
+   local win, own = rectOf(topWindow(owner)), rectOf(owner)
+   if win and own then
+    local fs = (f.GetEffectiveScale and f:GetEffectiveScale()) or 1
+    if not fs or fs <= 0 then fs = 1 end
+    local k = ((owner.GetEffectiveScale and owner:GetEffectiveScale()) or 1) / fs
+    for _, rc in ipairs({win, own}) do rc.l, rc.r, rc.t, rc.b = rc.l * k, rc.r * k, rc.t * k, rc.b * k end
+    local pk = ((UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1) / fs
+    local sw, sh = (UIParent:GetWidth() or 0) * pk, (UIParent:GetHeight() or 0) * pk
+    if sw > 0 and sh > 0 then
+     local x, topY = Kit.PlaceTip(win, own, f:GetWidth(), f:GetHeight(), sw, sh, a)
+     f:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', x, topY)
+     smart = true
+    end
+   end
+  end
+  if smart then -- yerleşti
+  elseif not owner then f:SetPoint('CENTER', UIParent, 'CENTER', 0, 0)
   elseif a == 'ANCHOR_LEFT' then f:SetPoint('TOPRIGHT', owner, 'TOPLEFT', -8, 0)
   elseif a == 'ANCHOR_BOTTOM' then f:SetPoint('TOP', owner, 'BOTTOM', 0, -6)
   elseif a == 'ANCHOR_TOP' then f:SetPoint('BOTTOM', owner, 'TOP', 0, 6)

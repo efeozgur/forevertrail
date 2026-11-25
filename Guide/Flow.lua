@@ -199,7 +199,7 @@ end
 ----------------------------------------------------------------------
 -- 7) Karakter profilleri
 ----------------------------------------------------------------------
-local SKIP = {profiles=true, places=true, gatherNodes=true, recording=true, pos=true}
+local SKIP = {profiles=true, places=true, gatherNodes=true, recording=true, pos=true, locked=true, arrowLocked=true, lockVersion=true} -- kilit bir profil ayarı değil: profil yüklenince pencereleri kilitlememeli
 local function snapshot()
  local copy = {}
  for k, v in pairs(ForeverTrailSettings) do
@@ -223,7 +223,9 @@ function FT.LoadProfile(name)
  local p = ForeverTrailSettings.profiles and ForeverTrailSettings.profiles[name]
  if not p then return FT.Print('Profil bulunamadı: ' .. tostring(name)) end
  for k, v in pairs(p) do
-  if type(v) == 'table' then local t = {} for a, b in pairs(v) do t[a] = b end ForeverTrailSettings[k] = t else ForeverTrailSettings[k] = v end
+  if not SKIP[k] then -- eski profillerdeki kilit ve profil listesi de yok sayılır
+   if type(v) == 'table' then local t = {} for a, b in pairs(v) do t[a] = b end ForeverTrailSettings[k] = t else ForeverTrailSettings[k] = v end
+  end
  end
  if ForeverTrailCharacter then ForeverTrailCharacter.profile = name end
  if FT.ApplyTheme then FT.ApplyTheme(ForeverTrailSettings.theme) end

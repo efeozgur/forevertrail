@@ -16,7 +16,27 @@ local KINDS = {
 
 local MIN_W, MAX_W, MIN_H = 300, 640, 220
 
-local dock, tabs, gear, collapse
+local dock, tabs, gear, collapse, guideScroll, lockBtn
+local RIGHT_LOCK = 22
+-- Şeridin sağındaki düğmelerin kapladığı genişlik (daralt 22 + Ayar 42 + kilit + boşluklar): sekmeler bunun soluna sığmalı
+local RIGHT_CONTROLS = 6 + 22 + 4 + 42 + 4 + RIGHT_LOCK + 4
+
+-- Sekme iç boşluğu (saf hesap): sekmeler (yazı + sayaç genişlikleri toplamı sumBase, n tane) kullanılabilir genişliğe (avail) sığsın diye
+-- boşluk 38'den 24'e kadar daralır (24 = solda 12 + sağda 12; daha azı yazıyı keser). Dar pencerede sekmeler Ayar'ın altına binmez.
+function FT.QuestDockTabPad(avail, sumBase, n)
+ if n <= 0 then return 38 end
+ return math.max(24, math.min(38, math.floor((avail - sumBase) / n)))
+end
+
+-- Kilit düğmesinin görünümü: kilitliyken dolgulu ve vurgu renginde, açıkken soluk
+function FT.RefreshQuestDockLock()
+ if not lockBtn then return end
+ local K = FT.Kit
+ local locked = ForeverTrailSettings and ForeverTrailSettings.locked == true
+ local c = K.Color(locked and 'accent' or 'muted')
+ lockBtn.icon:SetVertexColor(c[1], c[2], c[3]); lockBtn.icon:SetAlpha(locked and 1 or 0.55)
+ local a = K.Color('accent'); lockBtn.on:SetColorTexture(a[1], a[2], a[3], 0.2); lockBtn.on:SetShown(locked)
+end
 
 -- Pencere boyutlandırılabilir: genişlik her zaman, yükseklik yalnızca elle ayarlandıysa sabittir (aksi halde içeriğe göre)
 local function dockWidth()
@@ -64,13 +84,20 @@ function FT.RefreshQuestDock()
  local collapsed = ForeverTrailSettings.dockCollapsed or FT.trkCombatCollapsed
  -- sekmeler: yalnızca istenen kutular görünür; seçili olanın altında vurgu çizgisi
  local x = 0
+ -- sekme genişlikleri: yazı ve sayaç + iç boşluk; boşluk, pencere darlaşınca daralır (sağdaki düğmelerin altına binmesin)
+ local sumBase, shown = 0, 0
+ for _, k in ipairs(KINDS) do
+  local tb = tabs[k.key]
+  if has[k.key] then tb.count:SetText(k.key == 'guide' and (FT.GuideProgressText and FT.GuideProgressText() or '') or (k.key == 'tracker' and questCount() or (FT.availCount or 0))); sumBase = sumBase + math.floor(tb.text:GetStringWidth() + tb.count:GetStringWidth()); shown = shown + 1 end
+ end
+ local pad = FT.QuestDockTabPad(dockWidth() - RIGHT_CONTROLS, sumBase, shown)
  for _, k in ipairs(KINDS) do
   local b = tabs[k.key]
   if has[k.key] then
    local on = k.key == tab
    b:ClearAllPoints(); b:SetPoint('TOPLEFT', dock, 'TOPLEFT', x, -1)
    b.count:SetText(k.key == 'guide' and (FT.GuideProgressText and FT.GuideProgressText() or '') or (k.key == 'tracker' and questCount() or (FT.availCount or 0)))
-   local w = math.floor(b.text:GetStringWidth() + b.count:GetStringWidth() + 38)
+   local w = math.floor(b.text:GetStringWidth() + b.count:GetStringWidth() + pad)
    b:SetWidth(w); x = x + w
    b.line:SetShown(on)
    local c = K.Color(on and 'text' or 'muted'); b.text:SetTextColor(c[1], c[2], c[3])
@@ -89,9 +116,28 @@ function FT.RefreshQuestDock()
  local active = frameOf(tab)
  local h = TAB_H
  if not collapsed and active then h = TAB_H + math.max(8, (active:GetHeight() or 0) - SHIFT[tab]) + 6 end
+ -- Rehber sekmesinin içeriği uzundur ve kendi başına küçülmez: pencere küçültülünce taşıp oyun dünyasının üstüne çizilmesin diye
+ -- kırpılan, fare tekeriyle kaydırılan bir alanda durur. Yükseklik elle ayarlıysa o, değilse ekranın %88'ine kadar içeriğe göre.
+ dock.guideView = nil
+ if guideScroll then
+  local show = tab == 'guide' and not collapsed
+  guideScroll:SetShown(show)
+  if show and active then
+   local content = math.max(8, active:GetHeight() or 0)
+   local screen = (UIParent and UIParent:GetHeight() or 800) / math.max(0.1, dock:GetScale() or 1)
+   local view = ForeverTrailSettings.dockH and (ForeverTrailSettings.dockH - TAB_H - 6) or math.min(content, math.floor(screen * 0.88) - TAB_H - 6)
+   view = math.max(80, view)
+   guideScroll:SetSize(dockWidth(), view)
+   active:SetWidth(dockWidth())
+   h = TAB_H + view + 6
+   dock.guideView = view
+  end
+ end
  if ForeverTrailSettings.dockH and not collapsed then h = ForeverTrailSettings.dockH end
  dock:SetHeight(h)
+ dock.totalH = h
  if dock.grip then dock.grip:SetShown(not collapsed) end
+ FT.RefreshQuestDockLock()
  collapse:SetText(ForeverTrailSettings.dockCollapsed and '+' or '-')
 end
 
@@ -105,11 +151,25 @@ local function adopt(kind, frame)
  if kind == 'guide' then wanted.guide = ForeverTrailSettings.guideTab ~= false
  elseif kind == 'tracker' then wanted.tracker = ForeverTrailSettings.tracker ~= false
  else wanted.avail = ForeverTrailSettings.availbox ~= false and not ForeverTrailSettings.simple end
- frame:SetParent(dock)
- frame:ClearAllPoints()
- frame:SetPoint('TOPLEFT', dock, 'TOPLEFT', 0, -(TAB_H - SHIFT[kind]))
- frame:SetFrameLevel(dock:GetFrameLevel() + 1)
+ if kind == 'guide' and FT.Kit then
+  guideScroll = FT.Kit.Scroll(dock)
+  guideScroll:SetPoint('TOPLEFT', dock, 'TOPLEFT', 0, -TAB_H)
+  guideScroll:SetSize(dockWidth(), 100)
+  guideScroll:SetFrameLevel(dock:GetFrameLevel() + 1)
+  guideScroll:SetBarInset(-4) -- alan pencerenin tam genişliğinde: çubuk pencerenin içinde kalsın, dışına taşmasın
+  guideScroll:SetScrollChild(frame)
+  frame:SetFrameLevel(guideScroll:GetFrameLevel() + 1)
+  dock.guideScroll = guideScroll
+  FT.guideScroll = guideScroll
+ else
+  frame:SetParent(dock)
+  frame:ClearAllPoints()
+  frame:SetPoint('TOPLEFT', dock, 'TOPLEFT', 0, -(TAB_H - SHIFT[kind]))
+  frame:SetFrameLevel(dock:GetFrameLevel() + 1)
+ end
  frame:SetScript('OnDragStart', nil); frame:SetScript('OnDragStop', nil)
+ -- kutu fareyi yakalamaya devam eder (üzerine gelince solma vb.); sürüklemeyi pencereye iletir ki içeriğin altındaki boşluk pencereyi tutsun
+ if FT.Kit then FT.Kit.DragThrough(frame) end
  local back = frame.softBg or frame.bg
  if back then back:Hide() end
  for _, name in ipairs({'headerText', 'toggleButton', 'line', 'viewGear'}) do
@@ -130,7 +190,10 @@ local function build()
  dock:SetSize(dockWidth(), TAB_H + 40)
  dock:SetMovable(true); dock:EnableMouse(true); dock:SetClampedToScreen(true)
  dock:RegisterForDrag('LeftButton')
- dock:SetScript('OnDragStart', function(self) if not ForeverTrailSettings.locked then self:StartMoving() end end)
+ dock:SetScript('OnDragStart', function(self)
+  if FT.CanDrag and not FT.CanDrag() then return end
+  self:StartMoving()
+ end)
  dock:SetScript('OnDragStop', function(self)
   self:StopMovingOrSizing()
   local point, _, relative, x, y = self:GetPoint()
@@ -156,6 +219,7 @@ local function build()
   b.line:SetPoint('BOTTOMLEFT', 6, 0); b.line:SetPoint('BOTTOMRIGHT', -6, 0)
   K.Fill(b.line, 'accent')
   b:SetScript('OnClick', function() ForeverTrailSettings.dockTab = k.key; FT.RefreshQuestDock() end)
+  K.DragThrough(b) -- sekme adına basıp sürüklemek pencereyi taşır (tık yine sekmeyi seçer)
   tabs[k.key] = b
  end
  collapse = K.Button(strip, '-', 22, 20)
@@ -163,6 +227,24 @@ local function build()
  collapse:SetScript('OnClick', function() ForeverTrailSettings.dockCollapsed = not ForeverTrailSettings.dockCollapsed; FT.RefreshQuestDock() end)
  gear = K.Button(strip, 'Ayar', 42, 20)
  gear:SetPoint('RIGHT', collapse, 'LEFT', -4, 0)
+ -- Kilit düğmesi: yerleşim kilidi her zaman görünür ve buradan açılıp kapanır. Kilitliyken dolgulu ve vurgu renginde, açıkken soluk.
+ lockBtn = CreateFrame('Button', nil, strip)
+ lockBtn:SetSize(RIGHT_LOCK, 20); lockBtn:SetPoint('RIGHT', gear, 'LEFT', -4, 0)
+ lockBtn.on = lockBtn:CreateTexture(nil, 'BACKGROUND'); lockBtn.on:SetAllPoints(); lockBtn.on:Hide()
+ lockBtn.icon = lockBtn:CreateTexture(nil, 'ARTWORK'); lockBtn.icon:SetSize(12, 12); lockBtn.icon:SetPoint('CENTER')
+ lockBtn.icon:SetTexture('Interface\AddOns\ForeverTrail\Media\dock_lock')
+ lockBtn:SetScript('OnClick', function() if FT.ToggleLock then FT.ToggleLock() end end)
+ lockBtn:SetScript('OnEnter', function(self)
+  local tip = K.Tooltip(); if not tip then return end
+  local locked = ForeverTrailSettings.locked == true
+  tip:SetOwner(self, 'ANCHOR_BOTTOM')
+  tip:SetText(locked and 'Yerleşim kilitli' or 'Yerleşim açık', 1, 1, 1)
+  tip:AddLine(locked and 'Pencereler taşınamaz. Tıkla: kilidi aç. Shift basılıyken sürükleyerek kilitliyken de taşıyabilirsin.'
+   or 'Pencereleri sürükleyerek taşıyabilirsin. Tıkla: kilitle (görev penceresi, ok ve ikon şeridi sabit kalır).', 0.6, 0.6, 0.6)
+  tip:Show()
+ end)
+ lockBtn:SetScript('OnLeave', function() K.HideTips() end)
+ K.Track(function() FT.RefreshQuestDockLock() end)
  gear:SetScript('OnClick', function()
   if dock.activeTab == 'guide' then if FT.ToggleGuidePicker then FT.ToggleGuidePicker() end
   elseif FT.ToggleViewOptions then FT.ToggleViewOptions(dock.activeTab == 'avail' and 'avail' or 'tracker') end
@@ -217,6 +299,15 @@ local function build()
  end)
  grip:SetScript('OnLeave', function() if GameTooltip then GameTooltip:Hide() end end)
  if FT.FixFonts then pcall(FT.FixFonts, dock) end
+ -- Sonradan oluşan satır ve düğmeler (havuz) de sürüklemeyi iletsin: pencere açıkken aralıklarla taranır
+ local scanWait = 0
+ dock:HookScript('OnUpdate', function(_, dt)
+  scanWait = scanWait + dt
+  if scanWait < 1.5 then return end
+  scanWait = 0
+  if FT.Kit then FT.Kit.DragThroughTree(dock) end
+ end)
+ FT.Kit.DragThroughTree(dock)
  -- kutuların yenileme işlevleri bittiğinde pencere de güncellenir
  local refreshTracker, refreshAvail = FT.RefreshTracker, FT.RefreshAvailableBox
  FT.RefreshTracker = function(...)
@@ -260,6 +351,44 @@ ev:SetScript('OnUpdate', function(self, dt)
  if waited < 0.5 then return end
  waited = 0
  if FT.BuildQuestDock() or FT.questDockError then self:SetScript('OnUpdate', nil) end
+end)
+
+----------------------------------------------------------------------
+-- Oyunun kendi görev takipçisi: Ayarlar > "Oyunun kendi takipçisini de göster" (blizzTracker). Varsayılan kapalı: ForeverTrail'in
+-- görev penceresi varken ikisi birden ekranı doldurur ve kötü durur. Hangisi varsa uygulanır (istemciye göre ad değişir).
+----------------------------------------------------------------------
+local BLIZZ_TRACKERS = {'ObjectiveTrackerFrame', 'QuestWatchFrame', 'WatchFrame'}
+local blizzHooked = {}
+local function blizzWanted() return ForeverTrailSettings and ForeverTrailSettings.blizzTracker == true end
+
+function FT.ApplyBlizzTracker()
+ local combat = InCombatLockdown and InCombatLockdown()
+ local found = 0
+ for _, name in ipairs(BLIZZ_TRACKERS) do
+  local f = _G[name]
+  if f and f.Hide and f.Show then
+   found = found + 1
+   -- oyun takipçiyi kendisi yeniden gösterirse (görev eklenince vb.) kapalıyken hemen tekrar gizle
+   if not blizzHooked[f] and f.HookScript then
+    blizzHooked[f] = true
+    pcall(f.HookScript, f, 'OnShow', function(self)
+     if not blizzWanted() and not (InCombatLockdown and InCombatLockdown()) then self:Hide() end
+    end)
+   end
+   if not combat then
+    if blizzWanted() then f:Show() else f:Hide() end
+   end
+  end
+ end
+ return found
+end
+
+local blizzEvents = CreateFrame('Frame')
+for _, e in ipairs({'PLAYER_LOGIN', 'PLAYER_ENTERING_WORLD', 'PLAYER_REGEN_ENABLED'}) do pcall(blizzEvents.RegisterEvent, blizzEvents, e) end
+blizzEvents:SetScript('OnEvent', function(_, event)
+ pcall(FT.ApplyBlizzTracker)
+ -- takipçi çerçevesi geç oluşabilir: girişte bir kez daha dene
+ if event == 'PLAYER_LOGIN' and C_Timer and C_Timer.After then C_Timer.After(2, function() pcall(FT.ApplyBlizzTracker) end) end
 end)
 
 -- Test ve tanı için: kutuların kendi (gerçek) ölçeği; hep 1 olmalı

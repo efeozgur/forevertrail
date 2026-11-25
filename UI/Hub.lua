@@ -71,6 +71,13 @@ local function fill(page)
  end
 end
 
+-- Sayfalardaki kaydırma alanı, büyük düğme ve satırlar fareyi yakalayıp pencerenin sürüklenmesini engellemesin:
+-- hepsi sürüklemeyi Hub'a iletir. Sonradan oluşan satırlar için hub açıkken aralıklarla yeniden taranır.
+function FT.HubDragScan()
+ if hub and FT.Kit and FT.Kit.DragThroughTree then return FT.Kit.DragThroughTree(hub) end
+ return 0
+end
+
 local opening = false
 function FT.OpenHub(page)
  if opening then return end
@@ -88,6 +95,7 @@ function FT.OpenHub(page)
  fill(page)
  hub:Show()
  refreshNav()
+ FT.HubDragScan()
  end)
  opening = false
  if not ok then error(err, 0) end
@@ -202,6 +210,13 @@ function FT.CreateHub()
  hub:SetClampedToScreen(true)
  hub:SetMovable(true); hub:EnableMouse(true); hub:RegisterForDrag('LeftButton')
  hub:SetScript('OnDragStart', function(self) self:StartMoving() end)
+ local scanWait = 0
+ hub:HookScript('OnUpdate', function(_, dt)
+  scanWait = scanWait + dt
+  if scanWait < 1.5 then return end
+  scanWait = 0
+  FT.HubDragScan()
+ end)
  hub:SetScript('OnDragStop', function(self)
   self:StopMovingOrSizing()
   local point, _, relative, x, y = self:GetPoint()

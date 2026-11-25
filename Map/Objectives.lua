@@ -54,6 +54,12 @@ local function flatten(questId)
  return list
 end
 
+-- Günlükte olmasa da bir görevin hedefleri: {kind, name, npcs, objs, itemId} (alınmamış görev önizlemesi için)
+function FT.QuestObjectiveList(questId)
+ local ok, list = pcall(flatten, questId)
+ return ok and list or {}
+end
+
 function FT.ActiveObjectives()
  if cache and GetTime() - cacheTime < 2 then return cache end
  local out, q = {}, C_QuestLog
@@ -82,7 +88,7 @@ function FT.ActiveObjectives()
      local need, have = row.numRequired or 0, row.numFulfilled or 0
      local done = row.finished or (need > 0 and have >= need)
      local o = {questId=info.questID, title=FT.QuestTitle and FT.QuestTitle(info.questID, info.title) or info.title, index=index,
-      kind=e.kind, npcs=e.npcs, objs=e.objs, itemId=e.itemId, have=have, need=need, done=done, text=row.text, color=color}
+      kind=e.kind, name=e.name, npcs=e.npcs, objs=e.objs, itemId=e.itemId, have=have, need=need, done=done, text=row.text, color=color}
      out[#out + 1] = o
      if not done then
       for _, n in ipairs(e.npcs) do byNpc[n] = byNpc[n] or o end

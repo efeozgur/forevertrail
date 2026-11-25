@@ -44,7 +44,7 @@ end
 function FT.Help()
  local lines = {
   '/ftrail  panel   |  /ftrail ayar  ayarlar   |  /ftrail hizli  hızlı ayarlar   |  /ftrail kucuk  küçük mod',
-  '/ftrail yakin  en yakın adım   |  /ftrail rota  otomatik rota',
+  '/ftrail yakin  en yakın adım   |  /ftrail rota  otomatik rota   |  /ftrail gereksinim [görev no]  görevin eksik ön koşul/eşya tanısı',
   '/ftrail git 45.2 60.1  özel hedef   |  /ftrail iptal  özel hedefi kaldır (haritada Ctrl + sol tık da olur)',
   '/ftrail arrow  yön oku   |  /ftrail card  hedef kartı   |  /ftrail track  takip penceresi',
   '/ftrail yolbilgi  rota kaynağı: yürüme haritası (ForeverTrail_Nav), öğrenilmiş yollar ya da düz çizgi',
@@ -174,7 +174,7 @@ end
 FT.ExpectedModules = {
  {'Rehber sekmesi', 'RefreshGuideTab'}, {'Hedef listesi', 'RefreshTargetList'}, {'Otopilot', 'AutoPilotStep'}, {'Rota', 'CurrentRoute'}, {'Yolculuk kartı', 'RefreshRouteCard'},
  {'Adım bilgisi', 'StepInfo'}, {'Rehber seçici', 'ToggleGuidePicker'}, {'Bölge rehberleri', 'AutoGuide'},
- {'Görevler listesi', 'BuildSuggestions'}, {'Görev penceresi', 'BuildQuestDock'},
+ {'Görevler listesi', 'BuildSuggestions'}, {'Görev penceresi', 'BuildQuestDock'}, {'Görev gereksinimleri', 'QuestRequirements'},
 }
 function FT.CheckModules(announce)
  local missing = {}

@@ -74,7 +74,7 @@ function FT.CreateAvailableBox()
  box:SetSize(WIDTH, 60)
  box:SetMovable(true); box:EnableMouse(true); box:SetClampedToScreen(true)
  box:RegisterForDrag('LeftButton')
- box:SetScript('OnDragStart', function(self) if not ForeverTrailSettings.locked then self:StartMoving() end end)
+ box:SetScript('OnDragStart', function(self) if FT.CanDrag and not FT.CanDrag() then return end self:StartMoving() end)
  box:SetScript('OnDragStop', function(self)
   self:StopMovingOrSizing()
   local point, _, relative, x, y = self:GetPoint()
@@ -228,13 +228,15 @@ function FT.RefreshAvailableBox()
   layoutRow(r, view, showGiver)
   local title = FT.QuestTitle and FT.QuestTitle(m.questId) or ('Görev ' .. m.questId)
   local new = FT.IsNewQuest and FT.IsNewQuest(m.questId)
+  -- ön koşulu/eşyası eksik görev: başlıkta amber ünlem (ayrıntı üzerine gelince ipucunda)
+  local warn = (FT.UnmetRequirements and #FT.UnmetRequirements(m.questId) > 0) and ' |cffffb347!|r' or ''
   if view == 'tablo' then
    r.lvl:SetText(m.level and tostring(m.level) or '')
    if FT.DiffColor then r.lvl:SetTextColor(FT.DiffColor(m.level)) else r.lvl:SetTextColor(1, 0.92, 0.75) end
-   r.title:SetText(title .. (new and ' |cff55bbff*|r' or ''))
+   r.title:SetText(title .. (new and ' |cff55bbff*|r' or '') .. warn)
    r.giver:SetText(m.giver or '')
   else
-   r.title:SetText(((m.level and not modern) and ('[' .. m.level .. '] ') or '') .. title .. (new and ' |cff55bbff*|r' or ''))
+   r.title:SetText(((m.level and not modern) and ('[' .. m.level .. '] ') or '') .. title .. (new and ' |cff55bbff*|r' or '') .. warn)
    r.sub:SetText(m.giver or '')
   end
   if FT.DiffColor then r.title:SetTextColor(FT.DiffColor(m.level)) else r.title:SetTextColor(1, 0.92, 0.75) end

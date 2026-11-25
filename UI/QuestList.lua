@@ -47,11 +47,57 @@ local function newObjective(block)
  o.count = K.Text(block, 12, 'text'); o.count:SetJustifyH('RIGHT')
  o.barBg = block:CreateTexture(nil, 'ARTWORK'); o.barBg:SetHeight(3); K.Fill(o.barBg, 'line')
  o.barFill = block:CreateTexture(nil, 'OVERLAY'); o.barFill:SetHeight(3)
+ -- adım adım görünümü: sol numara ve altta yer satırı ("Durotar · 45, 62")
+ o.num = K.Text(block, 12, 'muted'); o.num:SetJustifyH('LEFT')
+ o.place = K.Text(block, 11, 'muted'); o.place:SetJustifyH('LEFT'); o.place:SetWordWrap(false)
  return o
 end
 
 local function hideObjective(o)
- o.label:Hide(); o.count:Hide(); o.barBg:Hide(); o.barFill:Hide()
+ o.label:Hide(); o.count:Hide(); o.barBg:Hide(); o.barFill:Hide(); o.num:Hide(); o.place:Hide()
+end
+
+-- Görevin altındaki numaralı adımlar (FT.QuestSteps). Biten adımlar yeşil, sıradaki adım vurgulu, sonrakiler soluk;
+-- numara her zaman adımın gerçek sırasıdır (biten adımlar gizlense de "2." "2." kalır). y: sonraki boş satır.
+local STEP_INDENT = 18
+local function drawSteps(b, steps, ctx, left, y, a)
+ local K = FT.Kit
+ local hideDone = ForeverTrailSettings.trkHideDoneObj ~= false
+ local oi = 0
+ for n, s in ipairs(steps) do
+  if not (s.done and hideDone) then
+   oi = oi + 1
+   local o = b.objs[oi]
+   if not o then o = newObjective(b); b.objs[oi] = o end
+   local tx = left + STEP_INDENT
+   local num = s.done and {0.55, 0.9, 0.6} or (s.current and a or K.Color('muted'))
+   local txt = s.done and {0.55, 0.9, 0.6} or K.Color(s.current and 'text' or 'muted')
+   o.num:ClearAllPoints(); o.num:SetPoint('TOPLEFT', left, -y); o.num:SetText(tostring(n) .. '.')
+   o.num:SetTextColor(num[1], num[2], num[3]); o.num:Show()
+   o.label:ClearAllPoints(); o.label:SetPoint('TOPLEFT', tx, -y); o.label:SetWidth(CW - tx - 52)
+   o.label:SetText(s.text or ''); o.label:SetTextColor(txt[1], txt[2], txt[3]); o.label:Show()
+   o.count:ClearAllPoints(); o.count:SetPoint('TOPRIGHT', -2, -y)
+   if s.need > 0 then
+    o.count:SetText(('%d/%d'):format(s.have, s.need)); o.count:SetTextColor(s.done and 0.55 or 1, s.done and 0.9 or 1, s.done and 0.6 or 1); o.count:Show()
+   else o.count:SetText('') end
+   y = y + 19
+   if s.place and not s.done then
+    o.place:ClearAllPoints(); o.place:SetPoint('TOPLEFT', tx, -(y - 3)); o.place:SetWidth(CW - tx - 4)
+    o.place:SetText(s.place.text); o.place:SetTextColor(0.5, 0.55, 0.65); o.place:Show()
+    y = y + 15
+   end
+   if s.current and s.need > 0 and ctx.bars then
+    local c = s.done and {0.45, 0.9, 0.5} or {a[1], a[2], a[3]}
+    o.barBg:ClearAllPoints(); o.barBg:SetPoint('TOPLEFT', tx, -(y - 2)); o.barBg:SetWidth(CW - tx - 2); o.barBg:Show()
+    o.barFill:ClearAllPoints(); o.barFill:SetPoint('TOPLEFT', tx, -(y - 2))
+    o.barFill:SetWidth(math.max(1, (CW - tx - 2) * math.min(1, s.have / s.need))); o.barFill:SetColorTexture(c[1], c[2], c[3], 1); o.barFill:Show()
+    y = y + 7
+   end
+   if s.objIndex and s.need > 0 and FT.ObjectiveProgress then pcall(FT.ObjectiveProgress, o, b.questId, s.objIndex, s.have, s.need) end
+   y = y + 3
+  end
+ end
+ return y
 end
 
 local function newBlock(i)
@@ -358,7 +404,19 @@ local function fillBlock(b, e, ctx)
  local y = pad + 22
  for _, o in ipairs(b.objs) do hideObjective(o) end
  b.turn:Hide(); b.party:Hide()
- if not mini then
+ local steps
+ if not mini and ForeverTrailSettings.trkSteps ~= false and FT.QuestSteps then
+  local okSteps, list = pcall(FT.QuestSteps, id)
+  if okSteps and type(list) == 'table' and #list > 0 then steps = list end
+ end
+ if steps then
+  y = drawSteps(b, steps, ctx, left, y, a)
+  local partyText = FT.PartyText and FT.PartyText(id)
+  if partyText then
+   b.party:ClearAllPoints(); b.party:SetPoint('TOPLEFT', left, -y); b.party:SetWidth(CW - left - 4)
+   b.party:SetText(partyText); b.party:SetTextColor(0.55, 0.8, 1); b.party:Show(); y = y + 18
+  end
+ elseif not mini then
   local oi = 0
   if ready then
    local ender = FT.TurnInName and FT.TurnInName(id)
@@ -486,6 +544,19 @@ function FT.RefreshQuestList()
  if (state.scroll:GetVerticalScroll() or 0) > range then state.scroll:SetVerticalScroll(range) end
  t:SetHeight(sumH + viewH + 10)
  layoutItems()
+end
+
+-- Test ve tanı için: görünen numaralı adım satırları ({quest, num, text, place})
+function FT.QuestListStepRows()
+ local out = {}
+ for _, b in ipairs(blocks) do
+  if b:IsShown() then
+   for _, o in ipairs(b.objs) do
+    if o.num:IsShown() then out[#out + 1] = {quest = b.questId, num = o.num:GetText(), text = o.label:GetText(), place = o.place:IsShown() and o.place:GetText() or nil} end
+   end
+  end
+ end
+ return out
 end
 
 -- Test ve tanı için: görünen görev bloğu ve bölge başlığı sayısı

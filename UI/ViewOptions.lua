@@ -18,6 +18,7 @@ DEFS.tracker = {
   {type = 'header', text = 'Neler görünsün'},
   {type = 'check', key = 'trkzones', label = 'Bölge başlıkları'},
   {type = 'check', key = 'trkdiff', label = 'Görev seviyesi ve zorluk rengi'},
+  {type = 'check', key = 'trkSteps', label = 'Adım adım yapılacaklar (Ayrıntılı)'},
   {type = 'check', key = 'trkHideDoneObj', label = 'Tamamlanan hedefleri gizle (Ayrıntılı)'},
   {type = 'check', key = 'trkColDist', label = 'Mesafe sütunu (Tablo)'},
  },

@@ -274,16 +274,19 @@ local dock
 
 local function togglePanel() if FT.ToggleHub then return FT.ToggleHub('rehber') end if FT.panel then if FT.panel:IsShown() then FT.panel:Hide() else FT.panel:Show() end end end
 
--- Ana şerit: en çok kullanılan 6 düğme, ikonlu
+-- Ana şerit: en çok kullanılan düğmeler. {ad, ipucu başlığı, ipucu açıklaması, simge (Media/dock_*.tga), eylem, açık mı?}
+-- "Açık mı?" olan düğme açıkken vurgu renginde ve altında çizgiyle görünür.
 local primary = {
- {'Panel', 'Görev paneli', 'Interface\\Icons\\INV_Misc_Book_09', togglePanel},
- {'Harita', 'Hedefi haritada göster', 'Interface\\Icons\\INV_Misc_Map_01', function() FT.OpenMap() end},
- {'Yakın', 'En yakın adıma geç', 'Interface\\Icons\\Ability_Hunter_Pathfinding', function() FT.SelectNearest() end},
- {'Yerler', 'Nereye gitmek istersin? (uçuş, hizmet, meslek)', 'Interface\\Icons\\Ability_Mount_Gryphon_01', function() FT.TogglePlaces() end},
- {'Sessiz', 'Uyarıları 30 dakika sustur (tekrar bas: aç)', 'Interface\\Icons\\Spell_Holy_Silence', function() FT.ToggleSilent() end},
- {'Sınıf', 'Sınıf rehberi: yetenek planı, sınıf görevleri, evcil hayvan', 'Interface\\Icons\\INV_Misc_Book_11', function() FT.ToggleHub('sinif') end},
- {'Çanta', 'Çantayı düzenle', 'Interface\\Icons\\INV_Misc_Bag_08', function() FT.SortBags() end},
- {'Ayar', 'Ayarlar (sekmeli)', 'Interface\\Icons\\Trade_Engineering', function() FT.ToggleSettings() end},
+ {'Panel', 'Görev paneli', 'Rehber, görevler ve yerler tek pencerede.', 'dock_panel', togglePanel,
+  function() return FT.hub and FT.hub:IsShown() end},
+ {'Harita', 'Hedefi haritada göster', 'Dünya haritasını hedef adımın bölgesinde açar.', 'dock_map', function() FT.OpenMap() end},
+ {'Yakın', 'En yakın adıma geç', 'Rehberde sana en yakın yapılabilir adımı seçer.', 'dock_nearest', function() FT.SelectNearest() end},
+ {'Yerler', 'Nereye gitmek istersin?', 'Uçuş noktaları, hizmetler, meslek eğitmenleri ve kayıtlı yerler.', 'dock_places', function() FT.TogglePlaces() end},
+ {'Sessiz', 'Sessiz mod', 'Uyarıları ve açılır pencereleri 30 dakika susturur. Tekrar bas: kapat.', 'dock_silent', function() FT.ToggleSilent() end,
+  function() return FT.IsSilent and FT.IsSilent() end},
+ {'Sınıf', 'Sınıf rehberi', 'Yetenek planı, sınıf görevleri ve evcil hayvan.', 'dock_class', function() FT.ToggleHub('sinif') end},
+ {'Çanta', 'Çantayı düzenle', 'Çantadaki eşyaları türe göre sıralar.', 'dock_bag', function() FT.SortBags() end},
+ {'Ayar', 'Ayarlar', 'Sekmeli ayar penceresi.', 'dock_settings', function() FT.ToggleSettings() end},
 }
 -- "Daha fazla" menüsü
 local more = {
@@ -303,14 +306,12 @@ local more = {
  {'Rehber kaydı', function() if FT.ToggleRecorder then FT.ToggleRecorder() end end},
 }
 
-local ICON, GAP = 30, 4
+local ICON, GAP, PAD = 34, 2, 6
 local menu, lockButton
 
 function FT.RefreshDock()
  if not dock then return end
- local a = FT.Style.accent
- for _, b in ipairs(dock.buttons or {}) do b.border:SetVertexColor(a[1], a[2], a[3], 0.9) end
- if lockButton then lockButton.icon:SetDesaturated(not ForeverTrailSettings.locked) end
+ for _, b in ipairs(dock.buttons or {}) do if b.Refresh then b:Refresh() end end
  if menu and menu:IsShown() then
   for _, row in ipairs(menu.rows) do
    local check = row.def[3]
@@ -319,35 +320,131 @@ function FT.RefreshDock()
  end
 end
 
+-- Yerleşim kilitliyken pencere sessizce taşınmaz; kullanıcı neden olduğunu bilmeden "bozuk" sanır. Sürüklemeyi deneyince bir kez
+-- (15 sn'de en çok bir kez) nedenini ve nasıl açılacağını söyler.
+local lastLockHint = -100
+function FT.LockedHint()
+ local now = GetTime and GetTime() or 0
+ if now - lastLockHint < 15 then return end
+ lastLockHint = now
+ FT.Print('Yerleşim kilitli. Shift basılıyken sürükleyerek yine taşıyabilirsin; kalıcı açmak için pencerenin köşesindeki kilit simgesine ya da ikon şeridindeki kilide tıkla (/ftrail kilit).')
+end
+
+-- Pencere şimdi sürüklenebilir mi? Kilitli değilse evet; kilitliyken de Shift basılıysa evet (kilit kimseyi dışarıda bırakmasın),
+-- değilse nedenini söyler ve hayır der. Tüm pencerelerin OnDragStart'ı bunu kullanır.
+function FT.CanDrag()
+ if not (ForeverTrailSettings and ForeverTrailSettings.locked) then return true end
+ if IsShiftKeyDown and IsShiftKeyDown() then return true end
+ FT.LockedHint()
+ return false
+end
+
+-- Bir kerelik: eski sürümlerde açılıp unutulan yerleşim kilidi (pencereyi sessizce donduruyordu) girişte kapatılır.
+function FT.MigrateLayoutLock()
+ if not ForeverTrailSettings or (ForeverTrailSettings.lockVersion or 0) >= 1 then return false end
+ ForeverTrailSettings.lockVersion = 1
+ local had = ForeverTrailSettings.locked == true or ForeverTrailSettings.arrowLocked == true
+ ForeverTrailSettings.locked, ForeverTrailSettings.arrowLocked = nil, nil
+ return had
+end
+
 function FT.ToggleLock()
  ForeverTrailSettings.locked = not ForeverTrailSettings.locked
  ForeverTrailSettings.arrowLocked = ForeverTrailSettings.locked
+ if FT.RefreshQuestDock then FT.RefreshQuestDock() end
  FT.Print(ForeverTrailSettings.locked and 'Arayüz kilitlendi.' or 'Arayüz kilidi açıldı: sürükleyerek taşıyabilirsin.')
  FT.RefreshDock()
 end
 
-local function iconButton(parent, texture, tip, handler)
+-- Şeritteki düz düğme: tek renkli simge (Media/dock_*.tga, temaya göre boyanır), üzerine gelince açık zemin,
+-- açıkken vurgu rengi ve altında ince çizgi. Basılıyken simge bir piksel iner.
+-- def: {icon, tipTitle, tipText, handler, isOn, size}
+local function dockButton(parent, def)
+ local Kit = FT.Kit
+ local size = def.size or ICON
  local b = CreateFrame('Button', nil, parent)
- b:SetSize(ICON, ICON)
- b.icon = b:CreateTexture(nil, 'ARTWORK')
- b.icon:SetPoint('TOPLEFT', 2, -2); b.icon:SetPoint('BOTTOMRIGHT', -2, 2)
- b.icon:SetTexture(texture); b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
- b.border = b:CreateTexture(nil, 'BACKGROUND')
- b.border:SetAllPoints(); b.border:SetColorTexture(1, 1, 1, 1)
- b:SetHighlightTexture('Interface\\Buttons\\ButtonHilight-Square', 'ADD')
- b:SetPushedTexture('Interface\\Buttons\\UI-Quickslot-Depress')
+ b:SetSize(size, size)
+ b.hover = b:CreateTexture(nil, 'BACKGROUND', nil, 1); b.hover:SetAllPoints(); Kit.Fill(b.hover, 'card'); b.hover:Hide()
+ b.mark = b:CreateTexture(nil, 'ARTWORK'); b.mark:SetHeight(2)
+ b.mark:SetPoint('BOTTOMLEFT', 7, 2); b.mark:SetPoint('BOTTOMRIGHT', -7, 2); Kit.Fill(b.mark, 'accent'); b.mark:Hide()
+ local glyph = math.floor(size * 0.58 + 0.5)
+ b.icon = b:CreateTexture(nil, 'ARTWORK'); b.icon:SetSize(glyph, glyph); b.icon:SetPoint('CENTER', 0, 1)
+ b.icon:SetTexture('Interface\\AddOns\\ForeverTrail\\Media\\' .. def.icon)
+ b.isOn = def.isOn
+ function b:Refresh()
+  local on = self.isOn and self.isOn() and true or false
+  local c = Kit.Color(on and 'accent' or (self.over and 'text' or 'muted'))
+  self.icon:SetVertexColor(c[1], c[2], c[3])
+  self.mark:SetShown(on); self.hover:SetShown(self.over and true or false)
+ end
+ b:SetScript('OnMouseDown', function(self) self.icon:SetPoint('CENTER', 0, 0) end)
+ b:SetScript('OnMouseUp', function(self) self.icon:SetPoint('CENTER', 0, 1) end)
  b:SetScript('OnClick', function()
-  local ok, err = pcall(handler)
+  local ok, err = pcall(def.handler)
   if not ok then FT.Print('Hata: ' .. tostring(err)) end
   FT.RefreshDock()
  end)
  b:SetScript('OnEnter', function(self)
-  GameTooltip:SetOwner(self, 'ANCHOR_TOP')
-  GameTooltip:SetText(tip, 1, 0.85, 0.5)
-  FT.ShowTip(GameTooltip)
+  self.over = true; self:Refresh()
+  local tip = Kit.Tooltip()
+  -- yatay şeritte ipucu üste/alta, dikey şeritte sağa/sola açılır (hangisine sığıyorsa); şeridin üstüne binmez
+  tip:SetOwner(self, (dock and dock.vertical) and 'ANCHOR_RIGHT' or 'ANCHOR_TOP')
+  local title = type(def.tipTitle) == 'function' and def.tipTitle() or def.tipTitle
+  local text = type(def.tipText) == 'function' and def.tipText() or def.tipText
+  tip:SetText(title, 1, 1, 1)
+  if text then tip:AddLine(text, 0.6, 0.6, 0.6) end
+  tip:Show()
  end)
- b:SetScript('OnLeave', function() GameTooltip:Hide() end)
+ b:SetScript('OnLeave', function(self) self.over = false; self:Refresh(); Kit.HideTips() end)
+ Kit.Track(function() b:Refresh() end)
  return b
+end
+
+-- İki düğme grubunu ayıran ince dikey çizgi
+local function dockDivider(parent)
+ local t = parent:CreateTexture(nil, 'ARTWORK')
+ t:SetSize(1, ICON - 14)
+ FT.Kit.Fill(t, 'line')
+ return t
+end
+
+-- Şerit düzeni (saf hesap): items = {{size = 34}, {divider = true}, {size = 28, pad = 2}, ...}. Dönüş: her öğenin ana eksendeki
+-- başlangıcı, toplam genişlik, toplam yükseklik (dikey şeritte eksenler yer değiştirir).
+function FT.DockMetrics(items, vertical)
+ local pos, offsets = PAD, {}
+ for i, it in ipairs(items) do
+  if it.divider then pos = pos + 3; offsets[i] = pos; pos = pos + 1 + 6
+  else offsets[i] = pos + (it.pad or 0); pos = pos + (it.pad or 0) + it.size + GAP end
+ end
+ local main, cross = pos + PAD - GAP, ICON + 2 * PAD
+ if vertical then return offsets, cross, main end
+ return offsets, main, cross
+end
+
+-- Şeridi yatay ya da dikey dizer (ayar: dockVertical). Küçük düğmeler çapraz eksende ortalanır.
+local function layoutDock()
+ if not (dock and dock.items) then return end
+ local vertical = ForeverTrailSettings.dockVertical == true
+ dock.vertical = vertical
+ local offsets, w, h = FT.DockMetrics(dock.items, vertical)
+ for i, it in ipairs(dock.items) do
+  local o = it.obj
+  o:ClearAllPoints()
+  if it.divider then
+   if vertical then o:SetSize(ICON - 14, 1) else o:SetSize(1, ICON - 14) end
+  end
+  if vertical then o:SetPoint('TOP', dock, 'TOP', 0, -offsets[i]) else o:SetPoint('LEFT', dock, 'LEFT', offsets[i], 0) end
+ end
+ dock:SetSize(w, h)
+end
+
+-- Şeridin yönünü çevirir (yatay <-> dikey); simge şeridin ucundadır
+function FT.ToggleDockOrientation()
+ if not dock then return end
+ ForeverTrailSettings.dockVertical = not (ForeverTrailSettings.dockVertical == true)
+ layoutDock()
+ if FT.Kit then FT.Kit.HideTips() end
+ FT.RefreshDock()
 end
 
 local function buildMenu()
@@ -378,7 +475,7 @@ function FT.CreateDock()
  FT.dock = dock
  dock:SetMovable(true); dock:EnableMouse(true); dock:SetClampedToScreen(true)
  dock:RegisterForDrag('LeftButton')
- dock:SetScript('OnDragStart', function(self) if not ForeverTrailSettings.locked then self:StartMoving() end end)
+ dock:SetScript('OnDragStart', function(self) if not FT.CanDrag() then return end self:StartMoving() end)
  dock:SetScript('OnDragStop', function(self)
   self:StopMovingOrSizing()
   local point, _, relative, x, y = self:GetPoint()
@@ -388,27 +485,34 @@ function FT.CreateDock()
  local p = ForeverTrailSettings.dockPoint
  if p and p[1] and p[2] and p[3] and p[4] then dock:SetPoint(p[1], UIParent, p[2], p[3], p[4])
  else dock:SetPoint('BOTTOMLEFT', UIParent, 'BOTTOMLEFT', 6, 230) end
- if FT.SoftBackdrop then pcall(FT.SoftBackdrop, dock) end
- dock.buttons = {}
- local x = 8
- for _, def in ipairs(primary) do
-  local b = iconButton(dock, def[3], def[2], def[4])
-  b:SetPoint('LEFT', x, 0); x = x + ICON + GAP
-  dock.buttons[#dock.buttons + 1] = b
+ -- Düz şerit: koyu zemin, ince kenar çizgisi (Hub'ın yan şeridiyle aynı dil)
+ FT.Kit.Skin(dock, 'rail', 'line')
+ dock.buttons, dock.items = {}, {}
+ local function addItem(obj, size, pad, isButton)
+  dock.items[#dock.items + 1] = {obj = obj, size = size, pad = pad}
+  if isButton then dock.buttons[#dock.buttons + 1] = obj end
  end
- local moreButton = iconButton(dock, 'Interface\\Icons\\INV_Misc_Note_01', 'Araçlar', function()
+ for _, def in ipairs(primary) do
+  addItem(dockButton(dock, {icon = def[4], tipTitle = def[2], tipText = def[3], handler = def[5], isOn = def[6]}), ICON, 0, true)
+ end
+ dock.items[#dock.items + 1] = {obj = dockDivider(dock), divider = true}
+ local moreButton = dockButton(dock, {icon = 'dock_tools', tipTitle = 'Araçlar', tipText = 'Rota, çanta, sınıf ve veri araçları.', handler = function()
   if FT.ToggleHub then return FT.ToggleHub('araclar') end
   if not menu then buildMenu() end
   if menu:IsShown() then menu:Hide() return end
   menu:ClearAllPoints(); menu:SetPoint('BOTTOMLEFT', dock, 'TOPLEFT', 0, 4)
   menu:Show(); FT.RefreshDock()
- end)
- moreButton:SetPoint('LEFT', x, 0); x = x + ICON + GAP + 6
- dock.buttons[#dock.buttons + 1] = moreButton
- lockButton = iconButton(dock, 'Interface\\Icons\\INV_Misc_Key_03', 'Kilit: ok, görev kutusu ve şeridi sabitle', function() FT.ToggleLock() end)
- lockButton:SetSize(20, 20); lockButton:SetPoint('LEFT', x, 0); x = x + 24
- dock.buttons[#dock.buttons + 1] = lockButton
- dock:SetSize(x + 4, ICON + 12)
+ end})
+ addItem(moreButton, ICON, 0, true)
+ lockButton = dockButton(dock, {icon = 'dock_lock', tipTitle = 'Yerleşimi kilitle', size = 28,
+  tipText = 'Ok, görev penceresi ve bu şerit sürüklenmez. Açıkken vurgulu görünür.', handler = function() FT.ToggleLock() end,
+  isOn = function() return ForeverTrailSettings.locked end})
+ addItem(lockButton, 28, 2, true)
+ local rotateButton = dockButton(dock, {icon = 'dock_rotate', size = 24,
+  tipTitle = function() return dock.vertical and 'Şeridi yatay yap' or 'Şeridi dikey yap' end,
+  tipText = 'Simge şeridini yatay ya da dikey kullan. Seçimin kaydedilir.', handler = function() FT.ToggleDockOrientation() end})
+ addItem(rotateButton, 24, 2, true)
+ layoutDock()
  FT.RefreshDock()
  if ForeverTrailSettings.dock == false or ForeverTrailSettings.simple then dock:Hide() end
 end

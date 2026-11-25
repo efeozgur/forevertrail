@@ -75,6 +75,250 @@ function FT.StepInfo(step)
  return info
 end
 
+----------------------------------------------------------------------
+-- Alınmış bir görevin "ne yapacağım" adımları (görev listesinde görevin altında numaralı gösterilir):
+-- her hedef bir adım (Öldür / Topla / Kullan / Konuş + ad, sayaç, bölge ve en yakın nokta), sonda teslim adımı.
+----------------------------------------------------------------------
+local KIND_VERB = {kill = 'Öldür', loot = 'Topla', object = 'Kullan', talk = 'Konuş'}
+FT.StepKindVerb = KIND_VERB
+
+local function playerSpot()
+ if not (C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition) then return nil end
+ local ok, map = pcall(C_Map.GetBestMapForUnit, 'player')
+ if not (ok and map) then return nil end
+ local ok2, pos = pcall(C_Map.GetPlayerMapPosition, map, 'player')
+ if not (ok2 and pos and pos.GetXY) then return nil end
+ local x, y = pos:GetXY()
+ if type(x) ~= 'number' or type(y) ~= 'number' then return nil end
+ return map, x, y
+end
+
+-- {map, x, y} noktaları içinden gösterilecek yer: oyuncunun haritasındaki en yakın nokta, yoksa en çok nokta olan
+-- haritanın ağırlık merkezine en yakın nokta. Dönüş: {map, x, y, text = "Bölge · 45, 62"} ya da nil
+function FT.PlaceOf(points)
+ if type(points) ~= 'table' or #points == 0 then return nil end
+ local pm, px, py = playerSpot()
+ local best, bestD
+ if pm then
+  for _, p in ipairs(points) do
+   if p.map == pm then
+    local d = (p.x - px) ^ 2 + (p.y - py) ^ 2
+    if not bestD or d < bestD then best, bestD = p, d end
+   end
+  end
+ end
+ if not best then
+  local count, top = {}, nil
+  for _, p in ipairs(points) do
+   count[p.map] = (count[p.map] or 0) + 1
+   if not top or count[p.map] > count[top] then top = p.map end
+  end
+  local cx, cy, n = 0, 0, 0
+  for _, p in ipairs(points) do if p.map == top then cx, cy, n = cx + p.x, cy + p.y, n + 1 end end
+  cx, cy = cx / n, cy / n
+  for _, p in ipairs(points) do
+   if p.map == top then
+    local d = (p.x - cx) ^ 2 + (p.y - cy) ^ 2
+    if not bestD or d < bestD then best, bestD = p, d end
+   end
+  end
+ end
+ if not best then return nil end
+ local name = FT.MapName and FT.MapName(best.map)
+ local coords = ('%d, %d'):format(math.floor(best.x * 100 + 0.5), math.floor(best.y * 100 + 0.5))
+ return {map = best.map, x = best.x, y = best.y, text = name and (name .. ' · ' .. coords) or coords}
+end
+
+-- Bir görev hedefinin (FT.ActiveObjectives satırı) göründüğü noktalar
+local function objectivePoints(o)
+ local out = {}
+ local d, z = FT.Module and FT.Module('QuestieDB'), FT.Module and FT.Module('ZoneDB')
+ if d and z then
+  local function add(kind, id)
+   local getter = kind == 'object' and d.QueryObjectSingle or d.QueryNPCSingle
+   local ok, spawns = pcall(getter, id, 'spawns')
+   if not (ok and type(spawns) == 'table') then return end
+   for area, list in pairs(spawns) do
+    local good, map = pcall(z.GetUiMapIdByAreaId, z, area)
+    if good and map and type(list) == 'table' then
+     for _, p in ipairs(list) do
+      if #out < 120 and type(p) == 'table' and type(p[1]) == 'number' and type(p[2]) == 'number' then
+       out[#out + 1] = {map = map, x = p[1] / 100, y = p[2] / 100}
+      end
+     end
+    end
+   end
+  end
+  for _, n in ipairs(o.npcs or {}) do add('npc', n) end
+  for _, ob in ipairs(o.objs or {}) do add('object', ob) end
+ end
+ if #out == 0 and not o.noOwn and FT.OwnObjectivePoints then out = FT.OwnObjectivePoints(o.questId, o.index) or {} end
+ return out
+end
+
+-- Görevi veren (alan 2: startedBy) ya da teslim alan (alan 3: finishedBy) NPC ve NESNELERİN noktaları.
+-- FT.SpawnPoints "al/teslim" adımında yalnızca NPC'ye baktığı için nesneyle (ilan tahtası, kitap...) başlayan görevler yersiz kalıyordu.
+local function giverPoints(questId, field)
+ local q = FT.DBQ and FT.DBQ[questId]
+ local row = q and q[field]
+ if type(row) ~= 'table' then return {} end
+ return objectivePoints({npcs = row[1], objs = row[2], noOwn = true})
+end
+
+-- Görevi bir EŞYA başlatıyorsa (yaratıktan/nesneden düşer): {itemId, name, points = eşyanın düştüğü yerler}; yoksa nil
+local function startItem(questId)
+ local q = FT.DBQ and FT.DBQ[questId]
+ local by = q and q[2]
+ local itemId = type(by) == 'table' and type(by[3]) == 'table' and by[3][1]
+ if type(itemId) ~= 'number' then return nil end
+ local it = FT.DBI and FT.DBI[itemId]
+ local function first(list, n) local out = {} for i, v in ipairs(type(list) == 'table' and list or {}) do if i > n then break end out[i] = v end return out end
+ local points = it and objectivePoints({npcs = first(it[2], 8), objs = first(it[3], 4), noOwn = true}) or {}
+ return {itemId = itemId, name = (it and type(it[1]) == 'string' and it[1] ~= '') and it[1] or ('Eşya ' .. itemId), points = points}
+end
+function FT.QuestStartItem(questId) return startItem(questId) end
+
+-- Görevi veren varlığın adı: NPC, yoksa nesne (ilan tahtası...); yoksa nil
+function FT.QuestGiverName(questId)
+ local q = FT.DBQ and FT.DBQ[questId]
+ local by = q and q[2]
+ if type(by) ~= 'table' then return nil end
+ for _, id in ipairs(type(by[1]) == 'table' and by[1] or {}) do
+  local n = FT.DBN and FT.DBN[id]
+  if n and type(n[1]) == 'string' and n[1] ~= '' then return n[1] end
+ end
+ for _, id in ipairs(type(by[2]) == 'table' and by[2] or {}) do
+  local o = FT.DBO and FT.DBO[id]
+  if o and type(o[1]) == 'string' and o[1] ~= '' then return o[1] end
+ end
+end
+
+-- Görevin bölgesi (veri satırındaki bölge alanından): tam nokta bilinmese de "şu bölgede" denebilsin
+function FT.QuestZoneName(questId)
+ local q = FT.DBQ and FT.DBQ[questId]
+ local area = q and q[13]
+ if type(area) ~= 'number' or area <= 0 then return nil end
+ local z = FT.Module and FT.Module('ZoneDB')
+ if not z then return nil end
+ local ok, map = pcall(z.GetUiMapIdByAreaId, z, area)
+ if not (ok and map) then return nil end
+ return FT.MapName and FT.MapName(map) or nil
+end
+
+local function turnInPlace(questId)
+ if FT.Module and FT.Module('QuestieDB') and FT.SpawnPoints then
+  local ok, pts = pcall(FT.SpawnPoints, {questId = questId, type = 'turnin'})
+  if ok and type(pts) == 'table' and #pts > 0 then return FT.PlaceOf(pts) end
+ end
+ local own = giverPoints(questId, 3)
+ if #own > 0 then return FT.PlaceOf(own) end
+ if FT.OwnQuestPoint then
+  local map, x, y = FT.OwnQuestPoint(questId, 'turnin')
+  if map and x and y then return FT.PlaceOf({{map = map, x = x, y = y}}) end
+ end
+end
+
+-- Yer aramak (veritabanı + harita) pahalı: kısa süre önbellekte tutulur; sayaçlar ise her çağrıda günlükten okunur
+local placeCache = {}
+local function cachedPlace(key, compute)
+ local now = GetTime and GetTime() or 0
+ local c = placeCache[key]
+ if c and now - c.t < 5 then return c.v end
+ local v = compute()
+ placeCache[key] = {v = v or false, t = now}
+ return v
+end
+FT.liveListeners = FT.liveListeners or {}
+FT.liveListeners[#FT.liveListeners + 1] = function() placeCache = {} end
+
+-- Dönüş: sıralı adımlar {kind, text, have, need, done, current, place = {text,...}|nil, objIndex}. Son adım her zaman teslim.
+function FT.QuestSteps(questId)
+ local list = {}
+ if not questId then return list end
+ local q = C_QuestLog
+ local byIndex = {}
+ if FT.ActiveObjectives then
+  local ok, all = pcall(FT.ActiveObjectives)
+  if ok and type(all) == 'table' then for _, o in ipairs(all) do if o.questId == questId then byIndex[o.index] = o end end end
+ end
+ local rows = {}
+ if q and q.GetQuestObjectives then
+  local ok, r = pcall(q.GetQuestObjectives, questId)
+  if ok and type(r) == 'table' then rows = r end
+ end
+ for index, row in ipairs(rows) do
+  local need, have = row.numRequired or 0, row.numFulfilled or 0
+  local done = (row.finished or (need > 0 and have >= need)) and true or false
+  local o = byIndex[index]
+  local label = FT.ParseObjective and FT.ParseObjective(row.text or '') or (row.text or '')
+  local verb = o and KIND_VERB[o.kind]
+  local text = (o and o.name and verb) and (verb .. ': ' .. o.name) or label
+  local place
+  if o and not done then place = cachedPlace(questId .. ':' .. index, function() return FT.PlaceOf(objectivePoints(o)) end) or nil end
+  list[#list + 1] = {kind = o and o.kind or 'misc', text = text, have = have, need = need, done = done, place = place, objIndex = index}
+ end
+ local npc
+ if FT.TurnInName then local ok, name = pcall(FT.TurnInName, questId); if ok and type(name) == 'string' and name ~= '' then npc = name end end
+ npc = npc or (FT.OwnGiverName and FT.OwnGiverName(questId, 'turnin')) or nil
+ list[#list + 1] = {kind = 'turnin', text = npc and ('Teslim et: ' .. npc) or 'Görevi teslim et', done = false, have = 0, need = 0,
+  place = cachedPlace(questId .. ':turnin', function() return turnInPlace(questId) end) or nil}
+ for _, s in ipairs(list) do if not s.done then s.current = true; break end end
+ return list
+end
+
+local function acceptPlaceOf(questId)
+ if FT.Module and FT.Module('QuestieDB') and FT.SpawnPoints then
+  local ok, pts = pcall(FT.SpawnPoints, {questId = questId, type = 'accept'})
+  if ok and type(pts) == 'table' and #pts > 0 then return FT.PlaceOf(pts) end
+ end
+ local own = giverPoints(questId, 2)
+ if #own > 0 then return FT.PlaceOf(own) end
+ local item = startItem(questId)
+ if item and #item.points > 0 then return FT.PlaceOf(item.points) end
+ if FT.OwnQuestPoint then
+  local map, x, y = FT.OwnQuestPoint(questId, 'accept')
+  if map and x and y then return FT.PlaceOf({{map = map, x = x, y = y}}) end
+ end
+end
+
+-- Görevi veren ('accept') ya da teslim alan ('turnin') NPC'nin yeri: {map, x, y, text = "Bölge · 45, 62"} ya da nil (önbellekli)
+function FT.QuestSpot(questId, kind)
+ if not questId then return nil end
+ if kind == 'turnin' then return cachedPlace(questId .. ':turnin', function() return turnInPlace(questId) end) or nil end
+ return cachedPlace(questId .. ':accept', function() return acceptPlaceOf(questId) end) or nil
+end
+
+-- Görevin tam planı: günlükteyse gerçek adımlar (FT.QuestSteps); henüz alınmamışsa veritabanından önizleme
+-- ("Görevi al: NPC" + hedefler + teslim). Teslim edilmiş görevde boş liste. Rehberde ve ayrıntılı ipucunda kullanılır.
+function FT.QuestPlan(questId)
+ if not questId then return {} end
+ local q = C_QuestLog
+ local inLog = q and q.GetLogIndexForQuestID and (q.GetLogIndexForQuestID(questId) or 0) > 0
+ if inLog then return FT.QuestSteps(questId) end
+ if q and q.IsQuestFlaggedCompleted and q.IsQuestFlaggedCompleted(questId) then return {} end
+ if FT.turnedIn and FT.turnedIn[questId] then return {} end
+ local list = {}
+ local giver = FT.StepNpc and FT.StepNpc({type = 'accept', questId = questId}) or nil
+ local givePlace = FT.QuestSpot(questId, 'accept')
+ list[1] = {kind = 'accept', text = giver and ('Görevi al: ' .. giver) or 'Görevi al', done = false, have = 0, need = 0, place = givePlace or nil}
+ local objectives = FT.QuestObjectiveList and FT.QuestObjectiveList(questId) or {}
+ for index, e in ipairs(objectives) do
+  local verb = KIND_VERB[e.kind]
+  local name = e.name
+  local place = cachedPlace(questId .. ':p' .. index, function()
+   return FT.PlaceOf(objectivePoints({questId = questId, index = index, npcs = e.npcs, objs = e.objs}))
+  end)
+  list[#list + 1] = {kind = e.kind, text = (name and verb) and (verb .. ': ' .. name) or (name or 'Hedef'), done = false, have = 0, need = 0, place = place or nil, objIndex = index}
+ end
+ local npc
+ if FT.TurnInName then local ok, name = pcall(FT.TurnInName, questId); if ok and type(name) == 'string' and name ~= '' then npc = name end end
+ npc = npc or (FT.OwnGiverName and FT.OwnGiverName(questId, 'turnin')) or nil
+ list[#list + 1] = {kind = 'turnin', text = npc and ('Teslim et: ' .. npc) or 'Görevi teslim et', done = false, have = 0, need = 0,
+  place = cachedPlace(questId .. ':turnin', function() return turnInPlace(questId) end) or nil}
+ list[1].current = true
+ return list
+end
+
 -- Sıradaki durak: bu adımdan sonra, farklı bir NPC ile konuşulacak ilk adım ({npc, verb, title}); yoksa nil
 function FT.NextStop(guide, index)
  if not (guide and guide.steps and index) then return nil end

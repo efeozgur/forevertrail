@@ -16,7 +16,7 @@ local MEDIA = 'Interface\\AddOns\\ForeverTrail\\Media\\route_'
 local ICON = {['UÇUŞ'] = 'flight', ['ZEPLİN'] = 'zeppelin', ['GEMİ'] = 'ship', ['YÜRÜ'] = 'walk', ['ÇIKIŞ'] = 'door', ['GİRİŞ'] = 'door', ['VARIŞ'] = 'flag', ['ADIM'] = 'step'}
 
 local box
-local rows, jrows = {}, {}
+local rows, jrows, prows, qrows = {}, {}, {}, {}
 local plan, planKey, planTime = {}, nil, -100
 
 local function go(delta)
@@ -68,6 +68,50 @@ local function newJourneyRow(i)
  r.text = K.Text(r, 12, 'text'); r.text:SetPoint('LEFT', 44, 0); r.text:SetPoint('RIGHT', -50, 0); r.text:SetJustifyH('LEFT'); r.text:SetWordWrap(false)
  r.time = K.Text(r, 11, 'muted'); r.time:SetPoint('RIGHT', -2, 0); r.time:SetJustifyH('RIGHT')
  jrows[i] = r
+ return r
+end
+
+-- Gereksinim satırı (amber çubuk): "Önce görev: X" / "Eşya gerekli: Y" + nerede; tıklayınca oraya rota
+local AMBER = {1, 0.72, 0.28}
+local function newReqRow(i)
+ local K = FT.Kit
+ local r = CreateFrame('Button', nil, box)
+ r:SetHeight(36)
+ r.bg = r:CreateTexture(nil, 'BACKGROUND'); r.bg:SetAllPoints(); r.bg:SetColorTexture(AMBER[1], AMBER[2], AMBER[3], 0.10)
+ r.hl = r:CreateTexture(nil, 'BORDER'); r.hl:SetAllPoints(); r.hl:SetColorTexture(1, 1, 1, 0.07); r.hl:Hide()
+ r.bar = r:CreateTexture(nil, 'ARTWORK'); r.bar:SetWidth(3); r.bar:SetPoint('TOPLEFT', 0, 0); r.bar:SetPoint('BOTTOMLEFT', 0, 0); r.bar:SetColorTexture(AMBER[1], AMBER[2], AMBER[3], 1)
+ r.text = K.Text(r, 12, 'text'); r.text:SetPoint('TOPLEFT', 12, -5); r.text:SetPoint('RIGHT', r, 'RIGHT', -8, 0); r.text:SetJustifyH('LEFT'); r.text:SetWordWrap(false)
+ r.text:SetTextColor(AMBER[1], AMBER[2], AMBER[3])
+ r.detail = K.Text(r, 11, 'muted'); r.detail:SetPoint('TOPLEFT', 12, -20); r.detail:SetPoint('RIGHT', r, 'RIGHT', -8, 0); r.detail:SetJustifyH('LEFT'); r.detail:SetWordWrap(false)
+ r:SetScript('OnEnter', function(self)
+  self.hl:Show()
+  local tip = K.Tooltip(); if not tip or not self.req then return end
+  tip:SetOwner(self, 'ANCHOR_LEFT')
+  tip:SetText(self.req.text or '', AMBER[1], AMBER[2], AMBER[3])
+  tip:AddLine(self.req.detail or '', 0.85, 0.85, 0.85)
+  if self.req.where then tip:AddLine(self.req.where, 0.6, 0.65, 0.75) end
+  if self.req.alternatives and self.req.alternatives > 0 then tip:AddLine(('(başka %d görev de aynı işi görür)'):format(self.req.alternatives), 0.6, 0.6, 0.6) end
+  tip:AddLine(self.req.ready and 'Hazır: şimdi yapabilirsin' or (self.req.place and 'Tık: oraya git (rota çizilir)' or (self.req.where and 'Tam nokta bilinmiyor: bölgeye git, orada ara' or 'Konum verisi yok')), 0.65, 0.65, 0.65)
+  tip:Show()
+ end)
+ r:SetScript('OnLeave', function(self) self.hl:Hide(); K.HideTips() end)
+ r:SetScript('OnClick', function(self) if self.req and FT.GoToRequirement then FT.GoToRequirement(self.req) end end)
+ qrows[i] = r
+ return r
+end
+
+-- "Bu görevde" bölümünün satırı: numara, adım (fiil + ad), sağda sayaç, altında yer; sıradaki adımda ilerleme çubuğu
+local function newPlanRow(i)
+ local K = FT.Kit
+ local r = CreateFrame('Frame', nil, box)
+ r:SetHeight(20)
+ r.num = K.Text(r, 12, 'muted'); r.num:SetPoint('TOPLEFT', 2, 0); r.num:SetWidth(18); r.num:SetJustifyH('LEFT')
+ r.text = K.Text(r, 12, 'text'); r.text:SetPoint('TOPLEFT', 22, 0); r.text:SetJustifyH('LEFT'); r.text:SetWordWrap(false)
+ r.count = K.Text(r, 12, 'text'); r.count:SetPoint('TOPRIGHT', -2, 0); r.count:SetJustifyH('RIGHT')
+ r.place = K.Text(r, 11, 'muted'); r.place:SetPoint('TOPLEFT', 22, -17); r.place:SetJustifyH('LEFT'); r.place:SetWordWrap(false)
+ r.barBg = r:CreateTexture(nil, 'ARTWORK'); r.barBg:SetHeight(3); K.Fill(r.barBg, 'line')
+ r.barFill = r:CreateTexture(nil, 'OVERLAY'); r.barFill:SetHeight(3)
+ prows[i] = r
  return r
 end
 
@@ -155,11 +199,17 @@ local function newTodoRow(i)
   self.hl:Show()
   local tip = K.Tooltip(); if not tip or not self.data then return end
   local d = self.data
-  tip:SetOwner(self, 'ANCHOR_LEFT'); tip:SetText(d.title or '', 1, 0.82, 0)
-  tip:AddLine(d.status == 'ready' and 'Teslim edilmeye hazır' or 'Devam ediyor', 0.85, 0.85, 0.85)
-  if d.npc then tip:AddLine('Teslim: ' .. d.npc, 0.85, 0.85, 0.85) end
-  if d.xp and d.xp > 0 then tip:AddLine(('%s XP%s'):format(fmtXP(d.xp), d.estimated and ' (tahmini)' or ''), 0.55, 0.9, 0.5) end
-  tip:AddLine('Tık: görevi göster', 0.65, 0.65, 0.65); tip:Show()
+  tip:SetOwner(self, 'ANCHOR_LEFT')
+  if d.questId and FT.QuestDetailTip then
+   FT.QuestDetailTip(tip, d.questId, {hints = {'Tık: görevi göster'}})
+  else
+   tip:SetText(d.title or '', 1, 0.82, 0)
+   tip:AddLine(d.status == 'ready' and 'Teslim edilmeye hazır' or 'Devam ediyor', 0.85, 0.85, 0.85)
+   if d.npc then tip:AddLine('Teslim: ' .. d.npc, 0.85, 0.85, 0.85) end
+   if d.xp and d.xp > 0 then tip:AddLine(('%s XP%s'):format(fmtXP(d.xp), d.estimated and ' (tahmini)' or ''), 0.55, 0.9, 0.5) end
+   tip:AddLine('Tık: görevi göster', 0.65, 0.65, 0.65)
+  end
+  tip:Show()
  end)
  r:SetScript('OnLeave', function(self) self.hl:Hide(); K.HideTips() end)
  r:SetScript('OnClick', function(self)
@@ -256,6 +306,9 @@ function FT.RefreshGuideTab()
  local inner = width - PAD * 2
  local function hideAll()
   box.card:Hide(); box.nav:Hide(); box.journeyHead:Hide(); box.goal:Hide(); box.then_:Hide(); box.todo:Hide(); box.foot:Hide(); box.listHead:Hide()
+  box.planHead:Hide(); box.reqHead:Hide()
+  for _, r in ipairs(qrows) do r:Hide() end
+  for _, r in ipairs(prows) do r:Hide() end
   for _, r in ipairs(rows) do r:Hide() end
   for _, r in ipairs(jrows) do r:Hide() end
  end
@@ -348,6 +401,80 @@ function FT.RefreshGuideTab()
  box.check.mark:SetShown(view < (FT.active or 1) or done and true or false)
  box.check:Show()
  y = y + cy + GAP
+
+ -- 3a) uyarı: bu görev için önce gerekli olanlar (ön koşul görev, başka görevden gelen eşya); boşa gitmemek için
+ local okReq, reqs = false, nil
+ if s.questId and FT.QuestRequirements then okReq, reqs = pcall(FT.QuestRequirements, s.questId) end
+ local shownR = 0
+ if okReq and type(reqs) == 'table' and #reqs > 0 then
+  box.reqHead:Show(); box.reqHead:ClearAllPoints(); box.reqHead:SetPoint('TOPLEFT', box, 'TOPLEFT', PAD, -y); box.reqHead:SetWidth(inner)
+  local allReady = true
+  for _, rq in ipairs(reqs) do if not rq.ready then allReady = false end end
+  box.reqHead.text:SetText(allReady and 'Hazır: bunun için önce yapman gereken' or 'Dikkat: bunun için önce gerekli')
+  local hc = allReady and {0.55, 0.9, 0.5} or AMBER
+  box.reqHead.text:SetTextColor(hc[1], hc[2], hc[3])
+  y = y + 20
+  for i, rq in ipairs(reqs) do
+   if i > 4 then break end
+   local r = qrows[i] or newReqRow(i)
+   shownR = shownR + 1
+   r:ClearAllPoints(); r:SetPoint('TOPLEFT', box, 'TOPLEFT', PAD, -y); r:SetWidth(inner)
+   r.req = rq
+   -- hazır olan (eşya çantada, görev bitti) yeşil; eksik olan amber
+   local rc = rq.ready and {0.55, 0.9, 0.5} or AMBER
+   r.text:SetTextColor(rc[1], rc[2], rc[3]); r.bar:SetColorTexture(rc[1], rc[2], rc[3], 1); r.bg:SetColorTexture(rc[1], rc[2], rc[3], 0.10)
+   r.text:SetText(rq.text or '')
+   r.detail:SetText((rq.detail or '') .. (rq.where and ('  ·  ' .. rq.where) or ''))
+   r:Show()
+   y = y + 36 + 3
+  end
+  y = y + GAP - 3
+ else box.reqHead:Hide() end
+ for i = shownR + 1, #qrows do qrows[i]:Hide(); qrows[i].req = nil end
+
+ -- 3b) bu görevde yapılacak adımlar (numaralı; görev alınmadıysa "Görevi al" ile başlayan önizleme)
+ local okPlan, taskSteps = false, nil
+ if s.questId and FT.QuestPlan and ForeverTrailSettings.gtPlan ~= false then okPlan, taskSteps = pcall(FT.QuestPlan, s.questId) end
+ local shownP = 0
+ if okPlan and type(taskSteps) == 'table' and #taskSteps > 0 then
+  local doneN = 0
+  for _, ts in ipairs(taskSteps) do if ts.done then doneN = doneN + 1 end end
+  local pOpen = openState('gtPlanOpen', true)
+  box.planHead:Show(); box.planHead:ClearAllPoints(); box.planHead:SetPoint('TOPLEFT', box, 'TOPLEFT', PAD, -y); box.planHead:SetWidth(inner)
+  box.planHead.right:SetText(('%d / %d adım'):format(doneN, #taskSteps))
+  box.planHead.chev:SetText(pOpen and 'v' or '>')
+  y = y + 22
+  if pOpen then
+   local ptx = 22
+   for i, ts in ipairs(taskSteps) do
+    if i > 7 then break end
+    local r = prows[i] or newPlanRow(i)
+    shownP = shownP + 1
+    local num = ts.done and {0.55, 0.9, 0.6} or (ts.current and ac or K.Color('muted'))
+    local txt = ts.done and {0.55, 0.9, 0.6} or K.Color(ts.current and 'text' or 'muted')
+    r:ClearAllPoints(); r:SetPoint('TOPLEFT', box, 'TOPLEFT', PAD + 4, -y); r:SetWidth(inner - 4)
+    r.num:SetText(i .. '.'); r.num:SetTextColor(num[1], num[2], num[3])
+    r.text:SetWidth(inner - 4 - ptx - 56); r.text:SetText(ts.text or ''); r.text:SetTextColor(txt[1], txt[2], txt[3])
+    r.count:SetText(ts.need > 0 and ('%d/%d'):format(ts.have, ts.need) or '')
+    r.count:SetTextColor(ts.done and 0.55 or 1, ts.done and 0.9 or 1, ts.done and 0.6 or 1)
+    local h = 20
+    if ts.place and not ts.done then
+     r.place:SetWidth(inner - 4 - ptx); r.place:SetText(ts.place.text); r.place:SetTextColor(0.5, 0.55, 0.65); r.place:Show(); h = 35
+    else r.place:Hide() end
+    if ts.current and ts.need > 0 and not ts.done then
+     r.barBg:ClearAllPoints(); r.barBg:SetPoint('TOPLEFT', r, 'TOPLEFT', ptx, -(h - 1)); r.barBg:SetWidth(inner - 4 - ptx); r.barBg:Show()
+     r.barFill:ClearAllPoints(); r.barFill:SetPoint('TOPLEFT', r, 'TOPLEFT', ptx, -(h - 1))
+     r.barFill:SetWidth(math.max(1, (inner - 4 - ptx) * math.min(1, ts.have / ts.need))); r.barFill:SetColorTexture(ac[1], ac[2], ac[3], 1); r.barFill:Show()
+     h = h + 6
+    else r.barBg:Hide(); r.barFill:Hide() end
+    r:SetHeight(h); r:Show()
+    y = y + h + 3
+   end
+   if #taskSteps > 7 then y = y + 2 end
+  end
+  y = y + GAP - 3
+ else box.planHead:Hide() end
+ for i = shownP + 1, #prows do prows[i]:Hide() end
 
  -- 4) yolculuk
  local target = FT.customTarget or s -- özel hedef varsa ona, yoksa gösterilen adıma giden yolculuk
@@ -499,8 +626,17 @@ function FT.BuildGuideBox(parent)
  box.card:SetScript('OnDragStop', function() local d = FT.questDock; local f = d and d:GetScript('OnDragStop'); if f then f(d) end end)
  box.card:SetScript('OnEnter', function(self)
   local tip = K.Tooltip(); if not tip then return end
-  tip:SetOwner(self, 'ANCHOR_BOTTOM'); tip:SetText('Haritada göster', 1, 0.82, 0)
-  tip:AddLine('Hedefe giden rota dünya haritasında ve mini haritada çizilir.', 0.9, 0.9, 0.9, true); tip:Show()
+  tip:SetOwner(self, 'ANCHOR_LEFT')
+  local g = FT.guide
+  local st = g and g.steps and (g.steps[FT.view or 1] or g.steps[1])
+  if st and st.questId and FT.QuestDetailTip then
+   -- görevli adımda: görevin bütün ayrıntıları (hikâye, adımlar, ödül, zincir)
+   FT.QuestDetailTip(tip, st.questId, {hints = {'Tık: hedefe giden rotayı haritada göster'}})
+  else
+   tip:SetText('Haritada göster', 1, 0.82, 0)
+   tip:AddLine('Hedefe giden rota dünya haritasında ve mini haritada çizilir.', 0.9, 0.9, 0.9, true)
+  end
+  tip:Show()
  end)
  box.card:SetScript('OnLeave', function() K.HideTips() end)
  local cbg = box.card:CreateTexture(nil, 'BACKGROUND'); cbg:SetAllPoints(); K.Fill(cbg, 'card', 0.9)
@@ -534,6 +670,16 @@ function FT.BuildGuideBox(parent)
   tip:AddLine('Etkin adımı yapılmış sayıp sıradakine geçer.', 0.9, 0.9, 0.9, true); tip:Show()
  end)
  box.check:SetScript('OnLeave', function() K.HideTips() end)
+ -- uyarı başlığı (amber)
+ box.reqHead = CreateFrame('Frame', nil, box); box.reqHead:SetSize(300, 18)
+ box.reqHead.text = K.Text(box.reqHead, 11, 'muted'); box.reqHead.text:SetPoint('LEFT', 0, 0); box.reqHead.text:SetText('Dikkat: bunun için önce gerekli')
+ box.reqHead.text:SetTextColor(AMBER[1], AMBER[2], AMBER[3])
+ -- bu görevde yapılacak adımların başlığı (tıklayınca bölüm açılır/kapanır)
+ box.planHead = CreateFrame('Button', nil, box); box.planHead:SetSize(300, 18)
+ box.planHead:SetScript('OnClick', function() toggleState('gtPlanOpen', true) end)
+ box.planHead.text = K.Text(box.planHead, 11, 'muted'); box.planHead.text:SetPoint('LEFT', 0, 0); box.planHead.text:SetText('Bu görevde')
+ box.planHead.chev = K.Text(box.planHead, 11, 'muted'); box.planHead.chev:SetPoint('RIGHT', 0, 0); box.planHead.chev:SetJustifyH('RIGHT')
+ box.planHead.right = K.Text(box.planHead, 11, 'text'); box.planHead.right:SetPoint('RIGHT', box.planHead.chev, 'LEFT', -6, 0); box.planHead.right:SetJustifyH('RIGHT')
  -- yolculuk başlığı (tıklayınca bölüm açılır/kapanır)
  box.journeyHead = CreateFrame('Button', nil, box); box.journeyHead:SetSize(300, 18)
  box.journeyHead:SetScript('OnClick', function() toggleState('gtJourneyOpen', true) end)
@@ -582,6 +728,7 @@ function FT.BuildGuideBox(parent)
  FT.Refresh = function(...)
   local r = refresh(...)
   pcall(FT.RefreshGuideTab)
+  if FT.StepRequirementWarning then pcall(FT.StepRequirementWarning) end
   if FT.RefreshQuestDock then FT.RefreshQuestDock() end
   return r
  end
@@ -603,6 +750,20 @@ function FT.GuideTabRows()
  return n
 end
 function FT.GuideTabRow(i) return rows[i] end
+-- Test ve tanı için: uyarı bloğunun görünen satırları ({text, detail, req})
+function FT.GuideTabReqRows()
+ local out = {}
+ for _, r in ipairs(qrows) do if r:IsShown() then out[#out + 1] = {text = r.text:GetText(), detail = r.detail:GetText(), req = r.req} end end
+ return out
+end
+-- Test ve tanı için: "Bu görevde" bölümünün görünen satırları ({num, text, count, place})
+function FT.GuideTabPlanRows()
+ local out = {}
+ for _, r in ipairs(prows) do
+  if r:IsShown() then out[#out + 1] = {num = r.num:GetText(), text = r.text:GetText(), count = r.count:GetText(), place = r.place:IsShown() and r.place:GetText() or nil} end
+ end
+ return out
+end
 function FT.GuideTabJourneyRows()
  local n = 0
  for _, r in ipairs(jrows) do if r:IsShown() then n = n + 1 end end

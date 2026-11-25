@@ -89,6 +89,9 @@ local function draw(keepScroll)
    if row.ready then color, label = GREEN, 'Teslim'
    elseif row.active then color, label = AMBER, 'Günlükte'
    else label = 'Alınabilir' end
+   -- eksik ön koşul ya da eşya: boşa gitme (etiket amber, altta ne gerektiği)
+   local reqs = (not row.ready and row.id and FT.UnmetRequirements) and FT.UnmetRequirements(row.id) or nil
+   if reqs and #reqs > 0 then color, label = {1, 0.72, 0.28}, 'Önce gerekli'; sub = sub .. '  ·  ' .. (reqs[1].text or '') end
   end
   local K = FT.Kit
   local dot = color or K.Color('line')

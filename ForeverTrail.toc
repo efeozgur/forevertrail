@@ -31,6 +31,7 @@ UI/Arrow.lua
 Guide/Journal.lua
 Guide/RouteOpt.lua
 Guide/StepInfo.lua
+Guide/Requirements.lua
 Guide/AutoGuide.lua
 Guide/AutoPilot.lua
 Guide/Recommendations.lua

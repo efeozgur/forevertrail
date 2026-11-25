@@ -194,7 +194,7 @@ function FT.CreateArrow()
  arrow:SetClampedToScreen(true)
  arrow:RegisterForDrag('LeftButton')
  arrow:SetScript('OnDragStart', function(self)
-  if ForeverTrailSettings.arrowLocked or ForeverTrailSettings.locked then return end
+  if (ForeverTrailSettings.arrowLocked or ForeverTrailSettings.locked) and not (IsShiftKeyDown and IsShiftKeyDown()) then return end
   self.dragged = true
   self:StartMoving()
  end)

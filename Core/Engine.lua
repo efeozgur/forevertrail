@@ -97,6 +97,8 @@ function FT.Initialize()
  if FT.RestoreCustomTarget then FT.RestoreCustomTarget() end
  if FT.InstallMapClick then FT.InstallMapClick() end
  if FT.CreateSettings then FT.CreateSettings() end
+ -- Eski sürümlerden kalan, unutulmuş yerleşim kilidi pencereyi sessizce donduruyordu: bir kez kapat
+ if FT.MigrateLayoutLock and FT.MigrateLayoutLock() then FT.Print('Yerleşim kilidi kapatıldı (eskiden açık kalmıştı). İstersen ikon şeridindeki kilit simgesiyle tekrar kilitleyebilirsin.') end
  -- Questie görünümüne geçiş: eski görünüm seçimlerini bir kez sıfırla (simge stili, görev kutusu, ayar penceresi, tema)
  if (ForeverTrailSettings.designVersion or 0) < 3 then
   for _, k in ipairs({'c_iconStyle', 'c_trackerStyle', 'c_optionsStyle', 'c_trackerSort', 'c_objColor', 'c_trackerBg', 'c_trackerDensity'}) do ForeverTrailSettings[k] = nil end

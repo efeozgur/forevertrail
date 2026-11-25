@@ -66,7 +66,14 @@ end
 
 local function level() return UnitLevel and UnitLevel('player') or 1 end
 
--- Şu an yapılabilir mi? (alma: günlükte değil ve ön koşullar tamam; hedef: günlükte; teslim: tamamlanmış)
+-- Hedefi için gereken eşya (başka görevden gelen) çantada yok mu?
+local function missingItem(questId)
+ if not FT.QuestRequirements then return false end
+ for _, r in ipairs(FT.QuestRequirements(questId)) do if r.kind == 'item' then return true end end
+ return false
+end
+
+-- Şu an yapılabilir mi? (alma: günlükte değil ve ön koşullar tamam; hedef: günlükte ve gereken eşya var; teslim: tamamlanmış)
 local function doable(step, state)
  if not step.questId then return false end
  if step.type == 'accept' then
@@ -85,7 +92,7 @@ local function doable(step, state)
    end
   end
   return true
- elseif step.type == 'objective' then return state.status == 'active'
+ elseif step.type == 'objective' then return state.status == 'active' and not missingItem(step.questId)
  elseif step.type == 'turnin' then return state.status == 'ready' end
  return false
 end

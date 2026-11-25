@@ -194,7 +194,7 @@ function FT.CreateTracker()
  tracker:SetMovable(true); tracker:EnableMouse(true); tracker:SetClampedToScreen(true)
  tracker:RegisterForDrag('LeftButton')
  tracker:SetScript('OnDragStart', function(self)
-  if ForeverTrailSettings.locked then return end
+  if FT.CanDrag and not FT.CanDrag() then return end
   self:StartMoving()
  end)
  tracker:SetScript('OnDragStop', function(self)

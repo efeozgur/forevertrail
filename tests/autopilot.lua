@@ -80,6 +80,16 @@ use(guide({step('a5', 'accept', 5, .1, .1), step('a1', 'accept', 1, .1, .1)}))
 ft.active = 2; log[3] = 'done'; ft.Advance(true)
 assert(not ft.complete and ft.active == 1, 'ön koşulu tamamlanınca görev bekleyen olmalı')
 log = {}
+-- hedefi için gereken eşya (başka görevden gelen) çantada yoksa hedef adımı bekleyen sayılmaz (boşa gitme); eşya gelince sayılır
+ft.QuestRequirements = function() return {{kind = 'item'}} end
+use(guide({step('o1', 'objective', 1, .1, .1), step('a2', 'accept', 2, .2, .2)}))
+ft.active = 2; log[1] = 'active'; log[2] = 'active'; ft.Advance(true)
+assert(ft.complete, 'eşyası eksik hedef adımı bekleyen sayılmamalı')
+ft.QuestRequirements = function() return {} end
+use(guide({step('o1', 'objective', 1, .1, .1), step('a2', 'accept', 2, .2, .2)}))
+ft.active = 2; log[1] = 'active'; log[2] = 'active'; ft.Advance(true)
+assert(not ft.complete and ft.active == 1, 'eşya tamamsa hedef adımı bekleyen sayılmalı: active=' .. ft.active)
+ft.QuestRequirements = nil; log = {}
 
 -- 4) uzaklaşınca yakındaki yapılabilir adıma atla
 local steps = {step('a1', 'accept', 1, .10, .10), step('a2', 'accept', 2, .90, .90), step('a3', 'accept', 3, .12, .10)}
